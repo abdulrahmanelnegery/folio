@@ -19,7 +19,7 @@ object FileTypes {
         "gql", "cmake", "mk", "makefile", "tex", "diff", "patch",
     )
     private val plain = setOf("txt", "text", "log", "nfo", "rst", "adoc", "gitignore", "dockerignore", "lock", "srt", "vtt", "license", "readme")
-    private val dockerNames = setOf("dockerfile", "containerfile", "docker-compose")
+    private val dockerNames = setOf("dockerfile", "containerfile")
 
     fun extension(name: String): String = name.substringAfterLast('.', "").lowercase()
 

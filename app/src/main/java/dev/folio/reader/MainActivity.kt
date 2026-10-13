@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        model.commitReading()
         model.repo.flush()
         model.persistDrafts()
     }

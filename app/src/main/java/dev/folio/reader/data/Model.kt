@@ -68,6 +68,9 @@ data class Book(
     val note: String = "",
     /** Comments pinned to pages. They live in the library, never in the PDF. */
     val comments: List<PageNote> = emptyList(),
+    /** Seconds spent reading this book, and pages read in it. */
+    val readSeconds: Long = 0,
+    val pagesRead: Int = 0,
 ) {
     /** Reading progress 0..1; a finished book counts as complete. */
     val progress: Float
@@ -99,6 +102,10 @@ data class Book(
         }
 }
 
+/** Reading done on one day. */
+@Serializable
+data class DayStat(val seconds: Long = 0, val pages: Int = 0)
+
 /** A comment on one page. */
 @Serializable
 data class PageNote(val id: Long, val page: Int, val text: String)
@@ -115,6 +122,8 @@ data class LibraryState(
     val brightness: Float = -1f,
     /** Ask before leaving Folio when back is pressed on the home screen. */
     val confirmExit: Boolean = true,
+    /** Reading time and pages per day, keyed "yyyy-MM-dd" in the phone's time zone. */
+    val days: Map<String, DayStat> = emptyMap(),
 )
 
 /** What the library screen is showing. */
@@ -146,19 +155,21 @@ fun LibraryState.orderedLists(): List<String> {
     return out
 }
 
-fun Book.inTab(tab: Tab): Boolean = when (tab) {
+/** [deep]: a list also holds the books of the lists inside it. */
+fun Book.inTab(tab: Tab, deep: Boolean = true): Boolean = when (tab) {
     Tab.ReadingNow -> status == Status.Reading
     Tab.ToRead -> status == Status.ToRead
     Tab.Finished -> status == Status.Finished
     Tab.Favorites -> favorite
     Tab.All -> true
-    is Tab.List -> lists.any { isInside(it, tab.path) }
+    is Tab.List -> if (deep) lists.any { isInside(it, tab.path) } else tab.path in lists
 }
 
 /** The books to show: the shelf, the search, in the chosen order. */
 fun LibraryState.visible(tab: Tab, query: String): List<Book> {
     val q = query.trim().lowercase()
-    val shelf = books.filter { it.inTab(tab) && (q.isEmpty() || it.name.lowercase().contains(q) || it.fileName.lowercase().contains(q)) }
+    // Browsing a list shows its own books (the lists inside are folders); searching looks through all of them.
+    val shelf = books.filter { it.inTab(tab, deep = q.isNotEmpty()) && (q.isEmpty() || it.name.lowercase().contains(q) || it.fileName.lowercase().contains(q)) }
     return when (sort) {
         SortOrder.Recent -> shelf.sortedByDescending { it.lastOpened }
         SortOrder.Added -> shelf.sortedByDescending { it.added }
@@ -167,4 +178,28 @@ fun LibraryState.visible(tab: Tab, query: String): List<Book> {
         SortOrder.Progress -> shelf.sortedByDescending { it.progress }
         SortOrder.Rating -> shelf.sortedByDescending { it.rating }
     }
+}
+
+/** Lists directly inside [parent] ("" for the top level), in order. */
+fun LibraryState.childLists(parent: String): List<String> = lists.filter { parentOf(it) == parent }
+
+// ---- reading stats --------------------------------------------------------------------------
+
+fun dayKey(millis: Long): String = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(millis))
+
+private const val DAY_MS = 24L * 60 * 60 * 1000
+
+/** The stats of the day [back] days before today (0 is today). */
+fun LibraryState.day(back: Int, now: Long = System.currentTimeMillis()): DayStat = days[dayKey(now - back * DAY_MS)] ?: DayStat()
+
+/** Reading time and pages over the last [count] days, today included. */
+fun LibraryState.lastDays(count: Int, now: Long = System.currentTimeMillis()): DayStat =
+    (0 until count).map { day(it, now) }.let { d -> DayStat(d.sumOf { it.seconds }, d.sumOf { it.pages }) }
+
+/** Days in a row, up to today, with at least a minute of reading; today may still be empty. */
+fun LibraryState.streak(now: Long = System.currentTimeMillis()): Int {
+    var n = 0
+    var back = if (day(0, now).seconds >= 60) 0 else 1
+    while (day(back, now).seconds >= 60) { n++; back++ }
+    return n
 }

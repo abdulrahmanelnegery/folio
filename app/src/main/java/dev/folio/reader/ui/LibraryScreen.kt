@@ -39,6 +39,9 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Remove
+import androidx.compose.material.icons.rounded.SelectAll
+import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CollectionsBookmark
@@ -122,6 +125,11 @@ import dev.folio.reader.data.Status
 import dev.folio.reader.data.Tab
 import dev.folio.reader.data.ViewMode
 import dev.folio.reader.data.depthOf
+import dev.folio.reader.data.streak
+import dev.folio.reader.data.lastDays
+import dev.folio.reader.data.day
+import dev.folio.reader.data.isInside
+import dev.folio.reader.data.childLists
 import dev.folio.reader.data.inTab
 import dev.folio.reader.data.nameOf
 import dev.folio.reader.data.orderedLists
@@ -172,6 +180,11 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     var detailsFor by remember { mutableStateOf<String?>(null) }
     var newList by remember { mutableStateOf<NewList?>(null) }
     var manageLists by remember { mutableStateOf(false) }
+    var selecting by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(setOf<String>()) }
+    var bulkLists by remember { mutableStateOf(false) }
+    var statsSheet by remember { mutableStateOf(false) }
+    var confirmBulkRemove by remember { mutableStateOf(false) }
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val shown = state.visible(tab, query)
@@ -180,14 +193,25 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     val rest = if (heroFirst) shown.drop(1) else shown
     val shelves = listOf(Tab.ReadingNow, Tab.ToRead, Tab.Finished, Tab.Favorites, Tab.All)
     val lists = state.orderedLists()
-    val open: (Book) -> Unit = { model.openBook(it.id) }
-    val details: (Book) -> Unit = { detailsFor = it.id }
+    fun toggle(id: String) { selected = if (id in selected) selected - id else selected + id; if (selected.isEmpty()) selecting = false }
+    val open: (Book) -> Unit = { if (selecting) toggle(it.id) else model.openBook(it.id) }
+    // Holding a book shows its sheet; while picking, holding just picks it.
+    val details: (Book) -> Unit = { if (selecting) toggle(it.id) else detailsFor = it.id }
+    val children = (tab as? Tab.List)?.let { state.childLists(it.path) }.orEmpty()
+    val showFolders = tab is Tab.List && query.isBlank() && children.isNotEmpty()
 
+    // Back goes up one list at a time, then closes search, then leaves picking.
+    androidx.activity.compose.BackHandler(enabled = tab is Tab.List) {
+        val parent = parentOf((tab as Tab.List).path)
+        tab = if (parent.isEmpty()) Tab.ReadingNow else Tab.List(parent)
+    }
     androidx.activity.compose.BackHandler(enabled = searching) { searching = false; query = "" }
+    androidx.activity.compose.BackHandler(enabled = selecting) { selecting = false; selected = emptySet() }
 
     // A list that was deleted or renamed while it was open falls back to All.
     LaunchedEffect(lists, tab) { (tab as? Tab.List)?.let { if (it.path !in lists) tab = Tab.All } }
 
+    androidx.compose.runtime.CompositionLocalProvider(LocalSelection provides selected) {
     ModalNavigationDrawer(
         drawerState = drawer,
         drawerContent = {
@@ -202,9 +226,11 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                         Text("Lists", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                         if (lists.isNotEmpty()) TextButton(onClick = { scope.launch { drawer.close() }; manageLists = true }) { Text("Manage") }
                     }
-                    lists.forEach { path ->
+                    // Only the top level here; the lists inside open as folders once a list is.
+                    lists.filter { depthOf(it) == 0 }.forEach { path ->
                         val t = Tab.List(path)
-                        DrawerEntry(Icons.Rounded.Folder, nameOf(path), state.books.count { it.inTab(t) }, tab == t, depthOf(path)) { tab = t; scope.launch { drawer.close() } }
+                        val inside = (tab as? Tab.List)?.let { isInside(it.path, path) } == true
+                        DrawerEntry(Icons.Rounded.Folder, nameOf(path), state.books.count { it.inTab(t) }, inside, 0) { tab = t; scope.launch { drawer.close() } }
                     }
                     DrawerEntry(Icons.Rounded.CreateNewFolder, "New list", null, false, 0) { scope.launch { drawer.close() }; newList = NewList("", null) }
                     HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
@@ -217,7 +243,27 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
-                TopAppBar(
+                if (selecting) {
+                    var more by remember { mutableStateOf(false) }
+                    TopAppBar(
+                        title = { Text("${selected.size} selected") },
+                        navigationIcon = { IconButton(onClick = { selecting = false; selected = emptySet() }) { Icon(Icons.Rounded.Close, "Done") } },
+                        actions = {
+                            IconButton(onClick = { selected = shown.map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll, "Select all") }
+                            IconButton(onClick = { bulkLists = true }, enabled = selected.isNotEmpty()) { Icon(Icons.Rounded.CreateNewFolder, "Add to a list") }
+                            Box {
+                                IconButton(onClick = { more = true }, enabled = selected.isNotEmpty()) { Icon(Icons.Rounded.MoreVert, "More") }
+                                DropdownMenu(more, { more = false }) {
+                                    DropdownMenuItem(text = { Text("Add to favorites") }, leadingIcon = { Icon(Icons.Rounded.Star, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(favorite = true) } })
+                                    DropdownMenuItem(text = { Text("Mark as To read") }, leadingIcon = { Icon(Icons.Rounded.BookmarkAdd, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(status = Status.ToRead) } })
+                                    DropdownMenuItem(text = { Text("Mark as finished") }, leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(status = Status.Finished) } })
+                                    DropdownMenuItem(text = { Text("Remove from library") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { more = false; confirmBulkRemove = true })
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    )
+                } else TopAppBar(
                     title = {
                         if (searching) {
                             val focus = LocalFocusManager.current
@@ -225,7 +271,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                                 value = query,
                                 onValueChange = { query = it },
                                 singleLine = true,
-                                placeholder = { Text("Search your books") },
+                                placeholder = { Text(if (tab is Tab.List) "Search in ${tab.title()}" else "Search your books") },
                                 shape = RoundedCornerShape(28.dp),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                 keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
@@ -240,6 +286,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                     },
                     navigationIcon = { IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(Icons.Rounded.Menu, "Menu") } },
                     actions = {
+                        IconButton(onClick = { selecting = true }) { Icon(Icons.Rounded.Checklist, "Select books") }
                         IconButton(onClick = { searching = !searching; if (!searching) query = "" }) {
                             Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, "Search")
                         }
@@ -283,10 +330,12 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
             },
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
-                if (shown.isEmpty()) {
+                if (shown.isEmpty() && children.isEmpty()) {
                     EmptyShelf(tab, onOpenPicker)
                 } else if (state.view == ViewMode.List || state.view == ViewMode.Details) {
                     LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (tab is Tab.List) item { ListHeader(state, tab as Tab.List, showFolders, children, { tab = Tab.List(it) }, { tab = Tab.All }) }
+                        if (tab == Tab.ReadingNow && query.isBlank()) item { StatsCard(state) { statsSheet = true } }
                         if (hero != null) {
                             item { HeroCard(model, hero, onOpen = { open(hero) }, onDetails = { details(hero) }) }
                             item { Spacer(Modifier.height(8.dp)) }
@@ -308,6 +357,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
+                        if (tab is Tab.List) item(span = { GridItemSpan(maxLineSpan) }) { ListHeader(state, tab as Tab.List, showFolders, children, { tab = Tab.List(it) }, { tab = Tab.All }) }
+                        if (tab == Tab.ReadingNow && query.isBlank()) item(span = { GridItemSpan(maxLineSpan) }) { StatsCard(state) { statsSheet = true } }
                         if (hero != null) {
                             item(span = { GridItemSpan(maxLineSpan) }) { HeroCard(model, hero, onOpen = { open(hero) }, onDetails = { details(hero) }) }
                             if (rest.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
@@ -323,6 +374,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
         }
     }
 
+    }
+
     detailsFor?.let { id ->
         val book = state.books.firstOrNull { it.id == id }
         if (book == null) detailsFor = null else DetailsSheet(model, book, lists, onNewList = { newList = NewList("", book.id) }, onDismiss = { detailsFor = null })
@@ -332,13 +385,31 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
             if (model.repo.addList(name, parent)) {
                 val path = if (parent.isEmpty()) name.trim() else "$parent/${name.trim()}"
                 request.forBook?.let { model.repo.toggleList(it, path) }
-                if (request.forBook == null) tab = Tab.List(path)
+                if (request.forBooks.isNotEmpty()) { model.repo.setInList(request.forBooks, path, true) }
+                if (request.forBook == null && request.forBooks.isEmpty()) tab = Tab.List(path)
             }
             newList = null
         }
     }
+    if (statsSheet) StatsSheet(state) { statsSheet = false }
+    if (bulkLists) BulkListSheet(
+        state.books.filter { it.id in selected },
+        lists,
+        onSet = { list, add -> model.repo.setInList(selected, list, add) },
+        onNew = { bulkLists = false; newList = NewList("", null, selected) },
+        onDismiss = { bulkLists = false },
+    )
+    if (confirmBulkRemove) AlertDialog(
+        onDismissRequest = { confirmBulkRemove = false },
+        title = { Text("Remove ${selected.size} books?") },
+        text = { Text("The files stay where they are. Their reading places, notes and bookmarks are removed.") },
+        confirmButton = { TextButton(onClick = { selected.forEach { model.covers.forget(it) }; model.repo.removeBooks(selected); selected = emptySet(); selecting = false; confirmBulkRemove = false }) { Text("Remove") } },
+        dismissButton = { TextButton(onClick = { confirmBulkRemove = false }) { Text("Cancel") } },
+    )
     if (manageLists) ManageListsSheet(model, lists, onNewIn = { newList = NewList(it, null) }, onDismiss = { manageLists = false })
 }
+
+private val LocalSelection = androidx.compose.runtime.compositionLocalOf { emptySet<String>() }
 
 @Composable
 private fun cover(model: FolioViewModel, book: Book): ImageBitmap? =
@@ -364,6 +435,11 @@ private fun Cover(model: FolioViewModel, book: Book, modifier: Modifier = Modifi
                 } else {
                     Text(dev.folio.reader.data.FileTypes.badge(book.fileName.ifEmpty { book.name }, book.kind), color = Color.White.copy(alpha = 0.92f), fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
+            }
+        }
+        if (book.id in LocalSelection.current) {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.CheckCircle, "Selected", tint = Color.White, modifier = Modifier.size(34.dp))
             }
         }
         if (marks && book.favorite) {
@@ -706,7 +782,7 @@ private fun SheetRow(icon: ImageVector, label: String, highlighted: Boolean = fa
     }
 }
 
-private data class NewList(val parent: String, val forBook: String?)
+private data class NewList(val parent: String, val forBook: String?, val forBooks: Set<String> = emptySet())
 
 // ---- managing lists -----------------------------------------------------------------------
 
@@ -820,4 +896,139 @@ private fun pageSize(w: Float, h: Float): String {
         kotlin.math.abs(a - mmW) < 3f && kotlin.math.abs(b - mmH) < 3f
     }?.first
     return "%.0f × %.0f mm".format(mmW, mmH) + (name?.let { " ($it)" } ?: "")
+}
+
+// ---- lists as folders, stats, bulk add ------------------------------------------------------
+
+/** Breadcrumb and the lists inside this list, as folders to step into. */
+@Composable
+private fun ListHeader(state: dev.folio.reader.data.LibraryState, tab: Tab.List, showFolders: Boolean, children: List<String>, onOpen: (String) -> Unit, onRoot: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        val parts = tab.path.split('/')
+        androidx.compose.foundation.lazy.LazyRow(verticalAlignment = Alignment.CenterVertically) {
+            item { Text("Lists", Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onRoot).padding(horizontal = 6.dp, vertical = 6.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge) }
+            parts.forEachIndexed { i, part ->
+                item { Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item {
+                    val path = parts.take(i + 1).joinToString("/")
+                    Text(
+                        part,
+                        Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = i < parts.lastIndex) { onOpen(path) }.padding(horizontal = 6.dp, vertical = 6.dp),
+                        color = if (i < parts.lastIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (i == parts.lastIndex) FontWeight.SemiBold else FontWeight.Normal,
+                    )
+                }
+            }
+        }
+        if (showFolders) {
+            Spacer(Modifier.height(6.dp))
+            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(children) { path ->
+                    val count = state.books.count { it.inTab(Tab.List(path)) }
+                    val inner = state.childLists(path).size
+                    Card(
+                        Modifier.clickable { onOpen(path) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                    ) {
+                        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.primary)
+                            Column {
+                                Text(nameOf(path), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1)
+                                Text(
+                                    "$count ${if (count == 1) "book" else "books"}" + if (inner > 0) "  ·  $inner ${if (inner == 1) "list" else "lists"}" else "",
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun minutesLabel(seconds: Long): String {
+    val m = seconds / 60
+    return if (m < 60) "$m min" else "${m / 60} h ${m % 60} min"
+}
+
+/** Home: today's minutes and pages, this week, and the streak. */
+@Composable
+private fun StatsCard(state: dev.folio.reader.data.LibraryState, onClick: () -> Unit) {
+    val today = state.day(0)
+    val week = state.lastDays(7)
+    val streak = state.streak()
+    Card(
+        Modifier.fillMaxWidth().padding(bottom = 12.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+    ) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Stat("Today", minutesLabel(today.seconds), "${today.pages} ${if (today.pages == 1) "page" else "pages"}", Modifier.weight(1f))
+            Stat("This week", minutesLabel(week.seconds), "${week.pages} pages", Modifier.weight(1f))
+            Stat("Streak", "$streak ${if (streak == 1) "day" else "days"}", if (streak > 0) "keep going" else "read a minute", Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun Stat(label: String, value: String, note: String, modifier: Modifier) {
+    Column(modifier) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f))
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 1)
+        Text(note, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f))
+    }
+}
+
+/** The last seven days as bars, and the totals. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StatsSheet(state: dev.folio.reader.data.LibraryState, onDismiss: () -> Unit) {
+    val days = (6 downTo 0).map { state.day(it) to it }
+    val top = days.maxOf { it.first.seconds }.coerceAtLeast(60)
+    val total = state.days.values.fold(0L) { a, d -> a + d.seconds }
+    val totalPages = state.days.values.sumOf { it.pages }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("Your reading", style = MaterialTheme.typography.titleMedium)
+            Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
+                days.forEach { (d, back) ->
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                        Text("${d.seconds / 60}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box(Modifier.fillMaxWidth().height((80f * d.seconds / top).coerceAtLeast(3f).dp).clip(RoundedCornerShape(6.dp)).background(if (back == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)))
+                        Text(if (back == 0) "Today" else java.text.SimpleDateFormat("EEE", java.util.Locale.getDefault()).format(java.util.Date(System.currentTimeMillis() - back * 86_400_000L)), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    }
+                }
+            }
+            Text("Minutes per day", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FactRow("All time", minutesLabel(total))
+            FactRow("Pages read", totalPages.toString())
+            FactRow("Books finished", state.books.count { it.status == Status.Finished }.toString())
+            FactRow("Longest streak", "${state.streak()} days now")
+        }
+    }
+}
+
+/** Add or remove every picked book from lists in one tap. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BulkListSheet(picked: List<Book>, lists: List<String>, onSet: (String, Boolean) -> Unit, onNew: () -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
+            Text("Add ${picked.size} books to…", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            lists.forEach { list ->
+                val have = picked.count { list in it.lists }
+                val all = have == picked.size && picked.isNotEmpty()
+                SheetRow(
+                    if (all) Icons.Rounded.Check else if (have > 0) Icons.Rounded.Remove else Icons.Rounded.Folder,
+                    nameOf(list) + if (have > 0 && !all) "  ($have of ${picked.size})" else "",
+                    highlighted = have > 0,
+                    indent = depthOf(list),
+                ) { onSet(list, !all) }
+            }
+            SheetRow(Icons.Rounded.CreateNewFolder, "New list…", onClick = onNew)
+        }
+    }
 }

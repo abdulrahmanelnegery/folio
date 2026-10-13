@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import dev.folio.reader.FolioViewModel
 
 @Composable
@@ -59,7 +60,11 @@ fun FolioApp(model: FolioViewModel) {
             activity?.finish()
         },
     )
-    Box(Modifier.fillMaxSize().let { it }) {
+    Box(
+        Modifier.fillMaxSize().pointerInput(Unit) {
+            awaitPointerEventScope { while (true) { awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial); model.touched() } }
+        },
+    ) {
         AnimatedContent(
             targetState = reading ?: if (settings) "settings" else null,
             // A short cross-fade: sliding two heavy screens at once is what made it stutter.
@@ -101,4 +106,19 @@ private fun ExitDialog(onStay: () -> Unit, onClose: (dontAskAgain: Boolean) -> U
         confirmButton = { androidx.compose.material3.TextButton(onClick = { onClose(dontAsk) }) { androidx.compose.material3.Text("Close") } },
         dismissButton = { androidx.compose.material3.TextButton(onClick = onStay) { androidx.compose.material3.Text("Stay") } },
     )
+}
+
+/** Counts reading time for [id] while the screen is shown, the app is in front and the reader is touching or scrolling. */
+@Composable
+fun ReadingClock(model: FolioViewModel, id: String) {
+    val owner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.LaunchedEffect(id) {
+        var last = android.os.SystemClock.elapsedRealtime()
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (owner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) model.readingTick(id, now - last)
+            last = now
+        }
+    }
 }

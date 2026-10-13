@@ -86,6 +86,7 @@ fun TextScreen(model: FolioViewModel, id: String) {
     val book = library.books.firstOrNull { it.id == id } ?: return
     LaunchedEffect(id) { model.loadText(book) }
     val session = model.texts[id]
+    ReadingClock(model, id)
     val lang = FileTypes.textLang(book.fileName.ifEmpty { book.name }) ?: TextLang.Plain
     val theme = library.theme
     val (paper, ink) = themeColors(theme)

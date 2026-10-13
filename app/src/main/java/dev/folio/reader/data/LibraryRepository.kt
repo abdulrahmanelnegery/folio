@@ -103,6 +103,30 @@ class LibraryRepository(private val storage: Storage, scope: CoroutineScope) {
         it.copy(bookmarks = if (page in it.bookmarks) it.bookmarks - page else (it.bookmarks + page).sorted())
     }
 
+    /** Puts every book in [ids] in [list] (when [add]) or takes them all out. */
+    fun setInList(ids: Set<String>, list: String, add: Boolean) = update { s ->
+        s.copy(books = s.books.map { b ->
+            if (b.id !in ids) b else b.copy(lists = if (add) (if (list in b.lists) b.lists else b.lists + list) else b.lists - list)
+        })
+    }
+
+    fun updateBooks(ids: Set<String>, change: (Book) -> Book) = update { s -> s.copy(books = s.books.map { if (it.id in ids) change(it) else it }) }
+
+    fun removeBooks(ids: Set<String>) = update { s -> s.copy(books = s.books.filter { it.id !in ids }) }
+
+    /** Adds reading time and pages to the book and to today. */
+    fun addReading(id: String, seconds: Long, pages: Int, now: Long = System.currentTimeMillis()) {
+        if (seconds <= 0 && pages <= 0) return
+        update { s ->
+            val key = dayKey(now)
+            val day = s.days[key] ?: DayStat()
+            s.copy(
+                days = s.days + (key to DayStat(day.seconds + seconds, day.pages + pages)),
+                books = s.books.map { if (it.id == id) it.copy(readSeconds = it.readSeconds + seconds, pagesRead = it.pagesRead + pages) else it },
+            )
+        }
+    }
+
     fun toggleList(id: String, list: String) = updateBook(id) {
         it.copy(lists = if (list in it.lists) it.lists - list else it.lists + list)
     }

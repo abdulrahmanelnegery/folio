@@ -51,6 +51,44 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) { if (backups.auto(repo.state.value)) _backupTick.value++ }
     }
 
+    // ---- reading time ----------------------------------------------------------------------
+
+    private var lastTouch = android.os.SystemClock.elapsedRealtime()
+    private var pendingSeconds = 0.0
+    private var pendingPages = 0
+    private var pendingBook: String? = null
+    private val pagesSeen = HashSet<String>()
+
+    /** Any touch counts as "still reading"; the clock stops after [IDLE_MS] without one. */
+    fun touched() { lastTouch = android.os.SystemClock.elapsedRealtime() }
+
+    /** Called about once a second while a book is open and the app is in front; [elapsedMs] is the real time since the last call. */
+    fun readingTick(id: String, elapsedMs: Long) {
+        if (android.os.SystemClock.elapsedRealtime() - lastTouch > IDLE_MS) return
+        if (pendingBook != null && pendingBook != id) commitReading()
+        pendingBook = id
+        pendingSeconds += elapsedMs.coerceIn(0, 2000) / 1000.0
+        if (pendingSeconds >= 20) commitReading()
+    }
+
+    /** A page the reader stayed on; each page counts once per opening of the book. */
+    fun pageSeen(id: String, page: Int) {
+        if (!pagesSeen.add("$id:$page")) return
+        if (pendingBook != null && pendingBook != id) commitReading()
+        pendingBook = id
+        pendingPages++
+    }
+
+    /** Writes the time and pages gathered so far into the library. */
+    fun commitReading() {
+        val id = pendingBook ?: return
+        val seconds = pendingSeconds.toLong()
+        val pages = pendingPages
+        pendingSeconds -= seconds
+        pendingPages = 0
+        repo.addReading(id, seconds, pages)
+    }
+
     private val _reading = MutableStateFlow<String?>(null)
     /** The id of the book on screen, or null for the library. */
     val reading: StateFlow<String?> = _reading
@@ -165,6 +203,8 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun closeBook() {
+        commitReading()
+        pagesSeen.removeAll { it.startsWith("${_reading.value}:") }
         _reading.value = null
         // Saving and the backup happen off the main thread so the screen change stays smooth.
         viewModelScope.launch(Dispatchers.IO) {
@@ -296,6 +336,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         MessageDigest.getInstance("SHA-1").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }.take(20)
 
     private companion object {
+        const val IDLE_MS = 120_000L
         const val MAX_TEXT = 5L * 1024 * 1024
     }
 }

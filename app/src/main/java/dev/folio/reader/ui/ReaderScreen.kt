@@ -168,6 +168,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var panX by remember { mutableFloatStateOf(0f) }
     val theme = state.theme
     ImmersiveBars(barsVisible)
+    ReadingClock(model, id)
     var themeSheet by remember { mutableStateOf(false) }
     var bookmarkSheet by remember { mutableStateOf(false) }
     var jumpDialog by remember { mutableStateOf(false) }
@@ -186,6 +187,10 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
             Text("Opening…", Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             val list = rememberLazyListState()
+            // A page counts as read once the reader stays on it for a moment.
+            LaunchedEffect(file) {
+                snapshotFlow { list.firstVisibleItemIndex }.debounce(1500).collect { model.pageSeen(id, it) }
+            }
             // The other pages' real sizes arrive after the book is already showing.
             LaunchedEffect(file) { if (file.readAllSizes()) sizesVersion++ }
             BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
@@ -262,6 +267,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     val now = withFrameNanos { it }
                     carry += autoSpeed * (now - last) / 1_000_000_000f * density
                     last = now
+                    model.touched()
                     val whole = carry.toInt()
                     if (whole != 0) {
                         carry -= whole

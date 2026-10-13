@@ -13,8 +13,8 @@ android {
         applicationId = "dev.folio.reader"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.3.0"
+        versionCode = 5
+        versionName = "0.4.0"
     }
 
     signingConfigs {
@@ -68,4 +68,5 @@ dependencies {
     implementation(libs.compose.icons)
     implementation(libs.kotlinx.serialization.json)
     debugImplementation(libs.compose.tooling)
+    testImplementation(libs.junit)
 }
