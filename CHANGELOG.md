@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.4
+
+- **Find details online** now asks Wikidata what an Arabic title is called in its original language (for example a translated novel), and searches the catalogues with that too. When nothing is found, a button uses what you typed as the title. (Issue #8)
+
 ## 0.8.3
 
 - Rukn wears Zimam's colours: warm paper in the light theme, near-black in the dark theme, and an orange accent instead of teal.

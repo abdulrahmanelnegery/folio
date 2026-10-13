@@ -244,7 +244,10 @@ private fun OnlineFinder(draft: Draft, googleKey: String, startQuery: String, on
                 if (busy) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 results?.let { list ->
-                    if (list.isEmpty() && !busy) Text("Nothing found. Translated books are often listed under the original title and author, so try those in English, or the ISBN.")
+                    if (list.isEmpty() && !busy) {
+                        Text("Nothing found. Translated books are often listed under the original title and author, so try those in English, or the ISBN.")
+                        TextButton(onClick = { draft.title = query.trim(); onDismiss() }) { Text("Use “${query.trim()}” as the title") }
+                    }
                     Column(Modifier.height(340.dp).verticalScroll(rememberScrollState())) {
                         list.forEach { m ->
                             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable {

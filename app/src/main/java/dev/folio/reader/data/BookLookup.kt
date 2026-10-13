@@ -64,6 +64,15 @@ object BookLookup {
         suspend fun run(list: List<Pair<String, (String) -> List<BookMeta>>>) =
             list.map { (url, read) -> async(Dispatchers.IO) { runCatching { read(get(url)) }.getOrDefault(emptyList()) } }.awaitAll()
         val first = merge(run(calls + (archiveUrl("title:($enc)") to ::parseArchive)))
+        // A translated title is catalogued under the original: ask Wikidata what the Arabic title is called elsewhere.
+        val originals = if (q.any { it in '\u0600'..'\u06FF' }) runCatching { originalTitles(q) }.getOrDefault(emptyList()) else emptyList()
+        if (originals.isNotEmpty()) {
+            val viaOriginal = originals.flatMap { t ->
+                val e = URLEncoder.encode(t, "UTF-8")
+                listOf("$ol" + "title=$e" to ::parse, gb + "intitle:$e" to ::parseGoogle)
+            }
+            return@coroutineScope merge(listOf(first) + run(viaOriginal)).take(24)
+        }
         // Nothing, or hardly anything: ask again word by word, with the Arabic "al-" and the marks left off, and keep
         // what matches the most words. A long title that no catalogue has whole still turns up by its parts.
         if (isIsbn || first.size >= 3) return@coroutineScope rank(first, q)
@@ -84,6 +93,23 @@ object BookLookup {
             }
         }
         rank(merge(listOf(first) + run(second.take(14))), q)
+    }
+
+    /** What Wikidata calls a work whose Arabic name is [q]: the English labels of books, novels, plays and the like. */
+    suspend fun originalTitles(q: String): List<String> = withContext(Dispatchers.IO) {
+        val e = URLEncoder.encode(q, "UTF-8")
+        parseWikidata(get("https://www.wikidata.org/w/api.php?action=wbsearchentities&search=$e&language=ar&uselang=en&type=item&limit=6&format=json"))
+    }
+
+    internal fun parseWikidata(body: String): List<String> {
+        val items = json.parseToJsonElement(body).jsonObject["search"]?.jsonArray ?: return emptyList()
+        val workWords = Regex("novel|book|story|stories|play|non-fiction|memoir|literary|poetry collection|essay|series", RegexOption.IGNORE_CASE)
+        return items.mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            val label = o["label"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+            val desc = o["description"]?.jsonPrimitive?.contentOrNull.orEmpty()
+            label.takeIf { it.any { c -> c in 'A'..'Z' || c in 'a'..'z' } && workWords.containsMatchIn(desc) }
+        }.distinct().take(3)
     }
 
     private fun archiveUrl(query: String) =

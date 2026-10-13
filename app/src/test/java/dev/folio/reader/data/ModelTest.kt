@@ -286,4 +286,10 @@ class ModelTest {
         assertEquals("Hi there", r[0].description)
         assertTrue(r[0].coverUrl.endsWith("/abc"))
     }
+
+    @Test
+    fun `wikidata results become original titles of works only`() {
+        val body = """{"search":[{"id":"Q1","label":"No Exit","description":"2022 novel by Taylor Adams"},{"id":"Q2","label":"No Exit","description":"2022 film directed by Damien Power"},{"id":"Q3","label":"وجدتك","description":"poem"},{"id":"Q4","label":"Dune","description":"1965 science fiction novel"}]}"""
+        assertEquals(listOf("No Exit", "Dune"), BookLookup.parseWikidata(body))
+    }
 }
