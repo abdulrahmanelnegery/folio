@@ -183,6 +183,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     val open: (Book) -> Unit = { model.openBook(it.id) }
     val details: (Book) -> Unit = { detailsFor = it.id }
 
+    androidx.activity.compose.BackHandler(enabled = searching) { searching = false; query = "" }
+
     // A list that was deleted or renamed while it was open falls back to All.
     LaunchedEffect(lists, tab) { (tab as? Tab.List)?.let { if (it.path !in lists) tab = Tab.All } }
 
@@ -357,7 +359,11 @@ private fun Cover(model: FolioViewModel, book: Book, modifier: Modifier = Modifi
             Image(image, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopCenter)
         } else {
             Box(Modifier.fillMaxSize().background(placeholderColor(book.name)), contentAlignment = Alignment.Center) {
-                Text(book.name.take(1).uppercase(), color = Color.White.copy(alpha = 0.85f), fontSize = 36.sp, fontWeight = FontWeight.SemiBold)
+                if (book.kind == dev.folio.reader.data.Kind.Pdf) {
+                    Text(book.name.take(1).uppercase(), color = Color.White.copy(alpha = 0.85f), fontSize = 36.sp, fontWeight = FontWeight.SemiBold)
+                } else {
+                    Text(dev.folio.reader.data.FileTypes.badge(book.fileName.ifEmpty { book.name }, book.kind), color = Color.White.copy(alpha = 0.92f), fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
             }
         }
         if (marks && book.favorite) {
@@ -416,7 +422,7 @@ private fun HeroCard(model: FolioViewModel, book: Book, onOpen: () -> Unit, onDe
                     Spacer(Modifier.height(4.dp))
                     Text(book.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
                     Text(
-                        if (book.page > 0) "Page ${book.page + 1} of ${book.pages}" else "${book.pages} pages",
+                        book.placeLabel,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -441,7 +447,7 @@ private fun GridBook(model: FolioViewModel, book: Book, ratio: Float, compact: B
         Text(book.name, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (!compact) {
             if (book.rating > 0) Stars(book.rating, 12)
-            else Text(if (book.status == Status.Finished) "Finished" else "${book.pages} pages", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else Text(if (book.status == Status.Finished) "Finished" else book.countLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(6.dp))
         ReadingProgress(book)
@@ -460,7 +466,7 @@ private fun ListBook(model: FolioViewModel, book: Book, onOpen: () -> Unit, onDe
         Column(Modifier.weight(1f)) {
             Text(book.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
-                if (book.page > 0 && book.status != Status.Finished) "Page ${book.page + 1} of ${book.pages}" else "${book.pages} pages",
+                book.placeLabel,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -486,7 +492,7 @@ private fun DetailRow(model: FolioViewModel, book: Book, onOpen: () -> Unit, onD
                 Text(book.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Stars(book.rating, 15)
                 Text(
-                    "${book.pages} pages  ·  ${formatSize(book.size)}",
+                    "${book.countLabel}  ·  ${formatSize(book.size)}",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
@@ -621,12 +627,13 @@ private fun DetailsSection(book: Book) {
     }
     val rows = buildList {
         add("File name" to book.fileName.ifEmpty { book.name })
-        add("Pages" to book.pages.toString())
+        add(when (book.kind) { dev.folio.reader.data.Kind.Pdf, dev.folio.reader.data.Kind.Comic -> "Pages"; dev.folio.reader.data.Kind.Epub -> "Chapters"; dev.folio.reader.data.Kind.Text -> "Lines" } to book.pages.toString())
+        add("Type" to dev.folio.reader.data.FileTypes.badge(book.fileName.ifEmpty { book.name }, book.kind))
         add("Size" to formatSize(book.size))
         addAll(facts.orEmpty())
         if (book.added > 0) add("Added" to formatDate(book.added))
         add("Last opened" to if (book.lastOpened > 0) formatDate(book.lastOpened) else "Never")
-        add("Reading place" to if (book.page > 0) "Page ${book.page + 1} of ${book.pages}" else "Start")
+        add("Reading place" to if (book.progress > 0f) book.placeLabel else "Start")
         add("Status" to when (book.status) { Status.New -> "New"; Status.Reading -> "Reading"; Status.ToRead -> "To read"; Status.Finished -> "Finished" })
         if (book.lists.isNotEmpty()) add("Lists" to book.lists.joinToString(", ") { it.replace("/", " › ") })
         add("Location" to book.uri)

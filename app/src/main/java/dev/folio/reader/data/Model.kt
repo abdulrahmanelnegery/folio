@@ -35,6 +35,10 @@ enum class PageTheme(val label: String) {
     fun next(): PageTheme = entries[(ordinal + 1) % entries.size]
 }
 
+/** What kind of document a library entry is; decides which reader opens it. */
+@Serializable
+enum class Kind { Pdf, Epub, Comic, Text }
+
 /** A book in the library and where the reader stopped in it. */
 @Serializable
 data class Book(
@@ -42,6 +46,8 @@ data class Book(
     val uri: String,
     val name: String,
     val fileName: String = "",
+    val kind: Kind = Kind.Pdf,
+    /** Pages of a PDF, chapters of an EPUB, images of a comic, lines of a text file. */
     val pages: Int = 0,
     val size: Long = 0,
     val added: Long = 0,
@@ -67,8 +73,29 @@ data class Book(
     val progress: Float
         get() = when {
             status == Status.Finished -> 1f
+            kind == Kind.Text -> offset.coerceIn(0f, 1f)
             pages <= 0 || page <= 0 -> 0f
             else -> ((page + offset) / pages).coerceIn(0f, 1f)
+        }
+
+    /** Where the reader is: "Page 3 of 12", "Read 40%", or just the size of the book. */
+    val placeLabel: String
+        get() = when {
+            kind == Kind.Text && offset > 0f && status != Status.Finished -> "Read ${(offset * 100).toInt()}%  ·  $countLabel"
+            kind != Kind.Text && page > 0 && status != Status.Finished -> "${if (kind == Kind.Epub) "Chapter" else "Page"} ${page + 1} of $pages"
+            else -> countLabel
+        }
+
+    /** "12 pages", "340 lines": what [pages] counts for this kind. */
+    val countLabel: String
+        get() {
+            val unit = when (kind) {
+                Kind.Pdf -> "page"
+                Kind.Epub -> "chapter"
+                Kind.Comic -> "page"
+                Kind.Text -> "line"
+            }
+            return "$pages $unit${if (pages == 1) "" else "s"}"
         }
 }
 
@@ -86,6 +113,8 @@ data class LibraryState(
     val theme: PageTheme = PageTheme.Normal,
     /** Screen brightness while reading, 0.02..1; negative follows the system. */
     val brightness: Float = -1f,
+    /** Ask before leaving Folio when back is pressed on the home screen. */
+    val confirmExit: Boolean = true,
 )
 
 /** What the library screen is showing. */

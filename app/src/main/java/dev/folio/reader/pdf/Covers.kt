@@ -21,6 +21,7 @@ class Covers(private val context: Context, private val storage: dev.folio.reader
     private val gate = Semaphore(2)
 
     suspend fun get(book: Book): Bitmap? {
+        if (book.kind != dev.folio.reader.data.Kind.Pdf) return null
         memory.get(book.id)?.let { return it }
         return withContext(Dispatchers.IO) {
             val file = File(dir, "${book.id}.jpg")
