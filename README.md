@@ -66,7 +66,7 @@ PDFs are drawn by Android's own `PdfRenderer` on a worker thread; the library is
 
 ## Roadmap
 
-EPUB and comic books, editing PDFs (highlights, drawing, comments) with save-as, text search and in-app translation, and a Linux edition.
+EPUB and comic books, editing PDFs (highlights, drawing, comments) with save-as, text search and in-app translation. A Linux edition comes after version 1.
 
 ## Licence
 
