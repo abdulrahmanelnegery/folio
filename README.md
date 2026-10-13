@@ -1,8 +1,12 @@
-# Rukn
+<p align="center"><img src="docs/icon.svg" width="120" alt="Rukn"></p>
+
+<h1 align="center">Rukn</h1>
+
+<p align="center">A calm reader for PDFs, text and paper books, by <a href="https://github.com/zimamlabs">Zimam</a>. Formerly Folio.</p>
 
 A calm, fast reader for PDFs and text files on Android, built natively with Kotlin and Jetpack Compose.
 
-Rukn (by [Zimam](https://github.com/zimamlabs)) is made for long reading: your books live in a library with covers, lists and shelves, every book remembers its place, and the pages follow the light with night and sepia themes.
+Rukn is made for long reading: your books live in a library with covers, lists and shelves, every book remembers its place, and the pages follow the light with night and sepia themes.
 
 ## What is in it
 
