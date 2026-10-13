@@ -55,3 +55,10 @@ class EpubPackageTest {
         assertTrue(java.io.File(dir, "OEBPS/ch1.xhtml").exists())
     }
 }
+
+class ComicOrderTest {
+    @Test fun `pages are ordered by number, not by letters`() {
+        val names = listOf("p10.jpg", "p2.jpg", "p1.jpg", "p01b.jpg").sortedWith { a, b -> ComicStore.compareNatural(a, b) }
+        assertEquals(listOf("p1.jpg", "p01b.jpg", "p2.jpg", "p10.jpg"), names)
+    }
+}

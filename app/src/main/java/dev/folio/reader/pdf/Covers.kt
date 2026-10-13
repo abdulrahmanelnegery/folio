@@ -32,6 +32,7 @@ class Covers(private val context: Context, private val storage: dev.folio.reader
             if (custom != null) { memory.put(book.id, custom); return custom }
         }
         if (book.kind == dev.folio.reader.data.Kind.Epub) return epubCover(book)
+        if (book.kind == dev.folio.reader.data.Kind.Comic) return comicCover(book)
         if (book.kind != dev.folio.reader.data.Kind.Pdf || book.physical) return null
         return withContext(Dispatchers.IO) {
             val file = File(dir, "${book.id}.jpg")
@@ -39,6 +40,23 @@ class Covers(private val context: Context, private val storage: dev.folio.reader
             val bitmap = cached ?: gate.withPermit { draw(book, file) }
             bitmap?.also { memory.put(book.id, it) }
         }
+    }
+
+    /** The first page of a comic, scaled down. */
+    private suspend fun comicCover(book: Book): Bitmap? = withContext(Dispatchers.IO) {
+        val file = File(dir, "${book.id}.jpg")
+        val cached = if (file.exists()) BitmapFactory.decodeFile(file.path) else null
+        val bitmap = cached ?: run {
+            val first = dev.folio.reader.epub.ComicStore.open(context, Uri.parse(book.uri), book.id).firstOrNull() ?: return@run null
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(first.path, bounds)
+            if (bounds.outWidth <= 0) return@run null
+            val sample = Integer.highestOneBit((bounds.outWidth / COVER_WIDTH).coerceAtLeast(1))
+            BitmapFactory.decodeFile(first.path, BitmapFactory.Options().apply { inSampleSize = sample })?.also { bmp ->
+                runCatching { file.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) } }
+            }
+        }
+        bitmap?.also { memory.put(book.id, it) }
     }
 
     /** The cover image named in the EPUB's package file, scaled down and kept as a small JPEG like other covers. */
