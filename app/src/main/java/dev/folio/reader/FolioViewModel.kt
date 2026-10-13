@@ -107,6 +107,12 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         repo.addReading(id, seconds, pages)
     }
 
+    // Where you were in the library, kept here so coming back from a book (or the explorer) lands on the same shelf,
+    // list and search instead of starting over at Home.
+    var libraryTab by mutableStateOf<dev.folio.reader.data.Tab>(dev.folio.reader.data.Tab.Home)
+    var libraryQuery by mutableStateOf("")
+    var librarySearching by mutableStateOf(false)
+
     private val _reading = MutableStateFlow<String?>(null)
     /** The id of the book on screen, or null for the library. */
     val reading: StateFlow<String?> = _reading

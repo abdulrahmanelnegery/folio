@@ -192,9 +192,9 @@ private fun ViewMode.icon(): ImageVector = when (this) {
 @Composable
 fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: () -> Unit, onBrowse: (list: String?, dir: String?) -> Unit) {
     val state by model.repo.state.collectAsState()
-    var tab by remember { mutableStateOf<Tab>(Tab.Home) }
-    var query by rememberSaveable { mutableStateOf("") }
-    var searching by rememberSaveable { mutableStateOf(false) }
+    var tab by model::libraryTab
+    var query by model::libraryQuery
+    var searching by model::librarySearching
     var viewMenu by remember { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
     var detailsFor by remember { mutableStateOf<String?>(null) }

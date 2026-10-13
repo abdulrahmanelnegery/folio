@@ -50,8 +50,6 @@ fun FolioApp(model: FolioViewModel) {
     }
     var settings by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     var explorer by remember { androidx.compose.runtime.mutableStateOf<ExplorerRequest?>(null) }
-    // Opening a file from the explorer leaves it, so back from the book lands in the library.
-    androidx.compose.runtime.LaunchedEffect(reading) { if (reading != null) explorer = null }
     // The text reader asks about unsaved edits itself; every other reader closes straight away.
     BackHandler(enabled = reading != null && kindOfReading != dev.folio.reader.data.Kind.Text) { model.closeBook() }
     BackHandler(enabled = reading == null && settings) { settings = false }

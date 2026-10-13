@@ -13,6 +13,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -130,8 +131,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-private const val MAX_ZOOM = 4f
-private const val DOUBLE_TAP_ZOOM = 2.2f
+private const val MAX_ZOOM = 5f
+private const val DOUBLE_TAP_ZOOM = 2.5f
 
 /** Colour filters that turn the white page into each reading theme. */
 private fun PageTheme.filter(): ColorFilter? = when (this) {
@@ -177,7 +178,8 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
 
     var barsVisible by remember { mutableStateOf(true) }
     var zoom by remember { mutableFloatStateOf(1f) }
-    var panX by remember { mutableFloatStateOf(0f) }
+    var offX by remember { mutableFloatStateOf(0f) }
+    var offY by remember { mutableFloatStateOf(0f) }
     val theme = state.theme
     ImmersiveBars(barsVisible)
     ReadingClock(model, id)
@@ -288,23 +290,40 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     state = list,
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = panX; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f) }
+                        .graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = offX; translationY = offY; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f) }
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onTap = { barsVisible = !barsVisible },
-                                onDoubleTap = { zoom = if (zoom > 1.05f) 1f else DOUBLE_TAP_ZOOM; panX = 0f },
+                                // A double tap zooms in on the spot you tapped, or back out, with a short glide.
+                                onDoubleTap = { p ->
+                                    val z0 = zoom; val x0 = offX; val y0 = offY
+                                    val z1 = if (z0 > 1.05f) 1f else DOUBLE_TAP_ZOOM
+                                    val w = size.width.toFloat(); val h = size.height.toFloat()
+                                    scope.launch {
+                                        androidx.compose.animation.core.animate(0f, 1f, animationSpec = androidx.compose.animation.core.tween(240)) { t, _ ->
+                                            val z = z0 + (z1 - z0) * t
+                                            // The point under your finger stays where it is while the page grows around it.
+                                            offX = (p.x * z0 + x0 - p.x * z).coerceIn(w * (1f - z), 0f)
+                                            offY = (p.y * z0 + y0 - p.y * z).coerceIn(h * (1f - z), 0f)
+                                            zoom = z
+                                        }
+                                    }
+                                },
                             )
                         }
                         .pointerInput(Unit) {
-                            // Two fingers pinch and pan; one finger is left to the list so it scrolls.
+                            // Two fingers pinch and pan, zooming around the point between them; one finger is left to the list so it scrolls.
                             awaitEachGesture {
                                 awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                                 do {
                                     val event = awaitPointerEvent(PointerEventPass.Initial)
                                     if (event.changes.size >= 2) {
-                                        zoom = (zoom * event.calculateZoom()).coerceIn(1f, MAX_ZOOM)
-                                        val limit = size.width * (zoom - 1f) / 2f
-                                        panX = (panX + event.calculatePan().x).coerceIn(-limit, limit)
+                                        val nz = (zoom * event.calculateZoom()).coerceIn(1f, MAX_ZOOM)
+                                        val c = event.calculateCentroid()
+                                        val pan = event.calculatePan()
+                                        offX = (c.x * zoom + offX + pan.x - c.x * nz).coerceIn(size.width * (1f - nz), 0f)
+                                        offY = (c.y * zoom + offY + pan.y - c.y * nz).coerceIn(size.height * (1f - nz), 0f)
+                                        zoom = nz
                                         event.changes.forEach { it.consume() }
                                     }
                                 } while (event.changes.any { it.pressed })
@@ -531,7 +550,7 @@ private fun PageView(file: PdfFile, bookId: String, disk: dev.folio.reader.pdf.P
     val visW = (1f - l - r).coerceAtLeast(0.3f)
     val visH = (1f - t - b).coerceAtLeast(0.3f)
     // Sharper pixels when zoomed, in steps so a pinch does not re-render every frame.
-    val target = (widthPx / visW * (if (zoom > 1.6f) 2.5f else if (zoom > 1.05f) 1.6f else 1f)).roundToInt().coerceAtMost(3600)
+    val target = (widthPx / visW * (if (zoom > 3.2f) 4f else if (zoom > 1.6f) 2.5f else if (zoom > 1.05f) 1.6f else 1f)).roundToInt().coerceAtMost(3600)
     val bitmap by produceState<Bitmap?>(cache.get("$index@$target") ?: cache.get("$index@${(target / 1.6f).roundToInt()}"), index, target) {
         cache.get("$index@$target")?.let { value = it; return@produceState }
         // Drawn before and kept on disk: reading a small file is far quicker than drawing the page again.

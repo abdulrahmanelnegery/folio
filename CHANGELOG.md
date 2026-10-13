@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.4
+
+- Zoom is dynamic: pinch zooms around the point between your fingers and follows them as you pan, up to 5x; a double tap glides in on the spot you tapped and back out. Pages sharpen in steps as you zoom.
+- Back steps out one level at a time and remembers where you were: a book opened from Reading now (or a list, or a search, or the file explorer) returns there, then to Home, then asks to close.
+
 ## 0.7.3
 
 - After a jump (the slider, Go to page, a bookmark) a **Back to page N** button appears for a while, so one tap returns you to where you were.
