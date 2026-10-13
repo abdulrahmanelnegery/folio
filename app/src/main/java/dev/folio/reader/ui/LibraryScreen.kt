@@ -149,9 +149,8 @@ import dev.folio.reader.data.nameOf
 import dev.folio.reader.data.orderedLists
 import dev.folio.reader.data.parentOf
 import dev.folio.reader.data.visible
-import dev.folio.reader.data.HomeSection
-import dev.folio.reader.data.HomeSectionConfig
-import dev.folio.reader.data.homeSections
+import dev.folio.reader.data.HomeTab
+import dev.folio.reader.data.homeTabs
 import dev.folio.reader.data.mostRead
 import dev.folio.reader.data.sessionsSince
 import dev.folio.reader.pdf.PdfFile
@@ -206,7 +205,6 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     var bulkLists by remember { mutableStateOf(false) }
     var statsSheet by remember { mutableStateOf(false) }
     var folderMenu by remember { mutableStateOf<String?>(null) }
-    var homeSheet by remember { mutableStateOf(false) }
     var addBooks by remember { mutableStateOf(false) }
     var confirmBulkRemove by remember { mutableStateOf(false) }
     val drawer = rememberDrawerState(DrawerValue.Closed)
@@ -240,8 +238,9 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     androidx.compose.runtime.CompositionLocalProvider(LocalSelection provides selected) {
     ModalNavigationDrawer(
         drawerState = drawer,
-        // The menu opens from the far left edge only (below), so flicking across the page never opens it.
-        gesturesEnabled = false,
+        // The menu opens from the far left edge only (below), so flicking across the page never opens it; once open,
+        // a tap outside or a swipe left closes it.
+        gesturesEnabled = drawer.currentValue != DrawerValue.Closed || drawer.targetValue != DrawerValue.Closed,
         drawerContent = {
             ModalDrawerSheet {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -327,7 +326,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                     },
                     navigationIcon = { IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(Icons.Rounded.Menu, "Menu") } },
                     actions = {
-                        if (tab == Tab.Home && query.isBlank()) IconButton(onClick = { homeSheet = true }) { Icon(Icons.Rounded.Tune, "Customize the home page") }
+                        // Home has no tools of its own; the shelves and lists get search, view, sort and select.
+                        if (tab != Tab.Home) {
                         IconButton(onClick = { selecting = true }) { Icon(Icons.Rounded.Checklist, "Select books") }
                         IconButton(onClick = { searching = !searching; if (!searching) query = "" }) {
                             Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, "Search")
@@ -357,6 +357,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                                 }
                             }
                         }
+                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 )
@@ -373,7 +374,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
                 if (tab == Tab.Home && query.isBlank()) {
-                    HomeContent(model, state, lists, onOpen = open, onDetails = details, onOpenList = { tab = Tab.List(it) }, onShelf = { tab = it }, onStats = { statsSheet = true }, onCustomize = { homeSheet = true })
+                    HomeContent(model, state, lists, onOpen = open, onDetails = details, onOpenList = { tab = Tab.List(it) }, onShelf = { tab = it }, onStats = { statsSheet = true })
                 } else if (shown.isEmpty() && children.isEmpty()) {
                     EmptyShelf(tab, onOpenPicker)
                 } else if (state.view == ViewMode.List || state.view == ViewMode.Details) {
@@ -460,7 +461,6 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     (tab as? Tab.List)?.let { open ->
         if (addBooks) AddBooksSheet(state.books.filter { open.path !in it.lists }, open.path, onAdd = { ids -> model.repo.setInList(ids, open.path, true); addBooks = false }, onDismiss = { addBooks = false })
     }
-    if (homeSheet) HomeSettingsSheet(model, state) { homeSheet = false }
     if (statsSheet) StatsSheet(state) { statsSheet = false }
     if (bulkLists) BulkListSheet(
         state.books.filter { it.id in selected },
@@ -1285,7 +1285,8 @@ private fun AddBooksSheet(candidates: List<Book>, listPath: String, onAdd: (Set<
 
 // ---- the home page ------------------------------------------------------------------------------
 
-/** The home page: the sections you chose, in the order you chose. */
+/** The home page: a few real tabs under a sticky header; flick sideways to move between them, round and round. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeContent(
     model: FolioViewModel,
@@ -1296,116 +1297,135 @@ private fun HomeContent(
     onOpenList: (String) -> Unit,
     onShelf: (Tab) -> Unit,
     onStats: () -> Unit,
-    onCustomize: () -> Unit,
 ) {
-    val allSections = state.homeSections().filter { it.visible }
-    val recent = state.books.filter { it.lastOpened > 0 }.sortedByDescending { it.lastOpened }
-    // One page of the home: [sections] stacked in a list.
-    val page: @Composable (List<HomeSectionConfig>) -> Unit = { sections ->
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        if (state.books.isEmpty()) item { EmptyShelf(Tab.Home, {}) }
-        sections.forEach { cfg ->
-            when (cfg.section) {
-                HomeSection.Continue -> recent.firstOrNull { it.status != Status.Finished }?.let { b ->
-                    item(key = "continue") { HeroCard(model, b, onOpen = { onOpen(b) }, onDetails = { onDetails(b) }) }
-                }
-                HomeSection.Latest -> if (recent.isNotEmpty()) item(key = "latest") {
-                    Column {
-                        HomeTitle("Pick up where you left off", "Reading now") { onShelf(Tab.ReadingNow) }
-                        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            items(recent.take(3), key = { it.id }) { b -> Box(Modifier.width(120.dp)) { GridBook(model, b, 0.7f, compact = false, { onOpen(b) }, { onDetails(b) }) } }
-                        }
-                    }
-                }
-                HomeSection.Stats -> item(key = "stats") { HomeStats(state, onStats) }
-                HomeSection.MostRead -> {
-                    val top = state.mostRead(7, 4)
-                    if (top.isNotEmpty()) item(key = "mostread") {
-                        Panel2("Most read this week") {
-                            val max = top.first().second.coerceAtLeast(1)
-                            top.forEach { (b, seconds) ->
-                                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(b) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Cover(model, b, Modifier.width(36.dp).aspectRatio(0.7f), marks = false)
-                                    Column(Modifier.weight(1f)) {
-                                        Text(b.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Spacer(Modifier.height(4.dp))
-                                        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
-                                            Box(Modifier.fillMaxWidth(seconds.toFloat() / max).height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.primary))
-                                        }
-                                    }
-                                    Text(minutesLabel(seconds), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val tabs = state.homeTabs().filter { it.visible }.map { it.tab }
+    val n = tabs.size
+    val start = Int.MAX_VALUE / 2 - (Int.MAX_VALUE / 2) % n
+    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = start) { Int.MAX_VALUE }
+    val here = pager.currentPage % n
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    Column(Modifier.fillMaxSize()) {
+        // The header stays put while the page under it scrolls or flicks.
+        androidx.compose.material3.PrimaryTabRow(selectedTabIndex = here, containerColor = MaterialTheme.colorScheme.background) {
+            tabs.forEachIndexed { i, t ->
+                androidx.compose.material3.Tab(
+                    selected = i == here,
+                    onClick = {
+                        // The nearest copy of that page, so the header never spins the whole way round.
+                        val base = pager.currentPage - here
+                        val target = listOf(base + i - n, base + i, base + i + n).minBy { kotlin.math.abs(it - pager.currentPage) }
+                        scope.launch { pager.animateScrollToPage(target) }
+                    },
+                    text = { Text(t.label, fontWeight = if (i == here) FontWeight.SemiBold else FontWeight.Normal) },
+                )
+            }
+        }
+        androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 0) { index ->
+            val recent = state.books.filter { it.lastOpened > 0 }.sortedByDescending { it.lastOpened }
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                when (tabs[index % n]) {
+                    HomeTab.Home -> {
+                        if (state.books.isEmpty()) item { EmptyShelf(Tab.Home, {}) }
+                        recent.firstOrNull { it.status != Status.Finished }?.let { b -> item(key = "continue") { HeroCard(model, b, onOpen = { onOpen(b) }, onDetails = { onDetails(b) }) } }
+                        if (recent.isNotEmpty()) item(key = "latest") {
+                            Column {
+                                HomeTitle("Pick up where you left off", "Reading now") { onShelf(Tab.ReadingNow) }
+                                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    items(recent.take(3), key = { it.id }) { b -> Box(Modifier.width(120.dp)) { GridBook(model, b, 0.7f, compact = false, { onOpen(b) }, { onDetails(b) }) } }
                                 }
                             }
                         }
                     }
-                }
-                HomeSection.Lists -> {
-                    val top = lists.filter { depthOf(it) == 0 }
-                    if (top.isNotEmpty()) item(key = "lists") {
-                        Column {
-                            HomeTitle("Lists", null) {}
-                            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                items(top) { path ->
-                                    val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
-                                    val inner = state.childLists(path).size
-                                    Card(Modifier.clickable { onOpenList(path) }, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
-                                        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                            Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                                            Column {
-                                                Text(nameOf(path), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                                Text(folderSummary(books, inner), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f))
+                    HomeTab.Stats -> {
+                        item(key = "stats") { HomeStats(state, onStats) }
+                        val top = state.mostRead(7, 4)
+                        if (top.isNotEmpty()) item(key = "mostread") {
+                            Panel2("Most read this week") {
+                                val max = top.first().second.coerceAtLeast(1)
+                                top.forEach { (b, seconds) ->
+                                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(b) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Cover(model, b, Modifier.width(36.dp).aspectRatio(0.7f), marks = false)
+                                        Column(Modifier.weight(1f)) {
+                                            Text(b.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Spacer(Modifier.height(4.dp))
+                                            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                                                Box(Modifier.fillMaxWidth(seconds.toFloat() / max).height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.primary))
+                                            }
+                                        }
+                                        Text(minutesLabel(seconds), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                        val sittings = state.sessions.takeLast(6).reversed()
+                        if (sittings.isNotEmpty()) item(key = "sittings") {
+                            Panel2("Recent sittings") {
+                                sittings.forEach { sess ->
+                                    val b = state.books.firstOrNull { it.id == sess.bookId }
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(b?.name ?: "A removed book", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(formatDate(sess.start), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(minutesLabel(sess.seconds), style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    HomeTab.Library -> {
+                        item(key = "shelves") {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                HomeTitle("Shelves", null) {}
+                                listOf(Tab.ReadingNow, Tab.ToRead, Tab.Finished, Tab.Favorites, Tab.All).chunked(2).forEach { pair ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        pair.forEach { t ->
+                                            Card(Modifier.weight(1f).clickable { onShelf(t) }, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                                                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                    Icon(t.icon(), null, tint = MaterialTheme.colorScheme.primary)
+                                                    Column {
+                                                        Text(t.title(), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1)
+                                                        Text("${state.books.count { it.inTab(t) }}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+                        val top = lists.filter { depthOf(it) == 0 }
+                        if (top.isNotEmpty()) item(key = "lists") {
+                            Column {
+                                HomeTitle("Lists", null) {}
+                                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    items(top) { path ->
+                                        val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
+                                        val inner = state.childLists(path).size
+                                        Card(Modifier.clickable { onOpenList(path) }, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                                            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                                Column {
+                                                    Text(nameOf(path), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                                    Text(folderSummary(books, inner), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f))
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                }
-                HomeSection.Favorites -> {
-                    val favs = state.books.filter { it.favorite }
-                    if (favs.isNotEmpty()) item(key = "favorites") {
-                        Column {
-                            HomeTitle("Favorites", "All favorites") { onShelf(Tab.Favorites) }
-                            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                                items(favs.take(12), key = { it.id }) { b -> Box(Modifier.width(110.dp)) { GridBook(model, b, 0.7f, compact = true, { onOpen(b) }, { onDetails(b) }) } }
+                        val favs = state.books.filter { it.favorite }
+                        if (favs.isNotEmpty()) item(key = "favorites") {
+                            Column {
+                                HomeTitle("Favorites", "All favorites") { onShelf(Tab.Favorites) }
+                                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    items(favs.take(12), key = { it.id }) { b -> Box(Modifier.width(110.dp)) { GridBook(model, b, 0.7f, compact = true, { onOpen(b) }, { onDetails(b) }) } }
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        item(key = "customize") {
-            androidx.compose.material3.TextButton(onClick = onCustomize, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Rounded.Tune, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Choose and reorder these sections") }
-        }
-    }
-    }
-
-    // The headers switch the page, and a flick sideways does the same, round and round without an end.
-    val pageSections: List<HomeSection?> = listOf<HomeSection?>(null) + allSections.map { it.section }
-    val n = pageSections.size
-    val start = Int.MAX_VALUE / 2 - (Int.MAX_VALUE / 2) % n
-    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = start) { Int.MAX_VALUE }
-    val here = pager.currentPage % n
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    Column(Modifier.fillMaxSize()) {
-        androidx.compose.foundation.lazy.LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(n) { i ->
-                androidx.compose.material3.FilterChip(
-                    selected = i == here,
-                    onClick = {
-                        // Go to the nearest copy of that page, so the chip never spins the whole way round.
-                        val base = pager.currentPage - here
-                        val target = listOf(base + i - n, base + i, base + i + n).minBy { kotlin.math.abs(it - pager.currentPage) }
-                        scope.launch { pager.animateScrollToPage(target) }
-                    },
-                    label = { Text(pageSections[i]?.label ?: "Overview") },
-                )
-            }
-        }
-        androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 0) { index ->
-            val section = pageSections[index % n]
-            page(if (section == null) allSections else allSections.filter { it.section == section })
         }
     }
 }
@@ -1454,31 +1474,6 @@ private fun HomeStats(state: dev.folio.reader.data.LibraryState, onClick: () -> 
             Row(Modifier.fillMaxWidth().height(54.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
                 days.forEachIndexed { i, d ->
                     Box(Modifier.weight(1f).height((46f * d.seconds / top).coerceAtLeast(3f).dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = if (i == 6) 0.9f else 0.4f)))
-                }
-            }
-        }
-    }
-}
-
-/** Show or hide each home section and move them up or down. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun HomeSettingsSheet(model: FolioViewModel, state: dev.folio.reader.data.LibraryState, onDismiss: () -> Unit) {
-    val sections = state.homeSections()
-    fun save(list: List<HomeSectionConfig>) = model.repo.setHomeSections(list)
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
-            Text("Home page", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-            Text("Switch sections on or off and use the arrows to put them in the order you like.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
-            sections.forEachIndexed { i, cfg ->
-                Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(cfg.section.label, style = MaterialTheme.typography.bodyLarge)
-                        Text(cfg.section.note, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    IconButton(onClick = { save(sections.toMutableList().also { java.util.Collections.swap(it, i, i - 1) }) }, enabled = i > 0) { Icon(Icons.Rounded.ArrowUpward, "Move up") }
-                    IconButton(onClick = { save(sections.toMutableList().also { java.util.Collections.swap(it, i, i + 1) }) }, enabled = i < sections.lastIndex) { Icon(Icons.Rounded.ArrowDownward, "Move down") }
-                    androidx.compose.material3.Switch(cfg.visible, { v -> save(sections.map { if (it.section == cfg.section) it.copy(visible = v) else it }) })
                 }
             }
         }

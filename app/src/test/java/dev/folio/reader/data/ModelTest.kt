@@ -145,14 +145,13 @@ class ModelTest {
     }
 
     @Test
-    fun `home sections keep the user's order and add new ones at the end`() {
-        val s = LibraryState(home = listOf(HomeSectionConfig(HomeSection.Stats, false), HomeSectionConfig(HomeSection.Continue)))
-        val sections = s.homeSections()
-        assertEquals(HomeSection.Stats, sections[0].section)
-        assertFalse(sections[0].visible)
-        assertEquals(HomeSection.Continue, sections[1].section)
-        assertEquals(HomeSection.entries.size, sections.size)
-        assertEquals("an empty setting shows every section", HomeSection.entries.size, LibraryState().homeSections().size)
+    fun `home tabs keep Home first and always shown, then the user's order`() {
+        val s = LibraryState(homeTabs = listOf(HomeTabConfig(HomeTab.Library, false), HomeTabConfig(HomeTab.Home, false), HomeTabConfig(HomeTab.Stats)))
+        val tabs = s.homeTabs()
+        assertEquals(listOf(HomeTab.Home, HomeTab.Library, HomeTab.Stats), tabs.map { it.tab })
+        assertTrue("Home cannot be hidden", tabs[0].visible)
+        assertFalse(tabs[1].visible)
+        assertEquals("an empty setting shows every tab", HomeTab.entries.size, LibraryState().homeTabs().size)
     }
 
     @Test

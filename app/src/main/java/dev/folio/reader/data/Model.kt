@@ -118,17 +118,14 @@ data class DayStat(val seconds: Long = 0, val pages: Int = 0)
 data class ReadSession(val bookId: String, val start: Long, val seconds: Long, val pages: Int)
 
 @Serializable
-enum class HomeSection(val label: String, val note: String) {
-    Continue("Continue reading", "The book you read last, with a big Continue button"),
-    Latest("Latest three", "The three books you opened most recently"),
-    Stats("Reading stats", "Today, this week, streak, sessions and a 7-day chart"),
-    MostRead("Most read", "The books you spent the most time on in the last 7 days"),
-    Lists("Lists", "Your top-level lists as folders"),
-    Favorites("Favorites", "Books you starred"),
+enum class HomeTab(val label: String, val note: String) {
+    Home("Home", "Continue reading and the latest three books"),
+    Stats("Stats", "Reading time, sittings and what you read most"),
+    Library("Library", "Your shelves, lists and favorites"),
 }
 
 @Serializable
-data class HomeSectionConfig(val section: HomeSection, val visible: Boolean = true)
+data class HomeTabConfig(val tab: HomeTab, val visible: Boolean = true)
 
 /** How the screen rotates. */
 @Serializable
@@ -160,8 +157,8 @@ data class LibraryState(
     val explorerDir: String = "",
     /** One entry per time a book was opened and closed. */
     val sessions: List<ReadSession> = emptyList(),
-    /** The sections of the home page, in the order shown. */
-    val home: List<HomeSectionConfig> = emptyList(),
+    /** The tabs of the home page in the order shown; Home is always first and always there. */
+    val homeTabs: List<HomeTabConfig> = emptyList(),
     val orientation: Orientation = Orientation.Normal,
     /** Reading time and pages per day, keyed "yyyy-MM-dd" in the phone's time zone. */
     val days: Map<String, DayStat> = emptyMap(),
@@ -267,10 +264,10 @@ fun LibraryState.moveTargets(path: String): List<String> =
 
 // ---- the home page ----------------------------------------------------------------------------
 
-/** The home sections in the user's order, with any section added later appended (visible). */
-fun LibraryState.homeSections(): List<HomeSectionConfig> {
-    val known = home.filter { c -> HomeSection.entries.contains(c.section) }.distinctBy { it.section }
-    return known + HomeSection.entries.filter { s -> known.none { it.section == s } }.map { HomeSectionConfig(it) }
+/** The home tabs: Home first and always shown, the others in the user's order with any new one appended. */
+fun LibraryState.homeTabs(): List<HomeTabConfig> {
+    val others = homeTabs.filter { it.tab != HomeTab.Home }.distinctBy { it.tab }
+    return listOf(HomeTabConfig(HomeTab.Home)) + others + HomeTab.entries.filter { t -> t != HomeTab.Home && others.none { it.tab == t } }.map { HomeTabConfig(it) }
 }
 
 fun LibraryState.sessionsSince(days: Int, now: Long = System.currentTimeMillis()): List<ReadSession> =

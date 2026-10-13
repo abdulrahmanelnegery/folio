@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1
+
+- The home page is three real tabs under a sticky header: **Home** (continue reading and the latest three), **Stats** (reading time, sittings, most read, recent sittings) and **Library** (shelves, lists, favorites). Flick sideways to move between them, round and round. Order them or hide any but Home in Settings.
+- The tools in the top bar follow the page: Home has none; shelves and lists have search, view, sort and select.
+- The side menu closes when you tap outside it or swipe it left, and still opens only from the far left edge.
+
 ## 0.7.0
 
 - **Large books**: page drawing no longer runs on the main thread, which was the cause of the stalls and of Android closing a heavy book. Pages are drawn on a worker, within a fixed pixel budget (a zoomed page can no longer take tens of megabytes), page sizes are learned as pages are drawn instead of opening every page up front, work for pages you scrolled past is dropped, and the page cache is sized to the phone and cleared when Android asks for memory.
