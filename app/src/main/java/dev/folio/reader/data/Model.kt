@@ -203,3 +203,21 @@ fun LibraryState.streak(now: Long = System.currentTimeMillis()): Int {
     while (day(back, now).seconds >= 60) { n++; back++ }
     return n
 }
+
+/**
+ * The library with [path] (and everything inside it) moved under [newParent] ("" for the top level).
+ * Null when that is not allowed: into itself or a list inside it, or onto a name already taken there.
+ */
+fun LibraryState.withListMoved(path: String, newParent: String): LibraryState? {
+    if (path !in lists) return null
+    if (newParent == parentOf(path)) return this
+    if (newParent.isNotEmpty() && (newParent !in lists || isInside(newParent, path))) return null
+    val target = if (newParent.isEmpty()) nameOf(path) else "$newParent/${nameOf(path)}"
+    if (lists.any { it.equals(target, ignoreCase = true) }) return null
+    fun swap(p: String) = if (isInside(p, path)) target + p.removePrefix(path) else p
+    return copy(lists = lists.map(::swap), books = books.map { b -> b.copy(lists = b.lists.map(::swap).distinct()) })
+}
+
+/** Where [path] could move to: the top level and every list that is not inside it, minus where it already is. */
+fun LibraryState.moveTargets(path: String): List<String> =
+    (listOf("") + orderedLists().filter { !isInside(it, path) }).filter { it != parentOf(path) }

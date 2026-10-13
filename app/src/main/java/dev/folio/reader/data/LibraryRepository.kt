@@ -78,6 +78,13 @@ class LibraryRepository(private val storage: Storage, scope: CoroutineScope) {
         return true
     }
 
+    /** Moves a list (with the lists and books inside it) under [newParent]; false when that is not allowed. */
+    fun moveListTo(path: String, newParent: String): Boolean {
+        if (_state.value.withListMoved(path, newParent) == null) return false
+        update { it.withListMoved(path, newParent) ?: it }
+        return true
+    }
+
     /** Moves [path] one place earlier (or later) among its siblings. */
     fun moveList(path: String, earlier: Boolean) = update { s ->
         val siblings = s.lists.filter { parentOf(it) == parentOf(path) }

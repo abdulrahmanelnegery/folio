@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.DriveFileMove
 import androidx.compose.material.icons.rounded.FolderOff
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Remove
@@ -127,6 +128,7 @@ import dev.folio.reader.data.Status
 import dev.folio.reader.data.Tab
 import dev.folio.reader.data.ViewMode
 import dev.folio.reader.data.depthOf
+import dev.folio.reader.data.moveTargets
 import dev.folio.reader.data.streak
 import dev.folio.reader.data.lastDays
 import dev.folio.reader.data.day
@@ -186,6 +188,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     var selected by remember { mutableStateOf(setOf<String>()) }
     var bulkLists by remember { mutableStateOf(false) }
     var statsSheet by remember { mutableStateOf(false) }
+    var folderMenu by remember { mutableStateOf<String?>(null) }
     var confirmBulkRemove by remember { mutableStateOf(false) }
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -344,7 +347,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                 } else if (state.view == ViewMode.List || state.view == ViewMode.Details) {
                     LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         if (tab is Tab.List) item { ListHeader(tab as Tab.List, { tab = Tab.List(it) }, { tab = Tab.All }) }
-                        if (showFolders) items(children, key = { "folder:$it" }) { path -> FolderRow(state, path) { tab = Tab.List(path) } }
+                        if (showFolders) items(children, key = { "folder:$it" }) { path -> FolderRow(state, path, { tab = Tab.List(path) }, { folderMenu = path }) }
                         if (tab == Tab.ReadingNow && query.isBlank()) item { StatsCard(state) { statsSheet = true } }
                         if (hero != null) {
                             item { HeroCard(model, hero, onOpen = { open(hero) }, onDetails = { details(hero) }) }
@@ -368,7 +371,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         if (tab is Tab.List) item(span = { GridItemSpan(maxLineSpan) }) { ListHeader(tab as Tab.List, { tab = Tab.List(it) }, { tab = Tab.All }) }
-                        if (showFolders) items(children, key = { "folder:$it" }) { path -> FolderTile(state, path, compact = state.view == ViewMode.Compact) { tab = Tab.List(path) } }
+                        if (showFolders) items(children, key = { "folder:$it" }) { path -> FolderTile(state, path, compact = state.view == ViewMode.Compact, { tab = Tab.List(path) }, { folderMenu = path }) }
                         if (tab == Tab.ReadingNow && query.isBlank()) item(span = { GridItemSpan(maxLineSpan) }) { StatsCard(state) { statsSheet = true } }
                         if (hero != null) {
                             item(span = { GridItemSpan(maxLineSpan) }) { HeroCard(model, hero, onOpen = { open(hero) }, onDetails = { details(hero) }) }
@@ -389,7 +392,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
 
     detailsFor?.let { id ->
         val book = state.books.firstOrNull { it.id == id }
-        if (book == null) detailsFor = null else DetailsSheet(model, book, lists, (tab as? Tab.List)?.path, onNewList = { newList = NewList("", book.id) }, onDismiss = { detailsFor = null })
+        if (book == null) detailsFor = null else DetailsSheet(model, book, lists, (tab as? Tab.List)?.path, onOpenBook = { detailsFor = null; model.openBook(book.id) }, onNewList = { newList = NewList("", book.id) }, onDismiss = { detailsFor = null })
     }
     newList?.let { request ->
         ListDialog(lists, request.parent, onDismiss = { newList = null }) { name, parent ->
@@ -401,6 +404,14 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
             }
             newList = null
         }
+    }
+    folderMenu?.let { path ->
+        if (path !in lists) folderMenu = null else FolderSheet(
+            model, state, path,
+            onOpen = { folderMenu = null; tab = Tab.List(path) },
+            onNewInside = { folderMenu = null; newList = NewList(path, null) },
+            onDismiss = { folderMenu = null },
+        )
     }
     if (statsSheet) StatsSheet(state) { statsSheet = false }
     if (bulkLists) BulkListSheet(
@@ -632,7 +643,7 @@ private enum class SheetSection(val label: String) { Actions("Actions"), Details
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>, openList: String?, onNewList: () -> Unit, onDismiss: () -> Unit) {
+private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>, openList: String?, onOpenBook: () -> Unit, onNewList: () -> Unit, onDismiss: () -> Unit) {
     var section by remember { mutableStateOf(SheetSection.Actions) }
     var confirmRemove by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -658,7 +669,7 @@ private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>,
             Spacer(Modifier.height(6.dp))
             Box(Modifier.fillMaxWidth().height(380.dp)) {
                 when (section) {
-                    SheetSection.Actions -> ActionsSection(model, book, lists, openList, onNewList, onDismiss) { confirmRemove = true }
+                    SheetSection.Actions -> ActionsSection(model, book, lists, openList, onOpenBook, onNewList, onDismiss) { confirmRemove = true }
                     SheetSection.Details -> DetailsSection(book)
                     SheetSection.Notes -> NotesSection(model, book)
                 }
@@ -675,12 +686,30 @@ private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>,
 }
 
 @Composable
-private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String>, openList: String?, onNewList: () -> Unit, onDismiss: () -> Unit, onRemove: () -> Unit) {
-    var listPicker by remember { mutableStateOf(false) }
+private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String>, openList: String?, onOpenBook: () -> Unit, onNewList: () -> Unit, onDismiss: () -> Unit, onRemove: () -> Unit) {
+    // 0 closed, 1 add to another list, 2 move to another list
+    var picker by remember { mutableStateOf(0) }
+    val here = openList?.takeIf { it in book.lists }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        // Inside a list, the first thing to offer is taking the book out of it (the book stays in the library).
-        if (openList != null && openList in book.lists) {
-            SheetRow(Icons.Rounded.FolderOff, "Remove from “${nameOf(openList)}”") { model.repo.toggleList(book.id, openList); onDismiss() }
+        SheetRow(Icons.Rounded.AutoStories, "Open", onClick = onOpenBook)
+        // Inside a list: take the book out of it, or carry it to another list (it stays in the library).
+        if (here != null) {
+            SheetRow(Icons.Rounded.FolderOff, "Remove from “${nameOf(here)}”") { model.repo.toggleList(book.id, here); onDismiss() }
+            SheetRow(Icons.Rounded.DriveFileMove, if (picker == 2) "Move to… (tap to close)" else "Move to another list…") { picker = if (picker == 2) 0 else 2 }
+        }
+        SheetRow(Icons.Rounded.Folder, if (picker == 1) "Lists (tap to close)" else if (here != null) "Also add to another list…" else "Add to a list…") { picker = if (picker == 1) 0 else 1 }
+        if (picker != 0) {
+            lists.filter { picker == 1 || it != here }.forEach { list ->
+                val on = list in book.lists
+                SheetRow(if (on) Icons.Rounded.Check else Icons.Rounded.Folder, nameOf(list), highlighted = on, indent = depthOf(list) + 1) {
+                    if (picker == 2 && here != null) {
+                        model.repo.toggleList(book.id, here)
+                        if (!on) model.repo.toggleList(book.id, list)
+                        onDismiss()
+                    } else model.repo.toggleList(book.id, list)
+                }
+            }
+            SheetRow(Icons.Rounded.CreateNewFolder, "New list…", indent = 1, onClick = onNewList)
         }
         SheetRow(if (book.favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, if (book.favorite) "Remove from favorites" else "Add to favorites") {
             model.repo.updateBook(book.id) { it.copy(favorite = !it.favorite) }
@@ -690,14 +719,6 @@ private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String
         }
         SheetRow(Icons.Rounded.CheckCircle, if (book.status == Status.Finished) "Mark as reading" else "Mark as finished") {
             model.repo.updateBook(book.id) { it.copy(status = if (it.status == Status.Finished) Status.Reading else Status.Finished) }
-        }
-        SheetRow(Icons.Rounded.Folder, if (listPicker) "Lists (tap to close)" else "Add to a list…") { listPicker = !listPicker }
-        if (listPicker) {
-            lists.forEach { list ->
-                val on = list in book.lists
-                SheetRow(if (on) Icons.Rounded.Check else Icons.Rounded.Folder, nameOf(list), highlighted = on, indent = depthOf(list) + 1) { model.repo.toggleList(book.id, list) }
-            }
-            SheetRow(Icons.Rounded.CreateNewFolder, "New list…", indent = 1, onClick = onNewList)
         }
         SheetRow(Icons.Rounded.Delete, "Remove from library", onClick = onRemove)
     }
@@ -806,6 +827,8 @@ private data class NewList(val parent: String, val forBook: String?, val forBook
 private fun ManageListsSheet(model: FolioViewModel, lists: List<String>, onNewIn: (String) -> Unit, onDismiss: () -> Unit) {
     var renaming by remember { mutableStateOf<String?>(null) }
     var deleting by remember { mutableStateOf<String?>(null) }
+    var movingList by remember { mutableStateOf<String?>(null) }
+    val library by model.repo.state.collectAsState()
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
             Text("Manage lists", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
@@ -822,6 +845,7 @@ private fun ManageListsSheet(model: FolioViewModel, lists: List<String>, onNewIn
                         IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
                         DropdownMenu(menu, { menu = false }) {
                             DropdownMenuItem(text = { Text("Rename") }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; renaming = path })
+                            DropdownMenuItem(text = { Text("Move to…") }, leadingIcon = { Icon(Icons.Rounded.DriveFileMove, null) }, onClick = { menu = false; movingList = path })
                             DropdownMenuItem(text = { Text("New list inside") }, leadingIcon = { Icon(Icons.Rounded.CreateNewFolder, null) }, onClick = { menu = false; onNewIn(path) })
                             DropdownMenuItem(text = { Text("Delete") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; deleting = path })
                         }
@@ -830,6 +854,7 @@ private fun ManageListsSheet(model: FolioViewModel, lists: List<String>, onNewIn
             }
         }
     }
+    movingList?.let { path -> MoveListDialog(library, path, onDismiss = { movingList = null }) { parent -> model.repo.moveListTo(path, parent); movingList = null } }
     renaming?.let { path ->
         NameDialog("Rename list", nameOf(path), "Rename", onDismiss = { renaming = null }) { name ->
             model.repo.renameList(path, name)
@@ -1026,10 +1051,10 @@ private fun BulkListSheet(picked: List<Book>, lists: List<String>, onSet: (Strin
 /** A list as a folder tile, the size of a book cover, in the grid. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FolderTile(state: dev.folio.reader.data.LibraryState, path: String, compact: Boolean, onOpen: () -> Unit) {
+private fun FolderTile(state: dev.folio.reader.data.LibraryState, path: String, compact: Boolean, onOpen: () -> Unit, onMenu: () -> Unit) {
     val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
     val inner = state.childLists(path).size
-    Column(Modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onOpen)) {
+    Column(Modifier.clip(RoundedCornerShape(14.dp)).combinedClickable(onClick = onOpen, onLongClick = onMenu)) {
         Box(
             Modifier.fillMaxWidth().aspectRatio(0.7f).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.secondaryContainer),
             contentAlignment = Alignment.Center,
@@ -1043,12 +1068,13 @@ private fun FolderTile(state: dev.folio.reader.data.LibraryState, path: String, 
 }
 
 /** A list as a folder row, in the list views. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FolderRow(state: dev.folio.reader.data.LibraryState, path: String, onOpen: () -> Unit) {
+private fun FolderRow(state: dev.folio.reader.data.LibraryState, path: String, onOpen: () -> Unit, onMenu: () -> Unit) {
     val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
     val inner = state.childLists(path).size
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onOpen).padding(vertical = 10.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onOpen, onLongClick = onMenu).padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -1068,3 +1094,70 @@ private fun folderSummary(books: Int, lists: Int): String =
         if (lists > 0) "$lists ${if (lists == 1) "list" else "lists"}" else null,
         "$books ${if (books == 1) "book" else "books"}",
     ).joinToString("  ·  ")
+
+/** Hold a folder: open it, rename it, move it into another list, add a list inside it, or delete it. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FolderSheet(model: FolioViewModel, state: dev.folio.reader.data.LibraryState, path: String, onOpen: () -> Unit, onNewInside: () -> Unit, onDismiss: () -> Unit) {
+    var renaming by remember { mutableStateOf(false) }
+    var moving by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf(false) }
+    val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(bottom = 24.dp)) {
+            Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Icon(Icons.Rounded.Folder, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+                Column {
+                    Text(nameOf(path), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(folderSummary(books, state.childLists(path).size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (parentOf(path).isNotEmpty()) Text("in " + parentOf(path).replace("/", " › "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            SheetRow(Icons.Rounded.AutoStories, "Open", onClick = onOpen)
+            SheetRow(Icons.Rounded.Edit, "Rename") { renaming = true }
+            SheetRow(Icons.Rounded.DriveFileMove, "Move to another list…") { moving = true }
+            SheetRow(Icons.Rounded.CreateNewFolder, "New list inside", onClick = onNewInside)
+            SheetRow(Icons.Rounded.Delete, "Delete this list") { deleting = true }
+        }
+    }
+    if (renaming) NameDialog("Rename list", nameOf(path), "Rename", onDismiss = { renaming = false }) { name ->
+        model.repo.renameList(path, name); renaming = false; onDismiss()
+    }
+    if (moving) MoveListDialog(state, path, onDismiss = { moving = false }) { parent ->
+        model.repo.moveListTo(path, parent); moving = false; onDismiss()
+    }
+    if (deleting) AlertDialog(
+        onDismissRequest = { deleting = false },
+        title = { Text("Delete “${nameOf(path)}”?") },
+        text = { Text("The list and any lists inside it are removed. The books stay in your library.") },
+        confirmButton = { TextButton(onClick = { model.repo.deleteList(path); deleting = false; onDismiss() }) { Text("Delete") } },
+        dismissButton = { TextButton(onClick = { deleting = false }) { Text("Cancel") } },
+    )
+}
+
+/** Choose where a list goes: the top level or inside any list that is not itself or one of its own. */
+@Composable
+private fun MoveListDialog(state: dev.folio.reader.data.LibraryState, path: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    val targets = state.moveTargets(path)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Move “${nameOf(path)}” to") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                if (targets.isEmpty()) Text("There is nowhere else to move it.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                targets.forEach { target ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onPick(target) }.padding(start = (depthOf(target) * 16).dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (target.isEmpty()) "Top level" else nameOf(target))
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}

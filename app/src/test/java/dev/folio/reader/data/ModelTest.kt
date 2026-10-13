@@ -2,6 +2,7 @@ package dev.folio.reader.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -93,5 +94,36 @@ class ModelTest {
     fun `binary data is not taken for text`() {
         assertTrue(FileTypes.looksLikeText("hello\nworld".toByteArray(), 11))
         assertFalse(FileTypes.looksLikeText(byteArrayOf(1, 0, 2, 3), 4))
+    }
+
+    @Test
+    fun `moving a list takes its lists and books along`() {
+        val s = state(book("1", "Work/Courses"), book("2", "Work"), lists = listOf("Work", "Work/Courses", "Home"))
+        val moved = s.withListMoved("Work", "Home")!!
+        assertEquals(listOf("Home/Work", "Home/Work/Courses", "Home"), moved.lists)
+        assertEquals(listOf("Home/Work/Courses"), moved.books.first { it.id == "1" }.lists)
+        assertEquals(listOf("Home/Work"), moved.books.first { it.id == "2" }.lists)
+    }
+
+    @Test
+    fun `a list cannot move into itself or a clash`() {
+        val s = state(lists = listOf("A", "A/B", "C", "C/A"))
+        assertNull(s.withListMoved("A", "A/B"))
+        assertNull(s.withListMoved("A", "A"))
+        assertNull("C already has an A", s.withListMoved("A", "C"))
+        assertEquals("already there", s, s.withListMoved("A/B", "A"))
+    }
+
+    @Test
+    fun `a list can move to the top level`() {
+        val s = state(lists = listOf("A", "A/B"))
+        assertEquals(listOf("A", "B"), s.withListMoved("A/B", "")!!.lists)
+    }
+
+    @Test
+    fun `move targets leave out the list itself, what is inside it and where it already is`() {
+        val s = state(lists = listOf("A", "A/B", "C"))
+        assertEquals(listOf("", "C"), s.moveTargets("A/B"))
+        assertEquals(listOf("C"), s.moveTargets("A"))
     }
 }
