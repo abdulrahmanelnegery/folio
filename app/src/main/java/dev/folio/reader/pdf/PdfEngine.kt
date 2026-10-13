@@ -22,6 +22,9 @@ class PdfFile private constructor(
     private val lock = Mutex()
     val pageCount: Int = sizes.size
 
+    /** Width and height of [page] in points. */
+    fun sizeOf(page: Int): Pair<Float, Float>? = sizes.getOrNull(page)
+
     /** Height over width of [page]. */
     fun aspect(page: Int): Float {
         val (w, h) = sizes.getOrNull(page) ?: return 1.414f

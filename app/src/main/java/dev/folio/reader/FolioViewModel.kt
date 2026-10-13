@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.folio.reader.data.Book
 import dev.folio.reader.data.LibraryRepository
+import dev.folio.reader.data.LibraryState
 import dev.folio.reader.data.Status
 import dev.folio.reader.pdf.Covers
 import dev.folio.reader.pdf.PdfFile
@@ -22,6 +23,11 @@ import java.security.MessageDigest
 class FolioViewModel(app: Application) : AndroidViewModel(app) {
     val repo = LibraryRepository(app, viewModelScope)
     val covers = Covers(app)
+    val backups = dev.folio.reader.data.Backups(app)
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) { backups.daily(repo.state.value) }
+    }
 
     private val _reading = MutableStateFlow<String?>(null)
     /** The id of the book on screen, or null for the library. */
@@ -75,7 +81,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         val pdf = PdfFile.open(context, stored) ?: return null
         val pages = pdf.pageCount
         pdf.close()
-        return Book(id = hash(uri.toString()), uri = stored.toString(), name = name.removeSuffix(".pdf").removeSuffix(".PDF"), pages = pages, size = size)
+        return Book(id = hash(uri.toString()), uri = stored.toString(), name = name.removeSuffix(".pdf").removeSuffix(".PDF"), fileName = name, pages = pages, size = size, added = System.currentTimeMillis())
     }
 
     fun openBook(id: String) {
@@ -91,6 +97,43 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     fun remove(id: String) {
         covers.forget(id)
         repo.remove(id)
+    }
+
+    /** Saves the whole library (reading places, lists, notes) to a file the user picked. */
+    fun exportBackup(uri: Uri) {
+        val text = LibraryRepository.encode(repo.state.value)
+        viewModelScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching { getApplication<Application>().contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray()) } != null }.getOrDefault(false)
+            }
+            _message.value = if (ok) "Backup saved." else "The backup could not be saved."
+        }
+    }
+
+    /** Replaces the library with a backup file the user picked. */
+    fun restoreFrom(uri: Uri) {
+        viewModelScope.launch {
+            val restored = withContext(Dispatchers.IO) {
+                runCatching {
+                    getApplication<Application>().contentResolver.openInputStream(uri)?.use { LibraryRepository.decode(String(it.readBytes())) }
+                }.getOrNull()
+            }
+            applyRestore(restored)
+        }
+    }
+
+    fun restoreFile(file: File) {
+        viewModelScope.launch { applyRestore(withContext(Dispatchers.IO) { backups.read(file) }) }
+    }
+
+    private fun applyRestore(state: dev.folio.reader.data.LibraryState?) {
+        if (state == null) {
+            _message.value = "That is not a Folio backup."
+        } else {
+            repo.replace(state)
+            repo.flush()
+            _message.value = "Library restored: ${state.books.size} books."
+        }
     }
 
     override fun onCleared() = repo.flush()

@@ -36,6 +36,26 @@ import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.BrightnessHigh
+import androidx.compose.material.icons.rounded.BrightnessLow
+import androidx.compose.material.icons.rounded.PauseCircle
+import androidx.compose.material.icons.rounded.PlayCircle
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.material.icons.rounded.AddComment
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.StickyNote2
+import dev.folio.reader.data.PageNote
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -47,6 +67,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
@@ -147,10 +168,15 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var panX by remember { mutableFloatStateOf(0f) }
     val theme = state.theme
     ImmersiveBars(barsVisible)
-    KeepScreenOn()
     var themeSheet by remember { mutableStateOf(false) }
     var bookmarkSheet by remember { mutableStateOf(false) }
     var jumpDialog by remember { mutableStateOf(false) }
+    var editNote by remember { mutableStateOf<NoteEdit?>(null) }
+    var menu by remember { mutableStateOf(false) }
+    var autoScroll by remember { mutableStateOf(false) }
+    var autoSpeed by remember { mutableFloatStateOf(70f) }
+    var tool by remember { mutableStateOf<ReaderTool?>(null) }
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
     val jumpTo = remember { mutableStateOf<Int?>(null) }
 
     Box(Modifier.fillMaxSize().background(theme.background())) {
@@ -217,18 +243,36 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(file.pageCount) { index ->
-                        PageView(file, index, widthPx, zoom, cache, theme)
+                        PageView(file, index, widthPx, zoom, cache, theme, noteCount = book.comments.count { it.page == index }, onNotes = { bookmarkSheet = true })
                     }
                 }
             }
             val current = (list.firstVisibleItemIndex + 1).coerceIn(1, file.pageCount)
+
+            // Auto-scroll: a steady glide down the book at the chosen speed (points per second).
+            LaunchedEffect(autoScroll) {
+                if (!autoScroll) return@LaunchedEffect
+                var last = withFrameNanos { it }
+                var carry = 0f
+                while (true) {
+                    val now = withFrameNanos { it }
+                    carry += autoSpeed * (now - last) / 1_000_000_000f * density
+                    last = now
+                    val whole = carry.toInt()
+                    if (whole != 0) {
+                        carry -= whole
+                        if (list.scrollBy(whole.toFloat()) == 0f) { autoScroll = false; return@LaunchedEffect }
+                    }
+                }
+            }
+
             AnimatedVisibility(
                 barsVisible,
                 Modifier.align(Alignment.TopCenter),
                 enter = slideInVertically { -it } + fadeIn(),
                 exit = slideOutVertically { -it } + fadeOut(),
             ) {
-                Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.96f), tonalElevation = 3.dp) {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.97f), tonalElevation = 3.dp, shadowElevation = 4.dp) {
                     Row(Modifier.statusBarsPadding().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { model.closeBook() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
                         Text(book.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -236,58 +280,125 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                         IconButton(onClick = { model.repo.toggleBookmark(id, current - 1) }) {
                             Icon(if (marked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (marked) "Remove bookmark" else "Add bookmark", tint = if (marked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                         }
-                        IconButton(onClick = { bookmarkSheet = true }) { Icon(Icons.Rounded.Bookmarks, "Bookmarks") }
-                        IconButton(onClick = { themeSheet = true }) { Icon(Icons.Rounded.Contrast, "Page theme") }
+                        IconButton(onClick = { editNote = NoteEdit(null, current - 1, "") }) { Icon(Icons.Rounded.AddComment, "Comment on this page") }
+                        ThemeToggle(theme, onToggle = { model.repo.update { it.copy(theme = if (it.theme == PageTheme.Normal) PageTheme.Night else PageTheme.Normal) } }, onMore = { themeSheet = true })
+                        Box {
+                            IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Reading options") }
+                            DropdownMenu(menu, { menu = false }) {
+                                DropdownMenuItem(
+                                    leadingIcon = { Icon(Icons.Rounded.PlayCircle, null) },
+                                    text = { Text(if (autoScroll) "Stop auto-scroll" else "Auto-scroll") },
+                                    onClick = { menu = false; autoScroll = !autoScroll; tool = if (autoScroll) ReaderTool.AutoScroll else null; barsVisible = !autoScroll },
+                                )
+                                DropdownMenuItem(
+                                    leadingIcon = { Icon(Icons.Rounded.LightMode, null) },
+                                    text = { Text("Brightness") },
+                                    onClick = { menu = false; tool = ReaderTool.Brightness },
+                                )
+                                DropdownMenuItem(
+                                    leadingIcon = { Icon(Icons.Rounded.Bookmarks, null) },
+                                    text = { Text("Bookmarks and notes") },
+                                    onClick = { menu = false; bookmarkSheet = true },
+                                )
+                            }
+                        }
                     }
                 }
             }
+
+            // The reading tools float above the bottom bar and stay while you use them.
+            AnimatedVisibility(
+                tool != null,
+                Modifier.align(Alignment.BottomCenter).padding(bottom = if (barsVisible) 104.dp else 24.dp).navigationBarsPadding().padding(horizontal = 16.dp),
+                enter = fadeIn() + slideInVertically { it / 2 },
+                exit = fadeOut() + slideOutVertically { it / 2 },
+            ) {
+                Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 6.dp, shadowElevation = 8.dp) {
+                    Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
+                        when (tool) {
+                            ReaderTool.Brightness -> {
+                                ToolHeader("Brightness", onClose = { tool = null })
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Rounded.BrightnessLow, null, Modifier.size(20.dp))
+                                    Slider(
+                                        value = if (state.brightness < 0f) 0.5f else state.brightness,
+                                        onValueChange = { v -> model.repo.update { it.copy(brightness = v.coerceIn(0.02f, 1f)) } },
+                                        valueRange = 0.02f..1f,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Icon(Icons.Rounded.BrightnessHigh, null, Modifier.size(20.dp))
+                                }
+                                TextButton(onClick = { model.repo.update { it.copy(brightness = -1f) } }, enabled = state.brightness >= 0f) { Text("Use the system brightness") }
+                            }
+                            ReaderTool.AutoScroll -> {
+                                ToolHeader("Auto-scroll", onClose = { autoScroll = false; tool = null })
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { autoScroll = !autoScroll }) {
+                                        Icon(if (autoScroll) Icons.Rounded.PauseCircle else Icons.Rounded.PlayCircle, if (autoScroll) "Pause" else "Play", Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                    Icon(Icons.Rounded.Speed, null, Modifier.size(20.dp))
+                                    Slider(value = autoSpeed, onValueChange = { autoSpeed = it }, valueRange = 15f..400f, modifier = Modifier.weight(1f))
+                                }
+                                Text("Tap the page to show the controls. Speed ${autoSpeed.roundToInt()}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            null -> {}
+                        }
+                    }
+                }
+            }
+
             AnimatedVisibility(
                 barsVisible,
                 Modifier.align(Alignment.BottomCenter),
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { it } + fadeOut(),
             ) {
-                Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.96f), tonalElevation = 3.dp) {
-                    Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 10.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.97f), tonalElevation = 3.dp, shadowElevation = 6.dp) {
+                    Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 "Page $current of ${file.pageCount}",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { jumpDialog = true }.padding(horizontal = 8.dp, vertical = 4.dp),
                             )
-                            Text(theme.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.weight(1f))
+                            Text("${(current * 100f / file.pageCount).roundToInt()}%", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        var dragging by remember { mutableStateOf<Float?>(null) }
-                        val scope = rememberCoroutineScope()
-                        Slider(
-                            value = dragging ?: (current - 1).toFloat(),
-                            onValueChange = { dragging = it },
-                            onValueChangeFinished = {
-                                dragging?.let { target -> scope.launch { list.scrollToItem(target.roundToInt()) } }
-                                dragging = null
-                            },
-                            valueRange = 0f..(file.pageCount - 1).coerceAtLeast(1).toFloat(),
-                        )
+                        PageSlider(current - 1, file.pageCount) { page -> list.requestScrollToItem(page) }
                     }
                 }
             }
         }
     }
     val pages = pdf?.pageCount ?: 0
+    KeepScreenOn(state.brightness)
     if (themeSheet) ThemeSheet(theme, onPick = { picked -> model.repo.update { it.copy(theme = picked) } }, onDismiss = { themeSheet = false })
-    if (bookmarkSheet) BookmarkSheet(
-        book.bookmarks,
+    if (bookmarkSheet) NotesSheet(
+        book,
         onGo = { page -> jumpTo.value = page; bookmarkSheet = false },
-        onRemove = { page -> model.repo.toggleBookmark(id, page) },
+        onRemoveBookmark = { page -> model.repo.toggleBookmark(id, page) },
+        onEdit = { note -> bookmarkSheet = false; editNote = NoteEdit(note.id, note.page, note.text) },
         onDismiss = { bookmarkSheet = false },
     )
+    editNote?.let { edit ->
+        NoteDialog(
+            edit,
+            onSave = { text -> model.repo.saveComment(id, edit.page, text, edit.id); editNote = null },
+            onDelete = { edit.id?.let { model.repo.deleteComment(id, it) }; editNote = null },
+            onDismiss = { editNote = null },
+        )
+    }
     if (jumpDialog && pages > 0) JumpDialog(pages, onGo = { page -> jumpTo.value = page; jumpDialog = false }, onDismiss = { jumpDialog = false })
 }
 
+private data class NoteEdit(val id: Long?, val page: Int, val text: String)
+
+private enum class ReaderTool { Brightness, AutoScroll }
+
 /** One page: a placeholder of the right shape until its bitmap is drawn. */
 @Composable
-private fun PageView(file: PdfFile, index: Int, widthPx: Int, zoom: Float, cache: LruCache<String, Bitmap>, theme: PageTheme) {
+private fun PageView(file: PdfFile, index: Int, widthPx: Int, zoom: Float, cache: LruCache<String, Bitmap>, theme: PageTheme, noteCount: Int, onNotes: () -> Unit) {
     // Sharper pixels when zoomed, in steps so a pinch does not re-render every frame.
     val target = (widthPx * (if (zoom > 1.6f) 2.5f else if (zoom > 1.05f) 1.6f else 1f)).roundToInt().coerceAtMost(3000)
     val bitmap by produceState<Bitmap?>(cache.get("$index@$target") ?: cache.get("$index@$widthPx"), index, target) {
@@ -297,6 +408,11 @@ private fun PageView(file: PdfFile, index: Int, widthPx: Int, zoom: Float, cache
     Box(Modifier.fillMaxWidth().aspectRatio(1f / file.aspect(index)).background(Color.White)) {
         if (bitmap == null) {
             Text("${index + 1}", Modifier.align(Alignment.Center), color = Color(0xFFB8B2A4), style = MaterialTheme.typography.displaySmall)
+        }
+        if (noteCount > 0) {
+            Box(
+                Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFF2B12E)).clickable(onClick = onNotes).padding(horizontal = 8.dp, vertical = 4.dp),
+            ) { Text("✎ $noteCount", color = Color(0xFF3B2A00), style = MaterialTheme.typography.labelMedium) }
         }
         bitmap?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds, colorFilter = theme.filter()) }
     }
@@ -358,22 +474,117 @@ private fun ThemeSheet(current: PageTheme, onPick: (PageTheme) -> Unit, onDismis
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BookmarkSheet(pages: List<Int>, onGo: (Int) -> Unit, onRemove: (Int) -> Unit, onDismiss: () -> Unit) {
+private fun NotesSheet(book: dev.folio.reader.data.Book, onGo: (Int) -> Unit, onRemoveBookmark: (Int) -> Unit, onEdit: (PageNote) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(bottom = 24.dp)) {
+        Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(bottom = 24.dp)) {
             Text("Bookmarks", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-            if (pages.isEmpty()) {
-                Text("Tap the bookmark icon on a page to mark it.", modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (book.bookmarks.isEmpty()) {
+                Text("Tap the bookmark icon on a page to mark it.", modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            pages.forEach { page ->
-                Row(Modifier.fillMaxWidth().clickable { onGo(page) }.padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            book.bookmarks.forEach { page ->
+                Row(Modifier.fillMaxWidth().clickable { onGo(page) }.padding(horizontal = 24.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Bookmark, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(16.dp))
                     Text("Page ${page + 1}", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                    TextButton(onClick = { onRemove(page) }) { Text("Remove") }
+                    TextButton(onClick = { onRemoveBookmark(page) }) { Text("Remove") }
+                }
+            }
+            Text("Page comments", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 8.dp))
+            if (book.comments.isEmpty()) {
+                Text("Use the comment icon to write a note on a page.", modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            book.comments.forEach { note ->
+                Row(Modifier.fillMaxWidth().clickable { onGo(note.page) }.padding(horizontal = 24.dp, vertical = 10.dp), verticalAlignment = Alignment.Top) {
+                    Icon(Icons.Rounded.StickyNote2, null, tint = Color(0xFFC08A3E))
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Page ${note.page + 1}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(note.text, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    IconButton(onClick = { onEdit(note) }) { Icon(Icons.Rounded.Edit, "Edit") }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun NoteDialog(edit: NoteEdit, onSave: (String) -> Unit, onDelete: () -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(edit.text) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Comment on page ${edit.page + 1}") },
+        text = {
+            OutlinedTextField(text, { text = it }, placeholder = { Text("Write your comment") }, minLines = 3, maxLines = 8, modifier = Modifier.fillMaxWidth())
+        },
+        confirmButton = { TextButton(onClick = { onSave(text) }, enabled = text.isNotBlank()) { Text("Save") } },
+        dismissButton = {
+            Row {
+                if (edit.id != null) TextButton(onClick = onDelete) { Text("Delete") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
+}
+
+/** Sun or moon: one tap flips between the plain page and night; long press picks any theme. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun ThemeToggle(theme: PageTheme, onToggle: () -> Unit, onMore: () -> Unit) {
+    val night = theme != PageTheme.Normal
+    Box(
+        Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).combinedClickable(onClick = onToggle, onLongClick = onMore),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size(36.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                .background(if (night) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                if (night) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
+                if (night) "Switch to the plain page" else "Switch to night",
+                Modifier.size(22.dp),
+                tint = if (night) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ToolHeader(title: String, onClose: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+        IconButton(onClick = onClose, modifier = Modifier.size(32.dp)) { Icon(Icons.Rounded.Close, "Close", Modifier.size(18.dp)) }
+    }
+}
+
+/** A page slider with a bubble over the thumb that names the page while you drag. */
+@Composable
+private fun PageSlider(page: Int, pageCount: Int, onSeek: (Int) -> Unit) {
+    var dragging by remember { mutableStateOf<Float?>(null) }
+    val maxIndex = (pageCount - 1).coerceAtLeast(1)
+    val value = dragging ?: page.toFloat()
+    BoxWithConstraints(Modifier.fillMaxWidth().height(60.dp)) {
+        val fraction = (value / maxIndex).coerceIn(0f, 1f)
+        val track = maxWidth - 32.dp
+        if (dragging != null) {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.primary,
+                shadowElevation = 6.dp,
+                modifier = Modifier.align(Alignment.TopStart).offset(x = 16.dp + track * fraction - 26.dp, y = 0.dp).width(52.dp),
+            ) {
+                Text("${value.roundToInt() + 1}", Modifier.padding(vertical = 6.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
+            }
+        }
+        Slider(
+            value = value,
+            onValueChange = { dragging = it; onSeek(it.roundToInt()) },
+            onValueChangeFinished = { dragging = null },
+            valueRange = 0f..maxIndex.toFloat(),
+            modifier = Modifier.align(Alignment.BottomStart),
+        )
     }
 }
 
@@ -396,12 +607,20 @@ private fun JumpDialog(pages: Int, onGo: (Int) -> Unit, onDismiss: () -> Unit) {
     )
 }
 
-/** The screen stays on while a book is open. */
+/** The screen stays on while a book is open, at the reading brightness (negative follows the system). */
 @Composable
-private fun KeepScreenOn() {
+private fun KeepScreenOn(brightness: Float) {
     val view = LocalView.current
+    val activity = LocalActivity.current
     DisposableEffect(Unit) {
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
+    }
+    DisposableEffect(brightness) {
+        val window = activity?.window
+        if (window != null) window.attributes = window.attributes.also { it.screenBrightness = if (brightness < 0f) -1f else brightness }
+        onDispose {
+            if (window != null) window.attributes = window.attributes.also { it.screenBrightness = -1f }
+        }
     }
 }

@@ -8,8 +8,21 @@ enum class Status { New, Reading, ToRead, Finished }
 @Serializable
 enum class SortOrder(val label: String) {
     Recent("Last opened"),
+    Added("Date added"),
     Name("Name"),
     Size("Size"),
+    Progress("Progress"),
+    Rating("Rating"),
+}
+
+/** How the books are laid out on a shelf. */
+@Serializable
+enum class ViewMode(val label: String) {
+    Grid("Grid"),
+    Compact("Small covers"),
+    Large("Large covers"),
+    List("List"),
+    Details("Details"),
 }
 
 @Serializable
@@ -28,11 +41,14 @@ data class Book(
     val id: String,
     val uri: String,
     val name: String,
+    val fileName: String = "",
     val pages: Int = 0,
     val size: Long = 0,
+    val added: Long = 0,
     val lastOpened: Long = 0,
     val favorite: Boolean = false,
     val status: Status = Status.New,
+    /** Full paths of the lists the book is in ("Work/Courses"). */
     val lists: List<String> = emptyList(),
     /** Zero-based page at the top of the screen when the book was closed. */
     val page: Int = 0,
@@ -40,6 +56,12 @@ data class Book(
     val offset: Float = 0f,
     /** Zero-based pages the reader marked. */
     val bookmarks: List<Int> = emptyList(),
+    /** Your stars, 0 (none) to 5. */
+    val rating: Int = 0,
+    /** A note about the whole book. */
+    val note: String = "",
+    /** Comments pinned to pages. They live in the library, never in the PDF. */
+    val comments: List<PageNote> = emptyList(),
 ) {
     /** Reading progress 0..1; a finished book counts as complete. */
     val progress: Float
@@ -50,13 +72,20 @@ data class Book(
         }
 }
 
+/** A comment on one page. */
+@Serializable
+data class PageNote(val id: Long, val page: Int, val text: String)
+
 @Serializable
 data class LibraryState(
     val books: List<Book> = emptyList(),
+    /** Every list as a path ("Work", "Work/Courses"); the order here is the order shown among siblings. */
     val lists: List<String> = emptyList(),
-    val grid: Boolean = true,
+    val view: ViewMode = ViewMode.Grid,
     val sort: SortOrder = SortOrder.Recent,
     val theme: PageTheme = PageTheme.Normal,
+    /** Screen brightness while reading, 0.02..1; negative follows the system. */
+    val brightness: Float = -1f,
 )
 
 /** What the library screen is showing. */
@@ -66,7 +95,26 @@ sealed interface Tab {
     data object Finished : Tab
     data object Favorites : Tab
     data object All : Tab
-    data class List(val name: String) : Tab
+    data class List(val path: String) : Tab
+}
+
+// ---- lists inside lists -------------------------------------------------------------------
+
+fun parentOf(path: String): String = path.substringBeforeLast('/', "")
+fun nameOf(path: String): String = path.substringAfterLast('/')
+fun depthOf(path: String): Int = path.count { it == '/' }
+fun isInside(path: String, ancestor: String): Boolean = path == ancestor || path.startsWith("$ancestor/")
+
+/** Lists in tree order: each list, then its children, siblings in the stored order. */
+fun LibraryState.orderedLists(): List<String> {
+    val out = ArrayList<String>(lists.size)
+    fun walk(parent: String) {
+        lists.filter { parentOf(it) == parent }.forEach { out += it; walk(it) }
+    }
+    walk("")
+    // Anything whose parent went missing still shows, at the top level.
+    lists.filter { it !in out }.forEach { out += it }
+    return out
 }
 
 fun Book.inTab(tab: Tab): Boolean = when (tab) {
@@ -75,16 +123,19 @@ fun Book.inTab(tab: Tab): Boolean = when (tab) {
     Tab.Finished -> status == Status.Finished
     Tab.Favorites -> favorite
     Tab.All -> true
-    is Tab.List -> tab.name in lists
+    is Tab.List -> lists.any { isInside(it, tab.path) }
 }
 
 /** The books to show: the shelf, the search, in the chosen order. */
 fun LibraryState.visible(tab: Tab, query: String): List<Book> {
     val q = query.trim().lowercase()
-    val shelf = books.filter { it.inTab(tab) && (q.isEmpty() || it.name.lowercase().contains(q)) }
+    val shelf = books.filter { it.inTab(tab) && (q.isEmpty() || it.name.lowercase().contains(q) || it.fileName.lowercase().contains(q)) }
     return when (sort) {
         SortOrder.Recent -> shelf.sortedByDescending { it.lastOpened }
+        SortOrder.Added -> shelf.sortedByDescending { it.added }
         SortOrder.Name -> shelf.sortedBy { it.name.lowercase() }
         SortOrder.Size -> shelf.sortedByDescending { it.size }
+        SortOrder.Progress -> shelf.sortedByDescending { it.progress }
+        SortOrder.Rating -> shelf.sortedByDescending { it.rating }
     }
 }

@@ -15,7 +15,6 @@ import java.io.File
 /** The library on disk: one JSON file, saved shortly after every change. */
 class LibraryRepository(context: Context, scope: CoroutineScope) {
     private val file = File(context.filesDir, "library.json")
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val _state = MutableStateFlow(load())
     val state: StateFlow<LibraryState> = _state
 
@@ -25,12 +24,12 @@ class LibraryRepository(context: Context, scope: CoroutineScope) {
         }
     }
 
-    private fun load(): LibraryState = runCatching { json.decodeFromString<LibraryState>(file.readText()) }.getOrDefault(LibraryState())
+    private fun load(): LibraryState = runCatching { decode(file.readText()) }.getOrDefault(LibraryState())
 
     private fun save(state: LibraryState) {
         runCatching {
             val tmp = File(file.parentFile, "library.json.tmp")
-            tmp.writeText(json.encodeToString(LibraryState.serializer(), state))
+            tmp.writeText(encode(state))
             tmp.renameTo(file)
         }
     }
@@ -48,21 +47,54 @@ class LibraryRepository(context: Context, scope: CoroutineScope) {
 
     fun add(book: Book) = update { s ->
         val existing = s.books.firstOrNull { it.id == book.id }
-        val merged = existing?.copy(uri = book.uri, name = book.name, pages = book.pages, size = book.size) ?: book
+        val merged = existing?.copy(uri = book.uri, name = book.name, fileName = book.fileName, pages = book.pages, size = book.size) ?: book
         s.copy(books = s.books.filter { it.id != book.id } + merged)
     }
 
     fun remove(id: String) = update { s -> s.copy(books = s.books.filter { it.id != id }) }
 
-    fun addList(name: String): Boolean {
+    /** Adds a list (inside [parent] when given); false for an empty, slashed or duplicate name. */
+    fun addList(name: String, parent: String = ""): Boolean {
         val clean = name.trim()
-        if (clean.isEmpty() || _state.value.lists.any { it.equals(clean, ignoreCase = true) }) return false
-        update { it.copy(lists = it.lists + clean) }
+        if (clean.isEmpty() || '/' in clean) return false
+        val path = if (parent.isEmpty()) clean else "$parent/$clean"
+        if (_state.value.lists.any { it.equals(path, ignoreCase = true) }) return false
+        update { it.copy(lists = it.lists + path) }
         return true
     }
 
-    fun deleteList(name: String) = update { s ->
-        s.copy(lists = s.lists - name, books = s.books.map { it.copy(lists = it.lists - name) })
+    /** Renames the last part of [path]; its sub-lists and the books in them follow. */
+    fun renameList(path: String, newName: String): Boolean {
+        val clean = newName.trim()
+        if (clean.isEmpty() || '/' in clean) return false
+        val parent = parentOf(path)
+        val target = if (parent.isEmpty()) clean else "$parent/$clean"
+        if (target == path) return true
+        if (_state.value.lists.any { it.equals(target, ignoreCase = true) }) return false
+        fun swap(p: String) = if (isInside(p, path)) target + p.removePrefix(path) else p
+        update { s -> s.copy(lists = s.lists.map(::swap), books = s.books.map { b -> b.copy(lists = b.lists.map(::swap)) }) }
+        return true
+    }
+
+    /** Moves [path] one place earlier (or later) among its siblings. */
+    fun moveList(path: String, earlier: Boolean) = update { s ->
+        val siblings = s.lists.filter { parentOf(it) == parentOf(path) }
+        val at = siblings.indexOf(path)
+        val other = siblings.getOrNull(if (earlier) at - 1 else at + 1) ?: return@update s
+        val lists = s.lists.toMutableList()
+        val i = lists.indexOf(path)
+        val j = lists.indexOf(other)
+        lists[i] = other
+        lists[j] = path
+        s.copy(lists = lists)
+    }
+
+    /** Deletes the list and everything inside it; the books stay in the library. */
+    fun deleteList(path: String) = update { s ->
+        s.copy(
+            lists = s.lists.filterNot { isInside(it, path) },
+            books = s.books.map { b -> b.copy(lists = b.lists.filterNot { isInside(it, path) }) },
+        )
     }
 
     fun toggleBookmark(id: String, page: Int) = updateBook(id) {
@@ -72,5 +104,30 @@ class LibraryRepository(context: Context, scope: CoroutineScope) {
     fun toggleList(id: String, list: String) = updateBook(id) {
         it.copy(lists = if (list in it.lists) it.lists - list else it.lists + list)
     }
-}
 
+    fun setRating(id: String, stars: Int) = updateBook(id) { it.copy(rating = if (it.rating == stars) 0 else stars.coerceIn(0, 5)) }
+
+    fun setNote(id: String, note: String) = updateBook(id) { it.copy(note = note) }
+
+    /** Adds a comment on [page], or replaces the text of [noteId] when given. */
+    fun saveComment(id: String, page: Int, text: String, noteId: Long? = null) = updateBook(id) { b ->
+        val clean = text.trim()
+        when {
+            noteId != null && clean.isEmpty() -> b.copy(comments = b.comments.filter { it.id != noteId })
+            noteId != null -> b.copy(comments = b.comments.map { if (it.id == noteId) it.copy(text = clean) else it })
+            clean.isEmpty() -> b
+            else -> b.copy(comments = (b.comments + PageNote(System.nanoTime(), page, clean)).sortedBy { it.page })
+        }
+    }
+
+    fun deleteComment(id: String, noteId: Long) = updateBook(id) { b -> b.copy(comments = b.comments.filter { it.id != noteId }) }
+
+    /** Replaces the whole library, for a restored backup. */
+    fun replace(state: LibraryState) = update { state }
+
+    companion object {
+        private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
+        fun encode(state: LibraryState): String = json.encodeToString(LibraryState.serializer(), state)
+        fun decode(text: String): LibraryState = json.decodeFromString(LibraryState.serializer(), text)
+    }
+}

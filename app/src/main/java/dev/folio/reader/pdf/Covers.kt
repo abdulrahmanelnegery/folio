@@ -41,6 +41,12 @@ class Covers(private val context: Context) {
         }
     }
 
+    /** Deletes every saved cover; they are drawn again when needed. */
+    fun clear() {
+        memory.evictAll()
+        dir.listFiles()?.forEach { it.delete() }
+    }
+
     fun forget(id: String) {
         memory.remove(id)
         File(dir, "$id.jpg").delete()

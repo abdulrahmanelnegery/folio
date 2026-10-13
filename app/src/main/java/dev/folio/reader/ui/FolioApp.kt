@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.folio.reader.FolioViewModel
 
@@ -37,10 +38,12 @@ fun FolioApp(model: FolioViewModel) {
             model.messageShown()
         }
     }
+    var settings by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     BackHandler(enabled = reading != null) { model.closeBook() }
+    BackHandler(enabled = reading == null && settings) { settings = false }
     Box(Modifier.fillMaxSize().let { it }) {
         AnimatedContent(
-            targetState = reading,
+            targetState = reading ?: if (settings) "settings" else null,
             transitionSpec = {
                 if (targetState != null) {
                     (slideInHorizontally { it / 4 } + fadeIn()) togetherWith fadeOut()
@@ -51,7 +54,9 @@ fun FolioApp(model: FolioViewModel) {
             label = "screen",
         ) { id ->
             if (id == null) {
-                LibraryScreen(model, onOpenPicker = { picker.launch(arrayOf("application/pdf")) })
+                LibraryScreen(model, onOpenPicker = { picker.launch(arrayOf("application/pdf")) }, onSettings = { settings = true })
+            } else if (id == "settings") {
+                SettingsScreen(model, onBack = { settings = false })
             } else {
                 ReaderScreen(model, id)
             }

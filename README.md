@@ -6,11 +6,14 @@ Folio is made for long reading: your books live in a library with covers, you pi
 
 ## Features
 
-- **Library** with covers, in a grid or a list. Shelves for *Reading now*, *To read*, *Finished* and *Favorites*, plus lists of your own.
-- **Continue reading** card that opens the last book at the page and spot you left.
-- **Search and sort** by title, last opened or size.
-- **Reading themes**: Normal, Night, Soft night and Sepia. Night flips lightness and keeps hue, so figures stay readable.
-- **Smooth reading**: continuous vertical scroll, pinch to zoom, double-tap to zoom, tap to show or hide the bars, slider to jump to a page.
+- **Library** with real covers. Five ways to look at it: grid, small covers, large covers, list and details. Sort by last opened, date added, name, size, progress or rating.
+- **Shelves** in a side menu: Reading now, To read, Finished, Favorites, All books, and **your own lists, which can hold other lists**. Reorder, rename and delete them from *Manage lists*.
+- **Continue reading** card that opens the last book at the page and spot you left, and a progress bar on every book.
+- **Hold a book** to see everything about it: file name, pages, page size, size, PDF version, title, author, producer and dates read from the file, where it is stored, when you added and last opened it.
+- **Ratings, notes and comments**: stars for each book, a note for the whole book, and comments pinned to pages. Bookmarks too.
+- **Reading themes**: Normal, Night, Soft night and Sepia. One tap on the sun or moon flips the page; hold it to pick any theme.
+- **Reading tools**: auto-scroll with adjustable speed, brightness control for the book, a page slider that names the page while you drag, jump to a page by number, pinch and double-tap zoom, tap to hide the bars, screen stays awake.
+- **Backups**: reading places, lists, ratings, notes and bookmarks are copied to the phone once a day (the last 14 are kept). Save a backup to a file, or restore one, from Settings.
 - **Real Android behaviour**: the system file picker, "Open with" from other apps, edge-to-edge screens that respect the status and navigation bars, dark mode, and Arabic or any other file name.
 - **Private**: everything stays on the device. No account, no telemetry, no network access.
 
@@ -34,7 +37,7 @@ PDF pages are drawn by Android's own `PdfRenderer` (the system's PDFium), so the
 
 ## Roadmap
 
-Bookmarks, text search and selection, table of contents, annotations, a Linux desktop edition (`folio-linux`) and a share sheet.
+Text search and selection, table of contents, drawing and highlighting on pages, a share sheet, a Linux desktop edition (`folio-linux`).
 
 ## Licence
 
