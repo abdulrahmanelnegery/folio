@@ -258,7 +258,10 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
         drawerContent = {
             ModalDrawerSheet {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    Text("Rukn", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp))
+                    Column(Modifier.padding(horizontal = 28.dp, vertical = 24.dp)) {
+                        Text("Rukn", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                        Text("by Zimam", style = MaterialTheme.typography.labelMedium, color = Color(0xFFFF5A1F))
+                    }
                     shelves.forEach { t ->
                         DrawerEntry(t.icon(), t.title(), if (t == Tab.Home) null else state.books.count { it.inTab(t) }, tab == t, 0) { tab = t; scope.launch { drawer.close() } }
                     }
