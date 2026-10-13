@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.2
+
+- The same file opened by two routes (the system picker and the explorer) is now one book, not two. Existing doubles are merged on start, keeping progress, lists, ratings, notes, bookmarks and reading time.
+- A book's Location shows a readable path ("Phone › Download › name.pdf") with Arabic and other names decoded.
+- Back goes to Home from any shelf (Reading now, To read, Finished, Favorites, All); inside lists it still goes up one list at a time; the exit question is asked only on Home.
+- Short sittings show seconds instead of "0 min".
+
 ## 0.6.1
 
 - The reading bar is slim: the page, a slider and the percentage in one row. The page name shows above it while you drag.

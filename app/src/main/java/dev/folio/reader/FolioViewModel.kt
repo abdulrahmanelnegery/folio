@@ -16,6 +16,8 @@ import dev.folio.reader.data.FileTypes
 import dev.folio.reader.data.Kind
 import dev.folio.reader.data.LibraryRepository
 import dev.folio.reader.data.LibraryState
+import dev.folio.reader.data.deduplicated
+import dev.folio.reader.data.findSameFile
 import dev.folio.reader.data.ReadSession
 import dev.folio.reader.data.Status
 import dev.folio.reader.data.Storage
@@ -49,6 +51,8 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     val backupTick: StateFlow<Int> = _backupTick
 
     init {
+        // The same file added by two routes becomes one entry.
+        repo.update { it.deduplicated() }
         viewModelScope.launch(Dispatchers.IO) { if (backups.auto(repo.state.value)) _backupTick.value++ }
     }
 
@@ -181,7 +185,9 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
             stored = Uri.fromFile(copy)
         }
         val clean = name.substringBeforeLast('.', name).ifEmpty { name }
-        val base = Book(id = hash(uri.toString()), uri = stored.toString(), name = clean, fileName = name, kind = kind, size = size, added = System.currentTimeMillis())
+        // The same file reached another way (picker, explorer, a shared link) keeps its one entry.
+        val sameId = repo.state.value.findSameFile(name, size)?.id
+        val base = Book(id = sameId ?: hash(uri.toString()), uri = stored.toString(), name = clean, fileName = name, kind = kind, size = size, added = System.currentTimeMillis())
         return when (kind) {
             Kind.Pdf -> {
                 val pdf = PdfFile.open(context, stored) ?: run { _message.value = "That file could not be opened as a PDF."; return null }

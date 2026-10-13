@@ -226,6 +226,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
         val parent = parentOf((tab as Tab.List).path)
         tab = if (parent.isEmpty()) Tab.Home else Tab.List(parent)
     }
+    // From any other shelf, back returns to Home; the exit question is asked only there.
+    androidx.activity.compose.BackHandler(enabled = tab != Tab.Home && tab !is Tab.List) { tab = Tab.Home }
     androidx.activity.compose.BackHandler(enabled = searching) { searching = false; query = "" }
     androidx.activity.compose.BackHandler(enabled = selecting) { selecting = false; selected = emptySet() }
 
@@ -777,7 +779,7 @@ private fun DetailsSection(book: Book) {
         add("Reading place" to if (book.progress > 0f) book.placeLabel else "Start")
         add("Status" to when (book.status) { Status.New -> "New"; Status.Reading -> "Reading"; Status.ToRead -> "To read"; Status.Finished -> "Finished" })
         if (book.lists.isNotEmpty()) add("Lists" to book.lists.joinToString(", ") { it.replace("/", " › ") })
-        add("Location" to book.uri)
+        add("Location" to friendlyLocation(book.uri))
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
         rows.forEach { (k, v) -> FactRow(k, v) }
@@ -993,7 +995,18 @@ private fun ListHeader(tab: Tab.List, onOpen: (String) -> Unit, onRoot: () -> Un
     }
 }
 
+/** "Phone › Download › هوس القراءة.pdf" instead of an encoded address. */
+internal fun friendlyLocation(uri: String): String {
+    val decoded = Uri.decode(uri)
+    return when {
+        decoded.startsWith("file://") -> decoded.removePrefix("file://").replace("/storage/emulated/0", "Phone").replace("/storage/", "").trim('/').split('/').filter { it.isNotEmpty() }.joinToString(" › ")
+        decoded.contains("/document/") -> "Opened with the system file picker: " + decoded.substringAfterLast('/').substringAfterLast(':')
+        else -> decoded
+    }
+}
+
 private fun minutesLabel(seconds: Long): String {
+    if (seconds < 60) return "$seconds s"
     val m = seconds / 60
     return if (m < 60) "$m min" else "${m / 60} h ${m % 60} min"
 }

@@ -278,3 +278,45 @@ fun LibraryState.mostRead(days: Int, limit: Int, now: Long = System.currentTimeM
     sessionsSince(days, now).groupBy { it.bookId }.mapValues { (_, s) -> s.sumOf { it.seconds } }
         .mapNotNull { (id, secs) -> books.firstOrNull { it.id == id }?.let { it to secs } }
         .sortedByDescending { it.second }.take(limit)
+
+// ---- the same file added twice -----------------------------------------------------------------
+
+/** The key two entries share when they are the same file reached by different routes: its name and size. */
+private fun Book.sameFileKey(): String? = if (fileName.isNotEmpty() && size > 0) fileName.lowercase() + "|" + size else null
+
+/** Finds the library entry for a file with this name and size, if there is one. */
+fun LibraryState.findSameFile(fileName: String, size: Long): Book? =
+    if (fileName.isEmpty() || size <= 0) null else books.firstOrNull { it.sameFileKey() == fileName.lowercase() + "|" + size }
+
+/**
+ * Merges entries that are the same file (opened once from the picker and once from the explorer, say):
+ * progress, lists, notes, bookmarks, ratings and reading time are all kept on the one that stays.
+ */
+fun LibraryState.deduplicated(): LibraryState {
+    val groups = books.groupBy { it.sameFileKey() }
+    if (groups.all { (key, list) -> key == null || list.size == 1 }) return this
+    val remap = HashMap<String, String>()
+    val merged = ArrayList<Book>()
+    for (book in books) {
+        val key = book.sameFileKey()
+        val group = if (key == null) listOf(book) else groups.getValue(key)
+        if (group.size == 1) { merged += book; continue }
+        val keep = group.maxWith(compareBy<Book>({ it.progress }, { it.lastOpened }))
+        if (book.id != keep.id) { remap[book.id] = keep.id; continue }
+        val others = group - keep
+        merged += keep.copy(
+            lists = (keep.lists + others.flatMap { it.lists }).distinct(),
+            bookmarks = (keep.bookmarks + others.flatMap { it.bookmarks }).distinct().sorted(),
+            comments = (keep.comments + others.flatMap { it.comments }).distinctBy { it.page to it.text },
+            favorite = keep.favorite || others.any { it.favorite },
+            rating = maxOf(keep.rating, others.maxOf { it.rating }),
+            note = keep.note.ifBlank { others.map { it.note }.firstOrNull { it.isNotBlank() }.orEmpty() },
+            readSeconds = keep.readSeconds + others.sumOf { it.readSeconds },
+            pagesRead = keep.pagesRead + others.sumOf { it.pagesRead },
+            lastOpened = maxOf(keep.lastOpened, others.maxOf { it.lastOpened }),
+            added = listOf(keep.added).plus(others.map { it.added }).filter { it > 0 }.minOrNull() ?: keep.added,
+            status = if (keep.status == Status.New) others.map { it.status }.firstOrNull { it != Status.New } ?: Status.New else keep.status,
+        )
+    }
+    return copy(books = merged, sessions = sessions.map { if (it.bookId in remap) it.copy(bookId = remap.getValue(it.bookId)) else it })
+}
