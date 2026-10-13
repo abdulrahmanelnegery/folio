@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.4
+
+- Inside a list, hold a book to open it, take it out of the list, move it to another list or add it to more lists.
+- Hold a folder (a list inside a list) to open, rename, move, add a list inside, or delete it. Lists can be moved into other lists from Manage lists too.
+
 ## 0.4.3
 
 - Take a book out of the list it is opened in, from its sheet or for several books at once.
