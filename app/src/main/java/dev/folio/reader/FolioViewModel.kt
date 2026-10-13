@@ -44,6 +44,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     val storage = Storage(app).also { it.refresh() }
     val repo = LibraryRepository(storage, viewModelScope)
     val covers = Covers(app, storage)
+    val pageCache = dev.folio.reader.pdf.PageDiskCache(storage)
     val backups = Backups(storage)
 
     /** Bumped when a backup is made, so the backup list redraws. */
@@ -250,6 +251,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
 
     fun remove(id: String) {
         covers.forget(id)
+        pageCache.forget(id)
         discardText(id)
         repo.remove(id)
     }

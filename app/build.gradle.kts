@@ -13,8 +13,8 @@ android {
         applicationId = "dev.folio.reader"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "0.7.2"
+        versionCode = 17
+        versionName = "0.7.3"
     }
 
     signingConfigs {

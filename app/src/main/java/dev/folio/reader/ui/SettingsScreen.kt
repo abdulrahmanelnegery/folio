@@ -155,9 +155,10 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
 
             Header("Storage")
             Action(Icons.Rounded.CleaningServices, "Clear saved covers") { model.covers.clear(); refresh++ }
+            Action(Icons.Rounded.CleaningServices, "Clear saved pages (they are drawn again as you read)") { model.pageCache.clear(); refresh++ }
 
             Header("About")
-            Text("Folio 0.7.2", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
+            Text("Folio 0.7.3", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
             Text("A calm PDF reader. Everything stays on this phone.", Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

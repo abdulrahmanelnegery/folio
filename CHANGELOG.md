@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.3
+
+- After a jump (the slider, Go to page, a bookmark) a **Back to page N** button appears for a while, so one tap returns you to where you were.
+- The reading bar floats above the bottom edge instead of sitting on it, so reaching for the slider is not mistaken for Android's swipe to switch apps, and the slider is excluded from the system gesture.
+- Pages draw faster: a quick small draw shows at once, the pages just ahead and behind are drawn quietly once you stop scrolling, and every page you have seen is kept as a small image on disk, so reopening a book or coming back to a page is nearly instant. Settings can clear them.
+
 ## 0.7.2
 
 - Folio's data folder on the phone is now a visible `Folio` folder instead of the hidden `.folio`. The first start moves the old folder in (one rename, or a careful copy if both exist), so the library, backups and covers carry over.
