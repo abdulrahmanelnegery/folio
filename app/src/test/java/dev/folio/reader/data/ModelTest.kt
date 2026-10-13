@@ -185,6 +185,23 @@ class ModelTest {
         assertNull(s.findSameFile("C.pdf", 0))
     }
 
+    @Test
+    fun `an old entry with no file name merges with the explorer entry and the readable path is kept`() {
+        // From a real library: the picker entry has progress, lists and a rating but no stored file name or added date.
+        val old = Book("old", "content://com.android.providers.downloads.documents/document/1000302067", "هوس القراءة", fileName = "", size = 5000, pages = 318, page = 127, offset = 0.2f, rating = 5, lists = listOf("level 1", "hhhh"), status = Status.Reading, lastOpened = 5)
+        val fresh = Book("new", "file:///storage/emulated/0/Download/هوس القراءة.pdf", "هوس القراءة", fileName = "هوس القراءة.pdf", size = 5000, pages = 318, added = 9, lastOpened = 9, status = Status.Reading)
+        val s = LibraryState(books = listOf(old, fresh)).deduplicated()
+        assertEquals(1, s.books.size)
+        val b = s.books.single()
+        assertEquals("the one with the progress stays", "old", b.id)
+        assertEquals(127, b.page)
+        assertEquals(listOf("level 1", "hhhh"), b.lists)
+        assertEquals(5, b.rating)
+        assertEquals("file:///storage/emulated/0/Download/هوس القراءة.pdf", b.uri)
+        assertEquals("هوس القراءة.pdf", b.fileName)
+        assertEquals("old", LibraryState(books = listOf(old)).findSameFile("هوس القراءة.pdf", 5000)?.id)
+    }
+
     @get:Rule
     val tmp = TemporaryFolder()
 

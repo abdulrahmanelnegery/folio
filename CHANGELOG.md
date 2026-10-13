@@ -4,6 +4,8 @@
 
 - Folio's data folder on the phone is now a visible `Folio` folder instead of the hidden `.folio`. The first start moves the old folder in (one rename, or a careful copy if both exist), so the library, backups and covers carry over.
 - A new README.
+- The same book listed twice is merged even when one entry is an older one with no stored file name (the case of a book first opened from the system picker and later from the explorer). It keeps the progress, lists, rating and notes, and takes the readable file path.
+- The location of a book opened with the system picker reads "Downloads (opened with the file picker)" instead of an id.
 
 ## 0.7.1
 
