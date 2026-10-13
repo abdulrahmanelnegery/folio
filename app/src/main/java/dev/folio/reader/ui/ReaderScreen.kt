@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.BrightnessHigh
 import androidx.compose.material.icons.rounded.BrightnessLow
+import androidx.compose.material.icons.rounded.BrightnessMedium
 import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Speed
@@ -175,6 +176,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var jumpDialog by remember { mutableStateOf(false) }
     var editNote by remember { mutableStateOf<NoteEdit?>(null) }
     var menu by remember { mutableStateOf(false) }
+    var scrub by remember { mutableStateOf<Int?>(null) }
     var sizesVersion by remember { mutableStateOf(0) }
     var autoScroll by remember { mutableStateOf(false) }
     var autoSpeed by remember { mutableFloatStateOf(70f) }
@@ -301,8 +303,9 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                         IconButton(onClick = { model.repo.toggleBookmark(id, current - 1) }) {
                             Icon(if (marked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (marked) "Remove bookmark" else "Add bookmark", tint = if (marked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                         }
-                        IconButton(onClick = { editNote = NoteEdit(null, current - 1, "") }) { Icon(Icons.Rounded.AddComment, "Comment on this page") }
                         ThemeToggle(theme, onToggle = { model.repo.update { it.copy(theme = if (it.theme == PageTheme.Normal) PageTheme.Night else PageTheme.Normal) } }, onMore = { themeSheet = true })
+                        BrightnessButton(book.brightness) { v -> model.repo.updateBook(id) { it.copy(brightness = v) } }
+                        RotationButton(book.orientation) { o -> model.repo.updateBook(id) { it.copy(orientation = o) } }
                         Box {
                             IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Reading options") }
                             DropdownMenu(menu, { menu = false }) {
@@ -312,14 +315,9 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                     onClick = { menu = false; autoScroll = !autoScroll; tool = if (autoScroll) ReaderTool.AutoScroll else null; barsVisible = !autoScroll },
                                 )
                                 DropdownMenuItem(
-                                    leadingIcon = { Icon(Icons.Rounded.LightMode, null) },
-                                    text = { Text("Brightness") },
-                                    onClick = { menu = false; tool = ReaderTool.Brightness },
-                                )
-                                DropdownMenuItem(
-                                    leadingIcon = { Icon(Icons.Rounded.ScreenRotation, null) },
-                                    text = { Text("Rotation: ${state.orientation.label}") },
-                                    onClick = { menu = false; model.repo.update { it.copy(orientation = dev.folio.reader.data.Orientation.entries[(it.orientation.ordinal + 1) % dev.folio.reader.data.Orientation.entries.size]) } },
+                                    leadingIcon = { Icon(Icons.Rounded.AddComment, null) },
+                                    text = { Text("Comment on this page") },
+                                    onClick = { menu = false; editNote = NoteEdit(null, current - 1, "") },
                                 )
                                 DropdownMenuItem(
                                     leadingIcon = { Icon(Icons.Rounded.Bookmarks, null) },
@@ -342,20 +340,6 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 6.dp, shadowElevation = 8.dp) {
                     Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
                         when (tool) {
-                            ReaderTool.Brightness -> {
-                                ToolHeader("Brightness", onClose = { tool = null })
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Rounded.BrightnessLow, null, Modifier.size(20.dp))
-                                    Slider(
-                                        value = if (state.brightness < 0f) 0.5f else state.brightness,
-                                        onValueChange = { v -> model.repo.update { it.copy(brightness = v.coerceIn(0.02f, 1f)) } },
-                                        valueRange = 0.02f..1f,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    Icon(Icons.Rounded.BrightnessHigh, null, Modifier.size(20.dp))
-                                }
-                                TextButton(onClick = { model.repo.update { it.copy(brightness = -1f) } }, enabled = state.brightness >= 0f) { Text("Use the system brightness") }
-                            }
                             ReaderTool.AutoScroll -> {
                                 ToolHeader("Auto-scroll", onClose = { autoScroll = false; tool = null })
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -380,25 +364,33 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 exit = slideOutVertically { it } + fadeOut(),
             ) {
                 Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.97f), tonalElevation = 3.dp, shadowElevation = 6.dp) {
-                    Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp)) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "Page $current of ${file.pageCount}",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { jumpDialog = true }.padding(horizontal = 8.dp, vertical = 4.dp),
-                            )
-                            Spacer(Modifier.weight(1f))
-                            Text("${(current * 100f / file.pageCount).roundToInt()}%", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        PageSlider(current - 1, file.pageCount) { page -> list.requestScrollToItem(page) }
+                    // One slim row: the page, the slider, the percentage.
+                    Row(Modifier.navigationBarsPadding().padding(horizontal = 12.dp).height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "$current/${file.pageCount}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { jumpDialog = true }.padding(horizontal = 6.dp, vertical = 6.dp),
+                        )
+                        PageSlider(current - 1, file.pageCount, Modifier.weight(1f), onScrub = { scrub = it }) { page -> list.requestScrollToItem(page) }
+                        Text("${(current * 100f / file.pageCount).roundToInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
                     }
+                }
+            }
+            // The page number while you drag, floating above the slim bar.
+            scrub?.let { p ->
+                Surface(
+                    shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primary, shadowElevation = 6.dp,
+                    modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 56.dp),
+                ) {
+                    Text("Page ${p + 1}", Modifier.padding(horizontal = 18.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
                 }
             }
         }
     }
     val pages = pdf?.pageCount ?: 0
-    KeepScreenOn(state.brightness)
+    KeepScreenOn(book.brightness)
+    ReadingOrientation(book.orientation)
     if (themeSheet) ThemeSheet(theme, onPick = { picked -> model.repo.update { it.copy(theme = picked) } }, onDismiss = { themeSheet = false })
     if (bookmarkSheet) NotesSheet(
         book,
@@ -420,7 +412,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
 
 private data class NoteEdit(val id: Long?, val page: Int, val text: String)
 
-private enum class ReaderTool { Brightness, AutoScroll }
+private enum class ReaderTool { AutoScroll }
 
 /** One page: a placeholder of the right shape until its bitmap is drawn. */
 @Composable
@@ -587,32 +579,73 @@ private fun ToolHeader(title: String, onClose: () -> Unit) {
     }
 }
 
-/** A page slider with a bubble over the thumb that names the page while you drag. */
+/** A slim page slider; it reports the page while you drag so the screen can name it. */
 @Composable
-private fun PageSlider(page: Int, pageCount: Int, onSeek: (Int) -> Unit) {
+private fun PageSlider(page: Int, pageCount: Int, modifier: Modifier, onScrub: (Int?) -> Unit, onSeek: (Int) -> Unit) {
     var dragging by remember { mutableStateOf<Float?>(null) }
     val maxIndex = (pageCount - 1).coerceAtLeast(1)
-    val value = dragging ?: page.toFloat()
-    BoxWithConstraints(Modifier.fillMaxWidth().height(60.dp)) {
-        val fraction = (value / maxIndex).coerceIn(0f, 1f)
-        val track = maxWidth - 32.dp
-        if (dragging != null) {
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.primary,
-                shadowElevation = 6.dp,
-                modifier = Modifier.align(Alignment.TopStart).offset(x = 16.dp + track * fraction - 26.dp, y = 0.dp).width(52.dp),
-            ) {
-                Text("${value.roundToInt() + 1}", Modifier.padding(vertical = 6.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
+    Slider(
+        value = dragging ?: page.toFloat(),
+        onValueChange = { dragging = it; onScrub(it.roundToInt()); onSeek(it.roundToInt()) },
+        onValueChangeFinished = { dragging = null; onScrub(null) },
+        valueRange = 0f..maxIndex.toFloat(),
+        modifier = modifier,
+    )
+}
+
+/** A sun button that opens a small slider for this book's brightness. */
+@Composable
+private fun BrightnessButton(brightness: Float, onChange: (Float) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) { Icon(if (brightness < 0f) Icons.Rounded.BrightnessMedium else Icons.Rounded.BrightnessHigh, "Brightness", tint = if (brightness < 0f) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary) }
+        DropdownMenu(open, { open = false }) {
+            Column(Modifier.width(240.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("Brightness for this book", style = MaterialTheme.typography.labelLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.BrightnessLow, null, Modifier.size(18.dp))
+                    Slider(value = if (brightness < 0f) 0.5f else brightness, onValueChange = { onChange(it.coerceIn(0.02f, 1f)) }, valueRange = 0.02f..1f, modifier = Modifier.weight(1f))
+                    Icon(Icons.Rounded.BrightnessHigh, null, Modifier.size(18.dp))
+                }
+                TextButton(onClick = { onChange(-1f) }, enabled = brightness >= 0f) { Text("Use the system brightness") }
             }
         }
-        Slider(
-            value = value,
-            onValueChange = { dragging = it; onSeek(it.roundToInt()) },
-            onValueChangeFinished = { dragging = null },
-            valueRange = 0f..maxIndex.toFloat(),
-            modifier = Modifier.align(Alignment.BottomStart),
-        )
+    }
+}
+
+/** A rotate button: pick how this book turns; the rest of the app is untouched. */
+@Composable
+private fun RotationButton(current: dev.folio.reader.data.Orientation, onPick: (dev.folio.reader.data.Orientation) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(Icons.Rounded.ScreenRotation, "Rotation", tint = if (current == dev.folio.reader.data.Orientation.Normal) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary)
+        }
+        DropdownMenu(open, { open = false }) {
+            dev.folio.reader.data.Orientation.entries.forEach { o ->
+                DropdownMenuItem(
+                    text = { Column { Text(o.label); Text(o.note, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } },
+                    trailingIcon = { if (o == current) Icon(Icons.Rounded.Check, null) },
+                    onClick = { onPick(o); open = false },
+                )
+            }
+        }
+    }
+}
+
+/** Applies a book's rotation while it is open, and gives the phone's own setting back afterwards. */
+@Composable
+private fun ReadingOrientation(orientation: dev.folio.reader.data.Orientation) {
+    val activity = LocalActivity.current
+    DisposableEffect(orientation) {
+        activity?.requestedOrientation = when (orientation) {
+            dev.folio.reader.data.Orientation.Normal -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            dev.folio.reader.data.Orientation.Portrait -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            dev.folio.reader.data.Orientation.Landscape -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            dev.folio.reader.data.Orientation.Dynamic -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+            dev.folio.reader.data.Orientation.Locked -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
+        }
+        onDispose { activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
     }
 }
 

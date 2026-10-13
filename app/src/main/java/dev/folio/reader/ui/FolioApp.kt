@@ -48,18 +48,6 @@ fun FolioApp(model: FolioViewModel) {
             model.messageShown()
         }
     }
-    // The rotation the user chose applies everywhere, reading or not.
-    val orientation by remember { model.repo.state.map { it.orientation }.distinctUntilChanged() }.collectAsState(dev.folio.reader.data.Orientation.Normal)
-    val host = androidx.activity.compose.LocalActivity.current
-    androidx.compose.runtime.LaunchedEffect(orientation) {
-        host?.requestedOrientation = when (orientation) {
-            dev.folio.reader.data.Orientation.Normal -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            dev.folio.reader.data.Orientation.Portrait -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            dev.folio.reader.data.Orientation.Landscape -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            dev.folio.reader.data.Orientation.Dynamic -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
-            dev.folio.reader.data.Orientation.Locked -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
-        }
-    }
     var settings by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     var explorer by remember { androidx.compose.runtime.mutableStateOf<ExplorerRequest?>(null) }
     // Opening a file from the explorer leaves it, so back from the book lands in the library.

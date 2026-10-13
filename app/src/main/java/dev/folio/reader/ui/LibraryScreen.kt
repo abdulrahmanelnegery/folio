@@ -1267,9 +1267,21 @@ private fun HomeContent(
     onStats: () -> Unit,
     onCustomize: () -> Unit,
 ) {
-    val sections = state.homeSections().filter { it.visible }
+    val allSections = state.homeSections().filter { it.visible }
+    // Headers to switch between: one section at a time, or the whole overview.
+    var chosen by rememberSaveable { mutableStateOf<String?>(null) }
+    val picked = allSections.firstOrNull { it.section.name == chosen }?.section
+    val sections = if (picked == null) allSections else allSections.filter { it.section == picked }
     val recent = state.books.filter { it.lastOpened > 0 }.sortedByDescending { it.lastOpened }
     LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item(key = "headers") {
+            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item { androidx.compose.material3.FilterChip(picked == null, { chosen = null }, { Text("Overview") }) }
+                items(allSections, key = { it.section.name }) { cfg ->
+                    androidx.compose.material3.FilterChip(picked == cfg.section, { chosen = cfg.section.name }, { Text(cfg.section.label) })
+                }
+            }
+        }
         if (state.books.isEmpty()) item { EmptyShelf(Tab.Home, {}) }
         sections.forEach { cfg ->
             when (cfg.section) {

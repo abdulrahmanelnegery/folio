@@ -1,10 +1,17 @@
 # Changelog
 
+## 0.6.1
+
+- The reading bar is slim: the page, a slider and the percentage in one row. The page name shows above it while you drag.
+- Rotation and brightness are buttons next to the theme button, and they belong to the book: each book remembers its own, and the rest of the app is not affected.
+- The home page has headers to switch between (Overview, Continue reading, Latest three, Reading stats, Most read, Lists, Favorites) so only the section you pick is shown.
+- Opening a book shows its cover straight away and draws each page at half size first, so it feels faster.
+
 ## 0.6.0
 
 - A home page you arrange: Continue reading, the latest three books, reading stats (today, week, streak, sittings, average sitting, a 7-day chart), most read this week, your lists and favorites. Switch sections on or off and reorder them from the page itself.
 - Every time you open and close a book is kept as a sitting, so the stats can count them.
-- Screen rotation: Normal, Portrait, Landscape, Dynamic (follows the sensor even when the phone's rotation is locked) or Locked. Set it in Settings or from the reader's menu.
+- Screen rotation choices: Normal, Portrait, Landscape, Dynamic (follows the sensor even when the phone's rotation is locked) or Locked.
 
 ## 0.5.0
 

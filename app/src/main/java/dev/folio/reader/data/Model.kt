@@ -71,6 +71,10 @@ data class Book(
     /** Seconds spent reading this book, and pages read in it. */
     val readSeconds: Long = 0,
     val pagesRead: Int = 0,
+    /** How this book rotates while it is open; other books and the library are not affected. */
+    val orientation: Orientation = Orientation.Normal,
+    /** The screen brightness while reading this book (0.02..1); negative follows the system. */
+    val brightness: Float = -1f,
 ) {
     /** Reading progress 0..1; a finished book counts as complete. */
     val progress: Float
