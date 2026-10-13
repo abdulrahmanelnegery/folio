@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.FolderOff
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.SelectAll
@@ -255,6 +256,13 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                             Box {
                                 IconButton(onClick = { more = true }, enabled = selected.isNotEmpty()) { Icon(Icons.Rounded.MoreVert, "More") }
                                 DropdownMenu(more, { more = false }) {
+                                    (tab as? Tab.List)?.let { open ->
+                                        DropdownMenuItem(
+                                            text = { Text("Remove from “${nameOf(open.path)}”") },
+                                            leadingIcon = { Icon(Icons.Rounded.FolderOff, null) },
+                                            onClick = { more = false; model.repo.setInList(selected, open.path, false); selected = emptySet(); selecting = false },
+                                        )
+                                    }
                                     DropdownMenuItem(text = { Text("Add to favorites") }, leadingIcon = { Icon(Icons.Rounded.Star, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(favorite = true) } })
                                     DropdownMenuItem(text = { Text("Mark as To read") }, leadingIcon = { Icon(Icons.Rounded.BookmarkAdd, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(status = Status.ToRead) } })
                                     DropdownMenuItem(text = { Text("Mark as finished") }, leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(status = Status.Finished) } })
@@ -381,7 +389,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
 
     detailsFor?.let { id ->
         val book = state.books.firstOrNull { it.id == id }
-        if (book == null) detailsFor = null else DetailsSheet(model, book, lists, onNewList = { newList = NewList("", book.id) }, onDismiss = { detailsFor = null })
+        if (book == null) detailsFor = null else DetailsSheet(model, book, lists, (tab as? Tab.List)?.path, onNewList = { newList = NewList("", book.id) }, onDismiss = { detailsFor = null })
     }
     newList?.let { request ->
         ListDialog(lists, request.parent, onDismiss = { newList = null }) { name, parent ->
@@ -624,7 +632,7 @@ private enum class SheetSection(val label: String) { Actions("Actions"), Details
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>, onNewList: () -> Unit, onDismiss: () -> Unit) {
+private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>, openList: String?, onNewList: () -> Unit, onDismiss: () -> Unit) {
     var section by remember { mutableStateOf(SheetSection.Actions) }
     var confirmRemove by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -650,7 +658,7 @@ private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>,
             Spacer(Modifier.height(6.dp))
             Box(Modifier.fillMaxWidth().height(380.dp)) {
                 when (section) {
-                    SheetSection.Actions -> ActionsSection(model, book, lists, onNewList) { confirmRemove = true }
+                    SheetSection.Actions -> ActionsSection(model, book, lists, openList, onNewList, onDismiss) { confirmRemove = true }
                     SheetSection.Details -> DetailsSection(book)
                     SheetSection.Notes -> NotesSection(model, book)
                 }
@@ -667,9 +675,13 @@ private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>,
 }
 
 @Composable
-private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String>, onNewList: () -> Unit, onRemove: () -> Unit) {
+private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String>, openList: String?, onNewList: () -> Unit, onDismiss: () -> Unit, onRemove: () -> Unit) {
     var listPicker by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        // Inside a list, the first thing to offer is taking the book out of it (the book stays in the library).
+        if (openList != null && openList in book.lists) {
+            SheetRow(Icons.Rounded.FolderOff, "Remove from “${nameOf(openList)}”") { model.repo.toggleList(book.id, openList); onDismiss() }
+        }
         SheetRow(if (book.favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, if (book.favorite) "Remove from favorites" else "Add to favorites") {
             model.repo.updateBook(book.id) { it.copy(favorite = !it.favorite) }
         }
