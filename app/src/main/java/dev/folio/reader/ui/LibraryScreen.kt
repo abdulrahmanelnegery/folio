@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Checklist
@@ -230,7 +231,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                     lists.filter { depthOf(it) == 0 }.forEach { path ->
                         val t = Tab.List(path)
                         val inside = (tab as? Tab.List)?.let { isInside(it.path, path) } == true
-                        DrawerEntry(Icons.Rounded.Folder, nameOf(path), state.books.count { it.inTab(t) }, inside, 0) { tab = t; scope.launch { drawer.close() } }
+                        DrawerEntry(Icons.Rounded.Folder, nameOf(path), state.books.count { it.inTab(t, deep = false) }, inside, 0) { tab = t; scope.launch { drawer.close() } }
                     }
                     DrawerEntry(Icons.Rounded.CreateNewFolder, "New list", null, false, 0) { scope.launch { drawer.close() }; newList = NewList("", null) }
                     HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
@@ -334,7 +335,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                     EmptyShelf(tab, onOpenPicker)
                 } else if (state.view == ViewMode.List || state.view == ViewMode.Details) {
                     LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        if (tab is Tab.List) item { ListHeader(state, tab as Tab.List, showFolders, children, { tab = Tab.List(it) }, { tab = Tab.All }) }
+                        if (tab is Tab.List) item { ListHeader(tab as Tab.List, { tab = Tab.List(it) }, { tab = Tab.All }) }
+                        if (showFolders) items(children, key = { "folder:$it" }) { path -> FolderRow(state, path) { tab = Tab.List(path) } }
                         if (tab == Tab.ReadingNow && query.isBlank()) item { StatsCard(state) { statsSheet = true } }
                         if (hero != null) {
                             item { HeroCard(model, hero, onOpen = { open(hero) }, onDetails = { details(hero) }) }
@@ -357,7 +359,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        if (tab is Tab.List) item(span = { GridItemSpan(maxLineSpan) }) { ListHeader(state, tab as Tab.List, showFolders, children, { tab = Tab.List(it) }, { tab = Tab.All }) }
+                        if (tab is Tab.List) item(span = { GridItemSpan(maxLineSpan) }) { ListHeader(tab as Tab.List, { tab = Tab.List(it) }, { tab = Tab.All }) }
+                        if (showFolders) items(children, key = { "folder:$it" }) { path -> FolderTile(state, path, compact = state.view == ViewMode.Compact) { tab = Tab.List(path) } }
                         if (tab == Tab.ReadingNow && query.isBlank()) item(span = { GridItemSpan(maxLineSpan) }) { StatsCard(state) { statsSheet = true } }
                         if (hero != null) {
                             item(span = { GridItemSpan(maxLineSpan) }) { HeroCard(model, hero, onOpen = { open(hero) }, onDetails = { details(hero) }) }
@@ -902,7 +905,7 @@ private fun pageSize(w: Float, h: Float): String {
 
 /** Breadcrumb and the lists inside this list, as folders to step into. */
 @Composable
-private fun ListHeader(state: dev.folio.reader.data.LibraryState, tab: Tab.List, showFolders: Boolean, children: List<String>, onOpen: (String) -> Unit, onRoot: () -> Unit) {
+private fun ListHeader(tab: Tab.List, onOpen: (String) -> Unit, onRoot: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
         val parts = tab.path.split('/')
         androidx.compose.foundation.lazy.LazyRow(verticalAlignment = Alignment.CenterVertically) {
@@ -918,31 +921,6 @@ private fun ListHeader(state: dev.folio.reader.data.LibraryState, tab: Tab.List,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (i == parts.lastIndex) FontWeight.SemiBold else FontWeight.Normal,
                     )
-                }
-            }
-        }
-        if (showFolders) {
-            Spacer(Modifier.height(6.dp))
-            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(children) { path ->
-                    val count = state.books.count { it.inTab(Tab.List(path)) }
-                    val inner = state.childLists(path).size
-                    Card(
-                        Modifier.clickable { onOpen(path) },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                    ) {
-                        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.primary)
-                            Column {
-                                Text(nameOf(path), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1)
-                                Text(
-                                    "$count ${if (count == 1) "book" else "books"}" + if (inner > 0) "  ·  $inner ${if (inner == 1) "list" else "lists"}" else "",
-                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -1032,3 +1010,49 @@ private fun BulkListSheet(picked: List<Book>, lists: List<String>, onSet: (Strin
         }
     }
 }
+
+/** A list as a folder tile, the size of a book cover, in the grid. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FolderTile(state: dev.folio.reader.data.LibraryState, path: String, compact: Boolean, onOpen: () -> Unit) {
+    val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
+    val inner = state.childLists(path).size
+    Column(Modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onOpen)) {
+        Box(
+            Modifier.fillMaxWidth().aspectRatio(0.7f).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.secondaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Rounded.Folder, null, Modifier.fillMaxSize(0.5f), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(nameOf(path), style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (!compact) Text(folderSummary(books, inner), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** A list as a folder row, in the list views. */
+@Composable
+private fun FolderRow(state: dev.folio.reader.data.LibraryState, path: String, onOpen: () -> Unit) {
+    val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
+    val inner = state.childLists(path).size
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onOpen).padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(Modifier.width(54.dp).aspectRatio(0.7f).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+        }
+        Column(Modifier.weight(1f)) {
+            Text(nameOf(path), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(folderSummary(books, inner), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+private fun folderSummary(books: Int, lists: Int): String =
+    listOfNotNull(
+        if (lists > 0) "$lists ${if (lists == 1) "list" else "lists"}" else null,
+        "$books ${if (books == 1) "book" else "books"}",
+    ).joinToString("  ·  ")
