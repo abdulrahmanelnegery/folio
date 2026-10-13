@@ -13,6 +13,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -36,6 +37,9 @@ import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.foundation.systemGestureExclusion
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.rounded.ScreenLockRotation
 import androidx.compose.material.icons.rounded.ScreenRotationAlt
@@ -127,8 +131,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-private const val MAX_ZOOM = 4f
-private const val DOUBLE_TAP_ZOOM = 2.2f
+private const val MAX_ZOOM = 5f
+private const val DOUBLE_TAP_ZOOM = 2.5f
 
 /** Colour filters that turn the white page into each reading theme. */
 private fun PageTheme.filter(): ColorFilter? = when (this) {
@@ -174,7 +178,8 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
 
     var barsVisible by remember { mutableStateOf(true) }
     var zoom by remember { mutableFloatStateOf(1f) }
-    var panX by remember { mutableFloatStateOf(0f) }
+    var offX by remember { mutableFloatStateOf(0f) }
+    var offY by remember { mutableFloatStateOf(0f) }
     val theme = state.theme
     ImmersiveBars(barsVisible)
     ReadingClock(model, id)
@@ -183,6 +188,8 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var editNote by remember { mutableStateOf<NoteEdit?>(null) }
     var menu by remember { mutableStateOf(false) }
     var scrub by remember { mutableStateOf<Int?>(null) }
+    // Where you were before a jump, so one tap can take you back.
+    var returnTo by remember { mutableStateOf<ReturnPoint?>(null) }
     var detecting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var sizesVersion by remember { mutableStateOf(0) }
@@ -232,13 +239,35 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     onDispose { appContext.unregisterComponentCallbacks(callbacks); cache.evictAll() }
                 }
 
+                // Once scrolling settles, quietly draw the pages just ahead and behind so they are ready when you get there.
+                LaunchedEffect(file, widthPx, book.cropMargins, book.margins) {
+                    val visW = if (book.cropMargins && book.margins.size == 4) (1f - book.margins[0] - book.margins[2]).coerceAtLeast(0.3f) else 1f
+                    val target = (widthPx / visW).roundToInt().coerceAtMost(3600)
+                    snapshotFlow { Triple(list.firstVisibleItemIndex, list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0, list.isScrollInProgress) }
+                        .debounce(250)
+                        .collectLatest { (first, last, scrolling) ->
+                            if (scrolling) return@collectLatest
+                            for (p in listOf(last + 1, first - 1, last + 2, last + 3, first - 2)) {
+                                if (p !in 0 until file.pageCount || cache.get("$p@$target") != null) continue
+                                val bmp = model.pageCache.get(book.id, p, target) ?: file.render(p, target)?.also { model.pageCache.put(book.id, p, target, it) } ?: continue
+                                cache.put("$p@$target", bmp)
+                            }
+                        }
+                }
+
                 // Pick up where the book was left: the page and how far down it.
                 LaunchedEffect(file) {
                     val firstPx = (widthPx * file.aspect(book.page)).roundToInt()
                     list.scrollToItem(book.page.coerceIn(0, file.pageCount - 1), (book.offset * firstPx).roundToInt())
                 }
                 LaunchedEffect(jumpTo.value) {
-                    jumpTo.value?.let { list.scrollToItem(it.coerceIn(0, file.pageCount - 1)); jumpTo.value = null }
+                    jumpTo.value?.let { target ->
+                        val here = ReturnPoint(list.firstVisibleItemIndex, list.firstVisibleItemScrollOffset)
+                        // A real jump (not to a neighbouring page) leaves a way back.
+                        if (kotlin.math.abs(target - here.page) >= 3) returnTo = here
+                        list.scrollToItem(target.coerceIn(0, file.pageCount - 1))
+                        jumpTo.value = null
+                    }
                 }
                 LaunchedEffect(file) {
                     snapshotFlow { list.firstVisibleItemIndex to list.firstVisibleItemScrollOffset }
@@ -261,23 +290,49 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     state = list,
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = panX; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f) }
+                        .graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = offX; translationY = offY; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f) }
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onTap = { barsVisible = !barsVisible },
-                                onDoubleTap = { zoom = if (zoom > 1.05f) 1f else DOUBLE_TAP_ZOOM; panX = 0f },
+                                // A double tap zooms in on the spot you tapped, or back out, with a short glide.
+                                onDoubleTap = { p ->
+                                    val z0 = zoom; val x0 = offX; val y0 = offY
+                                    val z1 = if (z0 > 1.05f) 1f else DOUBLE_TAP_ZOOM
+                                    val w = size.width.toFloat(); val h = size.height.toFloat()
+                                    scope.launch {
+                                        androidx.compose.animation.core.animate(0f, 1f, animationSpec = androidx.compose.animation.core.tween(240)) { t, _ ->
+                                            val z = z0 + (z1 - z0) * t
+                                            // The point under your finger stays where it is while the page grows around it.
+                                            offX = (p.x * z0 + x0 - p.x * z).coerceIn(w * (1f - z), 0f)
+                                            offY = (p.y * z0 + y0 - p.y * z).coerceIn(h * (1f - z), 0f)
+                                            zoom = z
+                                        }
+                                    }
+                                },
                             )
                         }
                         .pointerInput(Unit) {
-                            // Two fingers pinch and pan; one finger is left to the list so it scrolls.
+                            // Two fingers pinch and pan; one finger on a zoomed page pans it, and on a fit page is left to the list so it scrolls.
                             awaitEachGesture {
                                 awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                                 do {
                                     val event = awaitPointerEvent(PointerEventPass.Initial)
                                     if (event.changes.size >= 2) {
-                                        zoom = (zoom * event.calculateZoom()).coerceIn(1f, MAX_ZOOM)
-                                        val limit = size.width * (zoom - 1f) / 2f
-                                        panX = (panX + event.calculatePan().x).coerceIn(-limit, limit)
+                                        val nz = (zoom * event.calculateZoom()).coerceIn(1f, MAX_ZOOM)
+                                        val c = event.calculateCentroid()
+                                        val pan = event.calculatePan()
+                                        offX = (c.x * zoom + offX + pan.x - c.x * nz).coerceIn(size.width * (1f - nz), 0f)
+                                        offY = (c.y * zoom + offY + pan.y - c.y * nz).coerceIn(size.height * (1f - nz), 0f)
+                                        zoom = nz
+                                        event.changes.forEach { it.consume() }
+                                    } else if (zoom > 1.01f && event.changes.size == 1) {
+                                        // One finger on a zoomed page moves the page around; once its edge is reached the rest scrolls the book.
+                                        val pan = event.calculatePan()
+                                        offX = (offX + pan.x).coerceIn(size.width * (1f - zoom), 0f)
+                                        val wantY = offY + pan.y
+                                        offY = wantY.coerceIn(size.height * (1f - zoom), 0f)
+                                        val spill = wantY - offY
+                                        if (spill != 0f) list.dispatchRawDelta(-spill / zoom)
                                         event.changes.forEach { it.consume() }
                                     }
                                 } while (event.changes.any { it.pressed })
@@ -287,7 +342,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 ) {
                     items(file.pageCount) { index ->
                         @Suppress("UNUSED_VARIABLE") val layoutVersion = sizesVersion
-                        PageView(file, index, widthPx, zoom, cache, theme, crop = if (book.cropMargins && book.margins.size == 4) book.margins else null, noteCount = book.comments.count { it.page == index }, onNotes = { bookmarkSheet = true })
+                        PageView(file, book.id, model.pageCache, index, widthPx, zoom, cache, theme, crop = if (book.cropMargins && book.margins.size == 4) book.margins else null, noteCount = book.comments.count { it.page == index }, onNotes = { bookmarkSheet = true })
                     }
                 }
             }
@@ -405,17 +460,55 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { it } + fadeOut(),
             ) {
-                Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.97f), tonalElevation = 3.dp, shadowElevation = 6.dp) {
-                    // One slim row: the page, the slider, the percentage.
-                    Row(Modifier.navigationBarsPadding().padding(horizontal = 12.dp).height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+                // A floating pill lifted clear of the bottom edge, where Android's own swipe (switch app, go home) lives,
+                // so reaching for the slider is never mistaken for it.
+                Surface(
+                    shape = RoundedCornerShape(26.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.97f),
+                    tonalElevation = 3.dp,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = 26.dp),
+                ) {
+                    Row(Modifier.padding(horizontal = 12.dp).height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             "$current/${file.pageCount}",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { jumpDialog = true }.padding(horizontal = 6.dp, vertical = 6.dp),
                         )
-                        PageSlider(current - 1, file.pageCount, Modifier.weight(1f), onScrub = { scrub = it }) { page -> list.requestScrollToItem(page) }
+                        var origin by remember { mutableStateOf<ReturnPoint?>(null) }
+                        PageSlider(
+                            current - 1, file.pageCount, Modifier.weight(1f).systemGestureExclusion(),
+                            onScrub = { p ->
+                                if (p != null && scrub == null) origin = ReturnPoint(list.firstVisibleItemIndex, list.firstVisibleItemScrollOffset)
+                                // Letting go far from where the drag began leaves a way back to it.
+                                if (p == null) origin?.let { o -> if (kotlin.math.abs(list.firstVisibleItemIndex - o.page) >= 3) returnTo = o }
+                                scrub = p
+                            },
+                        ) { page -> list.requestScrollToItem(page) }
                         Text("${(current * 100f / file.pageCount).roundToInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
+                    }
+                }
+            }
+            // After a jump: one tap returns to the place you left, for a little while.
+            returnTo?.let { point ->
+                LaunchedEffect(point) { kotlinx.coroutines.delay(20_000); if (returnTo == point) returnTo = null }
+                Surface(
+                    shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.tertiaryContainer, shadowElevation = 8.dp,
+                    modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (barsVisible) 96.dp else 28.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            Modifier.clip(RoundedCornerShape(22.dp)).clickable {
+                                scope.launch { list.scrollToItem(point.page, point.offset) }
+                                returnTo = null
+                            }.padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(Icons.AutoMirrored.Rounded.Undo, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                            Text("Back to page ${point.page + 1}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        }
+                        IconButton(onClick = { returnTo = null }, modifier = Modifier.size(36.dp)) { Icon(Icons.Rounded.Close, "Dismiss", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer) }
                     }
                 }
             }
@@ -423,7 +516,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
             scrub?.let { p ->
                 Surface(
                     shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primary, shadowElevation = 6.dp,
-                    modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 56.dp),
+                    modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp),
                 ) {
                     Text("Page ${p + 1}", Modifier.padding(horizontal = 18.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
                 }
@@ -451,24 +544,29 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     if (jumpDialog && pages > 0) JumpDialog(pages, onGo = { page -> jumpTo.value = page; jumpDialog = false }, onDismiss = { jumpDialog = false })
 }
 
+/** A place in the book: the page at the top of the screen and how far it was scrolled. */
+private data class ReturnPoint(val page: Int, val offset: Int)
+
 private data class NoteEdit(val id: Long?, val page: Int, val text: String)
 
 private enum class ReaderTool { AutoScroll }
 
 /** One page: a placeholder of the right shape until its bitmap is drawn. */
 @Composable
-private fun PageView(file: PdfFile, index: Int, widthPx: Int, zoom: Float, cache: LruCache<String, Bitmap>, theme: PageTheme, crop: List<Float>?, noteCount: Int, onNotes: () -> Unit) {
+private fun PageView(file: PdfFile, bookId: String, disk: dev.folio.reader.pdf.PageDiskCache, index: Int, widthPx: Int, zoom: Float, cache: LruCache<String, Bitmap>, theme: PageTheme, crop: List<Float>?, noteCount: Int, onNotes: () -> Unit) {
     // With the margins cropped only the middle of the page is shown, so it is drawn wider to keep the text as sharp.
     val (l, t, r, b) = crop ?: listOf(0f, 0f, 0f, 0f)
     val visW = (1f - l - r).coerceAtLeast(0.3f)
     val visH = (1f - t - b).coerceAtLeast(0.3f)
     // Sharper pixels when zoomed, in steps so a pinch does not re-render every frame.
-    val target = (widthPx / visW * (if (zoom > 1.6f) 2.5f else if (zoom > 1.05f) 1.6f else 1f)).roundToInt().coerceAtMost(3600)
+    val target = (widthPx / visW * (if (zoom > 3.2f) 4f else if (zoom > 1.6f) 2.5f else if (zoom > 1.05f) 1.6f else 1f)).roundToInt().coerceAtMost(3600)
     val bitmap by produceState<Bitmap?>(cache.get("$index@$target") ?: cache.get("$index@${(target / 1.6f).roundToInt()}"), index, target) {
         cache.get("$index@$target")?.let { value = it; return@produceState }
-        // A half-size draw first: it is ready in a fraction of the time, so the page appears at once and sharpens after.
-        if (value == null) file.render(index, (target / 2).coerceAtLeast(1))?.also { cache.put("$index@${target / 2}", it); value = it }
-        file.render(index, target)?.also { cache.put("$index@$target", it); value = it }
+        // Drawn before and kept on disk: reading a small file is far quicker than drawing the page again.
+        disk.get(bookId, index, target)?.let { cache.put("$index@$target", it); value = it; return@produceState }
+        // A third-size draw first: it is ready in a fraction of the time, so the page appears at once and sharpens after.
+        if (value == null) file.render(index, (target / 3).coerceAtLeast(120))?.also { cache.put("$index@${target / 3}", it); value = it }
+        file.render(index, target)?.also { cache.put("$index@$target", it); value = it; disk.put(bookId, index, target, it) }
     }
     val filter = theme.filter()
     Box(Modifier.fillMaxWidth().aspectRatio(visW / (file.aspect(index) * visH)).background(Color.White)) {

@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.8.0
+
+- **Paper books.** Add a book you read on paper ("+" then "Add a paper book"), then log sittings: the page you are on now, or the pages you read, and optionally the minutes. Progress, the Stats tab and your sessions update as you log.
+- **Edit details and cover** for any book: title, author, publisher, year, pages, ISBN and description are all editable, and the cover can be changed from your gallery or removed. Details live in your Folio library; PDF files are not changed.
+- **Find details online** searches Open Library, Google Books and the Internet Archive together, retries word by word for Arabic titles, shows each result against your values and lets you tick only the parts to use before anything is applied. An optional Google Books key is in Settings.
+- Press and hold a custom list (in the side menu or on Home) for rename, move and delete.
+- Back from a shelf returns to the Library tab, and back closes the side menu first.
+- The side menu opens with a rightward swipe from the left 80dp; the middle button is gone and nothing underneath is blocked any more, so the menu button works again.
+- One finger moves a zoomed page; the "+" menu folds back on an outside tap; a rating clears by tapping the same star or Clear.
+
+## 0.7.5
+
+- Opening and closing a book has a short, soft transition: the book grows and fades in from just under full size, and eases out as the library appears beneath.
+- The side menu's edge swipe is easier to hit: a wider strip, the middle 200dp of the left edge excluded from Android's own back gesture, a small grip to show where to start, and a tap on the grip opens it too.
+- Releases are signed with every APK signature scheme (v1 to v4), and the README says how to check the signing fingerprint.
+
+## 0.7.4
+
+- Zoom is dynamic: pinch zooms around the point between your fingers and follows them as you pan, up to 5x; a double tap glides in on the spot you tapped and back out. Pages sharpen in steps as you zoom.
+- Back steps out one level at a time and remembers where you were: a book opened from Reading now (or a list, or a search, or the file explorer) returns there, then to Home, then asks to close.
+
+## 0.7.3
+
+- After a jump (the slider, Go to page, a bookmark) a **Back to page N** button appears for a while, so one tap returns you to where you were.
+- The reading bar floats above the bottom edge instead of sitting on it, so reaching for the slider is not mistaken for Android's swipe to switch apps, and the slider is excluded from the system gesture.
+- Pages draw faster: a quick small draw shows at once, the pages just ahead and behind are drawn quietly once you stop scrolling, and every page you have seen is kept as a small image on disk, so reopening a book or coming back to a page is nearly instant. Settings can clear them.
+
 ## 0.7.2
 
 - Folio's data folder on the phone is now a visible `Folio` folder instead of the hidden `.folio`. The first start moves the old folder in (one rename, or a careful copy if both exist), so the library, backups and covers carry over.

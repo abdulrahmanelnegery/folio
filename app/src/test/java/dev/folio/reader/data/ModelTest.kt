@@ -232,4 +232,58 @@ class ModelTest {
     fun `nothing to migrate when there is no old folder`() {
         assertFalse(Storage.migrateLegacyFolder(java.io.File(tmp.root, ".folio"), java.io.File(tmp.root, "Folio")))
     }
+
+    @Test
+    fun `a paper book shows progress from the pages read`() {
+        val b = Book(id = "p", uri = "", name = "Paper", physical = true, pages = 200, page = 50)
+        assertEquals(0.25f, b.progress, 0.001f)
+        assertEquals("Page 50 of 200", b.placeLabel)
+    }
+
+    @Test
+    fun `online search results are read, with the cover and the best isbn`() {
+        val body = """{"docs":[{"key":"/works/OL1W","title":"Dune","author_name":["Frank Herbert"],"publisher":["Chilton"],
+            "first_publish_year":1965,"number_of_pages_median":412,"isbn":["0441172717","9780441172719"],"cover_i":99},{"title":"Bare"},{"nope":1}]}"""
+        val r = BookLookup.parse(body)
+        assertEquals(2, r.size)
+        assertEquals("Frank Herbert", r[0].author)
+        assertEquals("9780441172719", r[0].isbn)
+        assertEquals("1965", r[0].year)
+        assertEquals(412, r[0].pages)
+        assertTrue(r[0].coverUrl.endsWith("/99-L.jpg"))
+        assertEquals("", r[1].coverUrl)
+    }
+
+    @Test
+    fun `google results are read and the same book from two catalogues becomes one entry`() {
+        val google = """{"items":[{"volumeInfo":{"title":"Dune","authors":["Frank Herbert"],"publisher":"Ace","publishedDate":"1990-09-01",
+            "pageCount":560,"description":"Spice.","industryIdentifiers":[{"type":"ISBN_10","identifier":"0441172717"},{"type":"ISBN_13","identifier":"9780441172719"}],
+            "imageLinks":{"thumbnail":"http://books.google.com/x?id=1&zoom=1&edge=curl"}}}]}"""
+        val g = BookLookup.parseGoogle(google)
+        assertEquals("1990", g[0].year)
+        assertEquals("https://books.google.com/x?id=1&zoom=0", g[0].coverUrl)
+        val ol = BookMeta(title = "Dune", author = "Frank Herbert", isbn = "9780441172719", year = "1965", source = "Open Library")
+        val merged = BookLookup.merge(listOf(listOf(ol), g))
+        assertEquals(1, merged.size)
+        assertEquals("1965", merged[0].year)
+        assertEquals("Spice.", merged[0].description)
+        assertEquals(560, merged[0].pages)
+    }
+
+    @Test
+    fun `arabic words are folded and ranked by how many of them a title has`() {
+        assertEquals(listOf("هوس", "قراءه"), BookLookup.words("هَوَس القراءة"))
+        val a = BookMeta(title = "هوس الدوالي")
+        val b = BookMeta(title = "هوس القراءة")
+        assertEquals("هوس القراءة", BookLookup.rank(listOf(a, b), "هوس القراءة").first().title)
+    }
+
+    @Test
+    fun `internet archive results become entries with a cover`() {
+        val body = """{"response":{"docs":[{"identifier":"abc","title":"T","creator":["A","B"],"year":"2001","description":"<p>Hi  there</p>"}]}}"""
+        val r = BookLookup.parseArchive(body)
+        assertEquals("A, B", r[0].author)
+        assertEquals("Hi there", r[0].description)
+        assertTrue(r[0].coverUrl.endsWith("/abc"))
+    }
 }

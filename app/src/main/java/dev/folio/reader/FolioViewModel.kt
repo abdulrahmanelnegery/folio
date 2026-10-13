@@ -44,6 +44,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     val storage = Storage(app).also { it.refresh() }
     val repo = LibraryRepository(storage, viewModelScope)
     val covers = Covers(app, storage)
+    val pageCache = dev.folio.reader.pdf.PageDiskCache(storage)
     val backups = Backups(storage)
 
     /** Bumped when a backup is made, so the backup list redraws. */
@@ -105,6 +106,12 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         pendingPages = 0
         repo.addReading(id, seconds, pages)
     }
+
+    // Where you were in the library, kept here so coming back from a book (or the explorer) lands on the same shelf,
+    // list and search instead of starting over at Home.
+    var libraryTab by mutableStateOf<dev.folio.reader.data.Tab>(dev.folio.reader.data.Tab.Home)
+    var libraryQuery by mutableStateOf("")
+    var librarySearching by mutableStateOf(false)
 
     private val _reading = MutableStateFlow<String?>(null)
     /** The id of the book on screen, or null for the library. */
@@ -222,6 +229,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     }.getOrNull()
 
     fun openBook(id: String) {
+        if (repo.book(id)?.physical == true) return
         _reading.value = id
         sessionBook = id; sessionStart = System.currentTimeMillis(); sessionSeconds = 0.0; sessionPages = 0
         repo.updateBook(id) { it.copy(lastOpened = System.currentTimeMillis(), status = if (it.status == Status.Finished) it.status else Status.Reading) }
@@ -250,6 +258,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
 
     fun remove(id: String) {
         covers.forget(id)
+        pageCache.forget(id)
         discardText(id)
         repo.remove(id)
     }

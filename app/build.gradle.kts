@@ -13,12 +13,17 @@ android {
         applicationId = "dev.folio.reader"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "0.7.2"
+        versionCode = 20
+        versionName = "0.8.0"
     }
 
     signingConfigs {
         create("release") {
+            // Every scheme: v1 for old Android, v2 and v3 (which lets the key be rotated later) and v4 for streamed installs.
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = true
             val store = System.getenv("FOLIO_KEYSTORE")
             if (store != null) {
                 storeFile = file(store)

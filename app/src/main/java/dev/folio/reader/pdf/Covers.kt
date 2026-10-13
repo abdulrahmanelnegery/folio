@@ -23,9 +23,15 @@ class Covers(private val context: Context, private val storage: dev.folio.reader
     /** The cover if it is already in memory, so a card can show it on its first frame. */
     fun peek(book: Book): Bitmap? = memory.get(book.id)
 
+    private val mine: File get() = storage.dir("mycovers")
+
     suspend fun get(book: Book): Bitmap? {
-        if (book.kind != dev.folio.reader.data.Kind.Pdf) return null
         memory.get(book.id)?.let { return it }
+        if (book.customCover) {
+            val custom = withContext(Dispatchers.IO) { File(mine, "${book.id}.jpg").takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.path) } }
+            if (custom != null) { memory.put(book.id, custom); return custom }
+        }
+        if (book.kind != dev.folio.reader.data.Kind.Pdf || book.physical) return null
         return withContext(Dispatchers.IO) {
             val file = File(dir, "${book.id}.jpg")
             val cached = if (file.exists()) BitmapFactory.decodeFile(file.path) else null
@@ -51,8 +57,25 @@ class Covers(private val context: Context, private val storage: dev.folio.reader
         dir.listFiles()?.forEach { it.delete() }
     }
 
-    fun forget(id: String) {
+    /** Keeps [bytes] (any image Android can decode) as this book's own cover, scaled down to a card's size. */
+    suspend fun setCustom(id: String, bytes: ByteArray): Boolean = withContext(Dispatchers.IO) {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext false
+        val sample = Integer.highestOneBit((bounds.outWidth / (COVER_WIDTH * 2)).coerceAtLeast(1))
+        val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return@withContext false
+        val scaled = if (bmp.width > COVER_WIDTH * 2) Bitmap.createScaledBitmap(bmp, COVER_WIDTH * 2, bmp.height * COVER_WIDTH * 2 / bmp.width, true) else bmp
+        runCatching { File(mine, "$id.jpg").outputStream().use { scaled.compress(Bitmap.CompressFormat.JPEG, 88, it) } }.isSuccess.also { memory.remove(id) }
+    }
+
+    /** Drops the book's own cover so the one from the file (if any) shows again. */
+    fun removeCustom(id: String) {
         memory.remove(id)
+        File(mine, "$id.jpg").delete()
+    }
+
+    fun forget(id: String) {
+        removeCustom(id)
         File(dir, "$id.jpg").delete()
     }
 

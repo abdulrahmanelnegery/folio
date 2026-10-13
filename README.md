@@ -14,12 +14,14 @@ Folio is made for long reading: your books live in a library with covers, lists 
 - **Themes**: Normal, Night, Soft night and Sepia. Night flips lightness and keeps hue, so figures stay readable.
 - **Text, Markdown and code files** (`.txt`, `.md`, `.json`, `.yml`, `Dockerfile`, shell, config and source files): highlighted reading with line numbers, Markdown rendered, an edit mode, save, save as, and a prompt before you lose changes.
 - **Ratings, notes and details**: stars, a note for each book, and a details sheet (file name, page size, producer, dates, where it is stored). Long files are read in the background and big books are drawn within a fixed memory budget.
+- **Paper books**: add a book you read on paper and log sittings (the page you are on, or the pages you read, and the minutes). Progress, the Stats tab and your sessions follow along.
+- **Details and covers**: every book has editable title, author, publisher, year, pages, ISBN and description, and a cover you can change from your gallery. *Find details online* searches Open Library, Google Books and the Internet Archive (Arabic titles included), shows each result next to your values and applies only the parts you tick. An optional Google Books key in Settings avoids the shared daily limit.
 - **Backups**: reading places, lists, ratings, notes and bookmarks are copied automatically and can be restored, or saved to a file from Settings.
-- **Private**: everything stays on the device. No account, no telemetry, no network access.
+- **Private**: everything stays on the device. No account and no telemetry. The only network use is the lookup you start yourself, and only the words you type are sent.
 
 ## Your data
 
-Folio keeps its library, backups and cover thumbnails in one place. By default that is inside the app. If you allow *All files access* (Settings), it uses a visible `Folio` folder on the phone, which survives reinstalling the app. Earlier versions used a hidden `.folio` folder; it moves into `Folio` automatically.
+Folio keeps its library, backups, covers and your own cover images in one place. By default that is inside the app. If you allow *All files access* (Settings), it uses a visible `Folio` folder on the phone, which survives reinstalling the app. Earlier versions used a hidden `.folio` folder; it moves into `Folio` automatically.
 
 ## Install
 
@@ -32,6 +34,19 @@ Get the file for your phone from the [latest release](../../releases/latest). Ea
 | Android emulator, Chromebook | `Folio_<version>_Android_x86_64.apk` |
 
 Open the APK and allow installs from your file manager when Android asks.
+
+### Verify the download
+
+Every APK is signed with Folio's own key. Android installs it without a store because the signature is valid, and shows its usual "unknown source" notice for anything that did not come from Google Play. To check a file is really ours, compare its signing certificate with this fingerprint:
+
+```
+SHA-256: FA:CB:FE:BE:B3:27:A7:F7:AF:17:23:91:60:12:6D:57:59:E9:39:B4:B5:C4:D5:A7:64:42:05:92:47:18:2E:D4
+```
+
+```
+apksigner verify --print-certs Folio_<version>_Android_arm64-v8a.apk
+sha256sum -c Folio_<version>_Android_arm64-v8a.apk.sha256
+```
 
 ## Build
 
