@@ -585,7 +585,7 @@ private fun Stars(rating: Int, size: Int = 14, onRate: ((Int) -> Unit)? = null) 
             val icon = Icon(
                 if (filled) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                 if (onRate != null) "$i stars" else null,
-                Modifier.size(size.dp).let { if (onRate != null) it.clickable { onRate(i) } else it },
+                Modifier.size(size.dp).let { if (onRate != null) it.clickable { onRate(if (i == rating) 0 else i) } else it },
                 tint = if (filled) Color(0xFFF2B12E) else MaterialTheme.colorScheme.outline,
             )
             icon
@@ -860,7 +860,10 @@ private fun NotesSection(model: FolioViewModel, book: Book) {
     var editing by remember { mutableStateOf<dev.folio.reader.data.PageNote?>(null) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Your rating", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-        Stars(book.rating, 34) { model.repo.setRating(book.id, it) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Stars(book.rating, 34) { model.repo.setRating(book.id, it) }
+            if (book.rating > 0) TextButton(onClick = { model.repo.setRating(book.id, 0) }) { Text("Clear") }
+        }
         Text("Note about this book", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp))
         var note by remember(book.id) { mutableStateOf(book.note) }
         OutlinedTextField(note, { note = it; model.repo.setNote(book.id, it) }, placeholder = { Text("Write a note") }, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 5)
