@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.0
+
+- **Comic books.** Add a `.cbz` (a zip of page images). It opens one page at a time: swipe sideways, tap to show or hide the bar, drag the slider to jump. Pages are ordered by number (page 2 before page 10), the cover is the first page, and Rukn remembers the page and marks the book finished on the last one. Other comic formats (`.cbr` and so on) are refused with a message to convert them to `.cbz`.
+
 ## 0.9.0
 
 - **EPUB books.** Add an `.epub` like any other book. It opens chapter by chapter with the reading theme (Normal, Night, Soft night, Sepia) and a text size you can change with A− and A+; a slider and arrows move between chapters, and Rukn remembers the chapter and the place in it. The cover and title come from the book. The book is unpacked once into its own folder (refusing any entry that would escape it), pages cannot reach the network, and removing the book deletes the unpacked copy.

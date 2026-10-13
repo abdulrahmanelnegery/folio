@@ -29,7 +29,7 @@ object EpubStore {
     }
 
     /** Unpacks into [dir], refusing any entry that would land outside it and capping the total size. */
-    internal fun unpack(input: java.io.InputStream, dir: File): Boolean {
+    internal fun unpack(input: java.io.InputStream, dir: File, needContainer: Boolean = true): Boolean {
         val base = dir.canonicalFile
         var total = 0L
         ZipInputStream(input.buffered()).use { zip ->
@@ -50,7 +50,7 @@ object EpubStore {
                 }
             }
         }
-        return File(base, "META-INF/container.xml").exists()
+        return !needContainer || File(base, "META-INF/container.xml").exists()
     }
 
     fun file(context: Context, id: String, pkg: EpubPackage, relative: String): File = File(root(context, id), (pkg.folder.takeIf { it.isNotEmpty() }?.let { "$it/" }.orEmpty()) + relative)

@@ -111,6 +111,7 @@ fun FolioApp(model: FolioViewModel) {
                         when (kindOfReading) {
                             dev.folio.reader.data.Kind.Text -> TextScreen(model, id)
                             dev.folio.reader.data.Kind.Epub -> EpubScreen(model, id)
+                            dev.folio.reader.data.Kind.Comic -> ComicScreen(model, id)
                             else -> ReaderScreen(model, id)
                         }
                     }

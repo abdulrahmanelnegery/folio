@@ -178,8 +178,8 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
             _message.value = "Rukn cannot open “$name”. It reads PDF, EPUB, comic and text files."
             return null
         }
-        if (kind == Kind.Comic) {
-            _message.value = "Comic files are coming in the next update."
+        if (kind == Kind.Comic && !name.lowercase().endsWith(".cbz") && !name.lowercase().endsWith(".zip")) {
+            _message.value = "Rukn reads comics in .cbz (a zip of page images). “$name” is another format; convert it to .cbz first."
             return null
         }
 
@@ -213,6 +213,11 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
             Kind.Epub -> {
                 val (pkg, _) = dev.folio.reader.epub.EpubStore.open(context, stored, base.id) ?: run { _message.value = "That file could not be opened as an EPUB."; return null }
                 base.copy(name = pkg.title.ifBlank { clean }, author = pkg.author, pages = pkg.spine.size)
+            }
+            Kind.Comic -> {
+                val pages = dev.folio.reader.epub.ComicStore.open(context, stored, base.id)
+                if (pages.isEmpty()) { _message.value = "That file has no page images Rukn can read."; return null }
+                base.copy(pages = pages.size)
             }
             else -> null
         }
@@ -264,6 +269,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         covers.forget(id)
         pageCache.forget(id)
         dev.folio.reader.epub.EpubStore.delete(getApplication(), id)
+        dev.folio.reader.epub.ComicStore.delete(getApplication(), id)
         discardText(id)
         repo.remove(id)
     }
