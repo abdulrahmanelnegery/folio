@@ -78,12 +78,24 @@ data class Book(
     /** Whether the blank page margins are cropped away, and the margins found (left, top, right, bottom as fractions). */
     val cropMargins: Boolean = false,
     val margins: List<Float> = emptyList(),
+    /** A paper book: no file, [page] counts the pages read so far and sittings are logged by hand. */
+    val physical: Boolean = false,
+    val author: String = "",
+    val publisher: String = "",
+    val year: String = "",
+    val isbn: String = "",
+    val description: String = "",
+    /** Whether a picked or fetched cover replaces the one drawn from the file. */
+    val customCover: Boolean = false,
+    /** Bumped whenever the book's own cover changes, so a shown cover reloads. */
+    val coverRev: Int = 0,
 ) {
     /** Reading progress 0..1; a finished book counts as complete. */
     val progress: Float
         get() = when {
             status == Status.Finished -> 1f
             kind == Kind.Text -> offset.coerceIn(0f, 1f)
+            physical -> if (pages <= 0) 0f else (page.toFloat() / pages).coerceIn(0f, 1f)
             pages <= 0 || page <= 0 -> 0f
             else -> ((page + offset) / pages).coerceIn(0f, 1f)
         }
@@ -91,6 +103,7 @@ data class Book(
     /** Where the reader is: "Page 3 of 12", "Read 40%", or just the size of the book. */
     val placeLabel: String
         get() = when {
+            physical -> if (page > 0) "Page $page of $pages" else countLabel
             kind == Kind.Text && offset > 0f && status != Status.Finished -> "Read ${(offset * 100).toInt()}%  ·  $countLabel"
             kind != Kind.Text && page > 0 && status != Status.Finished -> "${if (kind == Kind.Epub) "Chapter" else "Page"} ${page + 1} of $pages"
             else -> countLabel

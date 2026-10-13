@@ -232,4 +232,25 @@ class ModelTest {
     fun `nothing to migrate when there is no old folder`() {
         assertFalse(Storage.migrateLegacyFolder(java.io.File(tmp.root, ".folio"), java.io.File(tmp.root, "Folio")))
     }
+
+    @Test
+    fun `a paper book shows progress from the pages read`() {
+        val b = Book(id = "p", uri = "", name = "Paper", physical = true, pages = 200, page = 50)
+        assertEquals(0.25f, b.progress, 0.001f)
+        assertEquals("Page 50 of 200", b.placeLabel)
+    }
+
+    @Test
+    fun `online search results are read, with the cover and the best isbn`() {
+        val body = """{"docs":[{"key":"/works/OL1W","title":"Dune","author_name":["Frank Herbert"],"publisher":["Chilton"],
+            "first_publish_year":1965,"number_of_pages_median":412,"isbn":["0441172717","9780441172719"],"cover_i":99},{"title":"Bare"},{"nope":1}]}"""
+        val r = BookLookup.parse(body)
+        assertEquals(2, r.size)
+        assertEquals("Frank Herbert", r[0].author)
+        assertEquals("9780441172719", r[0].isbn)
+        assertEquals("1965", r[0].year)
+        assertEquals(412, r[0].pages)
+        assertTrue(r[0].coverUrl.endsWith("/99-L.jpg"))
+        assertEquals("", r[1].coverUrl)
+    }
 }

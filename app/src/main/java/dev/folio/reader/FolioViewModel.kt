@@ -229,6 +229,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     }.getOrNull()
 
     fun openBook(id: String) {
+        if (repo.book(id)?.physical == true) return
         _reading.value = id
         sessionBook = id; sessionStart = System.currentTimeMillis(); sessionSeconds = 0.0; sessionPages = 0
         repo.updateBook(id) { it.copy(lastOpened = System.currentTimeMillis(), status = if (it.status == Status.Finished) it.status else Status.Reading) }

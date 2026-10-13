@@ -155,6 +155,30 @@ class LibraryRepository(private val storage: Storage, scope: CoroutineScope) {
 
     fun deleteComment(id: String, noteId: Long) = updateBook(id) { b -> b.copy(comments = b.comments.filter { it.id != noteId }) }
 
+    /**
+     * Logs a sitting with a paper book: [toPage] is where you are now, [minutes] how long it took (0 when you did not time it).
+     * Moving backwards just corrects the place without counting pages.
+     */
+    fun logSitting(id: String, toPage: Int, minutes: Int, now: Long = System.currentTimeMillis()) = update { s ->
+        val book = s.books.firstOrNull { it.id == id } ?: return@update s
+        val target = if (book.pages > 0) toPage.coerceIn(0, book.pages) else toPage.coerceAtLeast(0)
+        val gained = (target - book.page).coerceAtLeast(0)
+        val seconds = minutes.coerceAtLeast(0) * 60L
+        val key = dayKey(now)
+        val day = s.days[key] ?: DayStat()
+        val finished = book.pages > 0 && target >= book.pages
+        s.copy(
+            books = s.books.map {
+                if (it.id != id) it else it.copy(
+                    page = target, pagesRead = it.pagesRead + gained, readSeconds = it.readSeconds + seconds, lastOpened = now,
+                    status = if (finished) Status.Finished else if (it.status == Status.Finished || it.status == Status.New) Status.Reading else it.status,
+                )
+            },
+            days = if (gained > 0 || seconds > 0) s.days + (key to DayStat(day.seconds + seconds, day.pages + gained)) else s.days,
+            sessions = if (gained > 0 || seconds > 0) (s.sessions + ReadSession(id, now - seconds * 1000, seconds, gained)).takeLast(1500) else s.sessions,
+        )
+    }
+
     fun addSession(session: ReadSession) = update { s -> s.copy(sessions = (s.sessions + session).takeLast(1500)) }
 
     fun setHomeTabs(list: List<HomeTabConfig>) = update { it.copy(homeTabs = list) }

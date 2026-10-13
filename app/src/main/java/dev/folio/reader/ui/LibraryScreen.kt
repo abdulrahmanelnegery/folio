@@ -10,6 +10,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.ui.input.pointer.pointerInput
@@ -23,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -211,6 +214,9 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     var folderMenu by remember { mutableStateOf<String?>(null) }
     var addBooks by remember { mutableStateOf(false) }
     var addOpen by remember { mutableStateOf(false) }
+    // The book editor ("" = a new paper book) and the sitting log.
+    var editorFor by remember { mutableStateOf<String?>(null) }
+    var logFor by remember { mutableStateOf<String?>(null) }
     var homeIndex by rememberSaveable { mutableStateOf(0) }
     var confirmBulkRemove by remember { mutableStateOf(false) }
     val drawer = rememberDrawerState(DrawerValue.Closed)
@@ -222,7 +228,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     val shelves = listOf(Tab.Home, Tab.ReadingNow, Tab.ToRead, Tab.Finished, Tab.Favorites, Tab.All)
     val lists = state.orderedLists()
     fun toggle(id: String) { selected = if (id in selected) selected - id else selected + id; if (selected.isEmpty()) selecting = false }
-    val open: (Book) -> Unit = { if (selecting) toggle(it.id) else model.openBook(it.id) }
+    val open: (Book) -> Unit = { if (selecting) toggle(it.id) else if (it.physical) logFor = it.id else model.openBook(it.id) }
     // Holding a book shows its sheet; while picking, holding just picks it.
     val details: (Book) -> Unit = { if (selecting) toggle(it.id) else detailsFor = it.id }
     val children = (tab as? Tab.List)?.let { state.childLists(it.path) }.orEmpty()
@@ -263,7 +269,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                     lists.filter { depthOf(it) == 0 }.forEach { path ->
                         val t = Tab.List(path)
                         val inside = (tab as? Tab.List)?.let { isInside(it.path, path) } == true
-                        DrawerEntry(Icons.Rounded.Folder, nameOf(path), state.books.count { it.inTab(t, deep = false) }, inside, 0) { tab = t; scope.launch { drawer.close() } }
+                        DrawerEntry(Icons.Rounded.Folder, nameOf(path), state.books.count { it.inTab(t, deep = false) }, inside, 0, onLongClick = { scope.launch { drawer.close() }; folderMenu = path }) { tab = t; scope.launch { drawer.close() } }
                     }
                     DrawerEntry(Icons.Rounded.CreateNewFolder, "New list", null, false, 0) { scope.launch { drawer.close() }; newList = NewList("", null) }
                     HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
@@ -278,7 +284,26 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
             }
         },
     ) {
-      Box(Modifier.fillMaxSize()) {
+      Box(
+        Modifier.fillMaxSize().pointerInput(drawer) {
+            // A rightward drag that starts in the left 80dp opens the menu. Watching on the Initial pass means nothing
+            // underneath (buttons, cards) is blocked: a tap still reaches them, and only a real sideways drag is taken.
+            val edge = 80.dp.toPx()
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                if (down.position.x > edge || drawer.currentValue != DrawerValue.Closed) return@awaitEachGesture
+                var dx = 0f; var dy = 0f
+                while (true) {
+                    val e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                    val c = e.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!c.pressed) break
+                    dx += (c.position.x - c.previousPosition.x); dy += (c.position.y - c.previousPosition.y)
+                    if (kotlin.math.abs(dy) > 2 * kotlin.math.abs(dx) && kotlin.math.abs(dy) > 24f) break
+                    if (dx > 36f && dx > kotlin.math.abs(dy)) { c.consume(); scope.launch { drawer.open() }; break }
+                }
+            }
+        },
+      ) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
@@ -371,7 +396,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
                 if (tab == Tab.Home && query.isBlank()) {
-                    HomeContent(model, state, lists, onOpen = open, onDetails = details, onOpenList = { tab = Tab.List(it) }, onShelf = { tab = it }, onStats = { statsSheet = true }, startIndex = homeIndex, onIndex = { homeIndex = it })
+                    HomeContent(model, state, lists, onOpen = open, onDetails = details, onOpenList = { tab = Tab.List(it) }, onListMenu = { folderMenu = it }, onShelf = { tab = it }, onStats = { statsSheet = true }, startIndex = homeIndex, onIndex = { homeIndex = it })
                 } else if (shown.isEmpty() && children.isEmpty()) {
                     EmptyShelf(tab, onOpenPicker)
                 } else if (state.view == ViewMode.List || state.view == ViewMode.Details) {
@@ -426,23 +451,14 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                 onPick = { addOpen = false; onOpenPicker() },
                 onFromLibrary = { addOpen = false; addBooks = true },
                 onNewList = { addOpen = false; newList = NewList((tab as? Tab.List)?.path.orEmpty(), null) },
+                onPaperBook = { addOpen = false; editorFor = "" },
             )
         }
         // The left edge opens the side menu: a swipe that starts in this strip, going right. Android's own back gesture
         // also lives on the edge, so the middle of the strip is excluded from it (the system allows about 200dp), and
         // a small grip shows where to start; tapping the grip opens the menu too.
-        var pulled by remember { mutableStateOf(0f) }
         Box(
-            Modifier.align(Alignment.CenterStart).fillMaxHeight().width(44.dp).pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onDragStart = { pulled = 0f },
-                    onDragEnd = { if (pulled > 40f) scope.launch { drawer.open() }; pulled = 0f },
-                    onDragCancel = { pulled = 0f },
-                ) { _, delta -> pulled += delta }
-            },
-        )
-        Box(
-            Modifier.align(Alignment.CenterStart).width(44.dp).height(200.dp).systemGestureExclusion().clickable(
+            Modifier.align(Alignment.CenterStart).width(72.dp).height(200.dp).systemGestureExclusion().clickable(
                 indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
             ) { scope.launch { drawer.open() } },
             contentAlignment = Alignment.CenterStart,
@@ -456,7 +472,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
 
     detailsFor?.let { id ->
         val book = state.books.firstOrNull { it.id == id }
-        if (book == null) detailsFor = null else DetailsSheet(model, book, lists, (tab as? Tab.List)?.path, onOpenBook = { detailsFor = null; model.openBook(book.id) }, onNewList = { newList = NewList("", book.id) }, onDismiss = { detailsFor = null })
+        if (book == null) detailsFor = null else DetailsSheet(model, book, lists, (tab as? Tab.List)?.path, onOpenBook = { detailsFor = null; if (book.physical) logFor = book.id else model.openBook(book.id) }, onEdit = { detailsFor = null; editorFor = book.id }, onNewList = { newList = NewList("", book.id) }, onDismiss = { detailsFor = null })
     }
     newList?.let { request ->
         ListDialog(lists, request.parent, onDismiss = { newList = null }) { name, parent ->
@@ -468,6 +484,13 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
             }
             newList = null
         }
+    }
+    editorFor?.let { id ->
+        BookEditor(model, state.books.firstOrNull { it.id == id }, onDismiss = { editorFor = null })
+    }
+    logFor?.let { id ->
+        val b = state.books.firstOrNull { it.id == id }
+        if (b == null) logFor = null else LogSitting(model, b, onDismiss = { logFor = null })
     }
     folderMenu?.let { path ->
         if (path !in lists) folderMenu = null else FolderSheet(
@@ -502,7 +525,7 @@ private val LocalSelection = androidx.compose.runtime.compositionLocalOf { empty
 
 @Composable
 private fun cover(model: FolioViewModel, book: Book): ImageBitmap? =
-    produceState<ImageBitmap?>(model.covers.peek(book)?.asImageBitmap(), book.id) { value = value ?: model.covers.get(book)?.asImageBitmap() }.value
+    produceState<ImageBitmap?>(model.covers.peek(book)?.asImageBitmap(), book.id, book.coverRev) { value = model.covers.get(book)?.asImageBitmap() ?: value.takeIf { book.coverRev == 0 } }.value
 
 @Composable
 private fun Cover(model: FolioViewModel, book: Book, modifier: Modifier = Modifier, marks: Boolean = true) {
@@ -519,7 +542,7 @@ private fun Cover(model: FolioViewModel, book: Book, modifier: Modifier = Modifi
             Image(image, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopCenter)
         } else {
             Box(Modifier.fillMaxSize().background(placeholderColor(book.name)), contentAlignment = Alignment.Center) {
-                if (book.kind == dev.folio.reader.data.Kind.Pdf) {
+                if (book.kind == dev.folio.reader.data.Kind.Pdf || book.physical) {
                     Text(book.name.take(1).uppercase(), color = Color.White.copy(alpha = 0.85f), fontSize = 36.sp, fontWeight = FontWeight.SemiBold)
                 } else {
                     Text(dev.folio.reader.data.FileTypes.badge(book.fileName.ifEmpty { book.name }, book.kind), color = Color.White.copy(alpha = 0.92f), fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
@@ -694,14 +717,15 @@ private fun EmptyShelf(tab: Tab, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun DrawerEntry(icon: ImageVector, label: String, count: Int?, selected: Boolean, depth: Int, onClick: () -> Unit) {
+private fun DrawerEntry(icon: ImageVector, label: String, count: Int?, selected: Boolean, depth: Int, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
     NavigationDrawerItem(
         icon = { Icon(icon, null) },
         label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         badge = { if (count != null) Text(count.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant) },
         selected = selected,
         onClick = onClick,
-        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(start = (depth * 16).dp),
+        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(start = (depth * 16).dp)
+            .then(if (onLongClick == null) Modifier else Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)),
     )
 }
 
@@ -711,7 +735,7 @@ private enum class SheetSection(val label: String) { Actions("Actions"), Details
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>, openList: String?, onOpenBook: () -> Unit, onNewList: () -> Unit, onDismiss: () -> Unit) {
+private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>, openList: String?, onOpenBook: () -> Unit, onEdit: () -> Unit, onNewList: () -> Unit, onDismiss: () -> Unit) {
     var section by remember { mutableStateOf(SheetSection.Actions) }
     var confirmRemove by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -737,7 +761,7 @@ private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>,
             Spacer(Modifier.height(6.dp))
             Box(Modifier.fillMaxWidth().height(380.dp)) {
                 when (section) {
-                    SheetSection.Actions -> ActionsSection(model, book, lists, openList, onOpenBook, onNewList, onDismiss) { confirmRemove = true }
+                    SheetSection.Actions -> ActionsSection(model, book, lists, openList, onOpenBook, onEdit, onNewList, onDismiss) { confirmRemove = true }
                     SheetSection.Details -> DetailsSection(book)
                     SheetSection.Notes -> NotesSection(model, book)
                 }
@@ -754,12 +778,13 @@ private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>,
 }
 
 @Composable
-private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String>, openList: String?, onOpenBook: () -> Unit, onNewList: () -> Unit, onDismiss: () -> Unit, onRemove: () -> Unit) {
+private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String>, openList: String?, onOpenBook: () -> Unit, onEdit: () -> Unit, onNewList: () -> Unit, onDismiss: () -> Unit, onRemove: () -> Unit) {
     // 0 closed, 1 add to another list, 2 move to another list
     var picker by remember { mutableStateOf(0) }
     val here = openList?.takeIf { it in book.lists }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        SheetRow(Icons.Rounded.AutoStories, "Open", onClick = onOpenBook)
+        SheetRow(Icons.Rounded.AutoStories, if (book.physical) "Log a reading session" else "Open", onClick = onOpenBook)
+        SheetRow(Icons.Rounded.Edit, "Edit details and cover…", onClick = onEdit)
         // Inside a list: take the book out of it, or carry it to another list (it stays in the library).
         if (here != null) {
             SheetRow(Icons.Rounded.FolderOff, "Remove from “${nameOf(here)}”") { model.repo.toggleList(book.id, here); onDismiss() }
@@ -798,25 +823,31 @@ private fun DetailsSection(book: Book) {
     val context = LocalContext.current
     val facts by produceState<List<Pair<String, String>>?>(null, book.id) {
         value = withContext(Dispatchers.IO) {
-            val uri = Uri.parse(book.uri)
             val out = ArrayList<Pair<String, String>>()
+            if (book.physical) return@withContext out
+            val uri = Uri.parse(book.uri)
             PdfFile.open(context, uri)?.use { pdf -> pdf.sizeOf(0)?.let { (w, h) -> out += "Page size" to pageSize(w, h) } }
             out += PdfInfo.read(context, uri)
             out
         }
     }
     val rows = buildList {
-        add("File name" to book.fileName.ifEmpty { book.name })
+        if (book.author.isNotBlank()) add("Author" to book.author)
+        if (book.publisher.isNotBlank()) add("Publisher" to book.publisher)
+        if (book.year.isNotBlank()) add("Year" to book.year)
+        if (book.isbn.isNotBlank()) add("ISBN" to book.isbn)
+        if (book.description.isNotBlank()) add("Description" to book.description)
+        if (book.physical) add("Type" to "Paper book") else add("File name" to book.fileName.ifEmpty { book.name })
         add(when (book.kind) { dev.folio.reader.data.Kind.Pdf, dev.folio.reader.data.Kind.Comic -> "Pages"; dev.folio.reader.data.Kind.Epub -> "Chapters"; dev.folio.reader.data.Kind.Text -> "Lines" } to book.pages.toString())
-        add("Type" to dev.folio.reader.data.FileTypes.badge(book.fileName.ifEmpty { book.name }, book.kind))
-        add("Size" to formatSize(book.size))
+        if (!book.physical) add("Type" to dev.folio.reader.data.FileTypes.badge(book.fileName.ifEmpty { book.name }, book.kind))
+        if (!book.physical) add("Size" to formatSize(book.size))
         addAll(facts.orEmpty())
         if (book.added > 0) add("Added" to formatDate(book.added))
         add("Last opened" to if (book.lastOpened > 0) formatDate(book.lastOpened) else "Never")
         add("Reading place" to if (book.progress > 0f) book.placeLabel else "Start")
         add("Status" to when (book.status) { Status.New -> "New"; Status.Reading -> "Reading"; Status.ToRead -> "To read"; Status.Finished -> "Finished" })
         if (book.lists.isNotEmpty()) add("Lists" to book.lists.joinToString(", ") { it.replace("/", " › ") })
-        add("Location" to friendlyLocation(book.uri))
+        if (!book.physical) add("Location" to friendlyLocation(book.uri))
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
         rows.forEach { (k, v) -> FactRow(k, v) }
@@ -1245,7 +1276,7 @@ private fun MoveListDialog(state: dev.folio.reader.data.LibraryState, path: Stri
 
 /** The round + : inside a list it adds books or a list there, elsewhere it opens a file or creates a list. */
 @Composable
-private fun AddMenu(open: Boolean, onToggle: () -> Unit, listPath: String?, onBrowse: () -> Unit, onPick: () -> Unit, onFromLibrary: () -> Unit, onNewList: () -> Unit) {
+private fun AddMenu(open: Boolean, onToggle: () -> Unit, listPath: String?, onBrowse: () -> Unit, onPick: () -> Unit, onFromLibrary: () -> Unit, onNewList: () -> Unit, onPaperBook: () -> Unit) {
     androidx.activity.compose.BackHandler(enabled = open) { onToggle() }
     val turn by androidx.compose.animation.core.animateFloatAsState(
         if (open) 135f else 0f, androidx.compose.animation.core.tween(220), label = "addTurn",
@@ -1265,6 +1296,7 @@ private fun AddMenu(open: Boolean, onToggle: () -> Unit, listPath: String?, onBr
                 MenuAction(Icons.Rounded.FolderOpen, if (listPath != null) "Browse files to add" else "Browse files", onBrowse)
                 MenuAction(Icons.Rounded.UploadFile, "Pick a file with the system", onPick)
                 MenuAction(Icons.Rounded.CreateNewFolder, if (listPath != null) "New list here" else "New list", onNewList)
+                MenuAction(Icons.Rounded.AutoStories, "Add a paper book", onPaperBook)
             }
         }
         androidx.compose.material3.FloatingActionButton(
@@ -1327,6 +1359,7 @@ private fun HomeContent(
     onOpen: (Book) -> Unit,
     onDetails: (Book) -> Unit,
     onOpenList: (String) -> Unit,
+    onListMenu: (String) -> Unit,
     onShelf: (Tab) -> Unit,
     onStats: () -> Unit,
     startIndex: Int,
@@ -1436,7 +1469,7 @@ private fun HomeContent(
                                     items(top) { path ->
                                         val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
                                         val inner = state.childLists(path).size
-                                        Card(Modifier.clickable { onOpenList(path) }, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                                        Card(Modifier.clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = { onOpenList(path) }, onLongClick = { onListMenu(path) }), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
                                             Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                                 Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                                                 Column {
