@@ -185,7 +185,14 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     Box(Modifier.fillMaxSize().background(theme.background())) {
         val file = pdf
         if (file == null) {
-            Text("Opening…", Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // The cover is already in memory: show it at once, so opening feels instant while the file loads.
+            val cover by produceState<androidx.compose.ui.graphics.ImageBitmap?>(model.covers.peek(book)?.asImageBitmap(), book.id) {
+                value = value ?: model.covers.get(book)?.asImageBitmap()
+            }
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                cover?.let { Image(it, null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth, colorFilter = theme.filter(), alignment = Alignment.TopCenter) }
+                androidx.compose.material3.CircularProgressIndicator(Modifier.align(Alignment.Center).size(32.dp), strokeWidth = 3.dp)
+            }
         } else {
             val list = rememberLazyListState()
             // A page counts as read once the reader stays on it for a moment.
@@ -422,6 +429,8 @@ private fun PageView(file: PdfFile, index: Int, widthPx: Int, zoom: Float, cache
     val target = (widthPx * (if (zoom > 1.6f) 2.5f else if (zoom > 1.05f) 1.6f else 1f)).roundToInt().coerceAtMost(3000)
     val bitmap by produceState<Bitmap?>(cache.get("$index@$target") ?: cache.get("$index@$widthPx"), index, target) {
         cache.get("$index@$target")?.let { value = it; return@produceState }
+        // A half-size draw first: it is ready in a fraction of the time, so the page appears at once and sharpens after.
+        if (value == null) file.render(index, (target / 2).coerceAtLeast(1))?.also { cache.put("$index@${target / 2}", it); value = it }
         file.render(index, target)?.also { cache.put("$index@$target", it); value = it }
     }
     Box(Modifier.fillMaxWidth().aspectRatio(1f / file.aspect(index)).background(Color.White)) {
