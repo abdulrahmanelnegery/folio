@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.2
+
+- The icon, splash and About page use the exact dot of the Arabic ز in the Zimam mark (a soft diamond with one corner cut off) instead of a rounded square.
+
 ## 0.8.1
 
 - **Folio is now Rukn** (ركن, a corner or a pillar), made by [Zimam](https://github.com/zimamlabs). The package id stays the same, so it updates in place.

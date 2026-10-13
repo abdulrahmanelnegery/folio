@@ -61,7 +61,7 @@ fun Splash(name: String, onDone: () -> Unit) {
             if (across > 0f) drawLine(SplashCream, p(150f, 362f), p(150f + across, 362f), stroke.width, StrokeCap.Round)
             val s = 100f * k * pop.value
             val c = p(312f, 200f)
-            drawRoundRect(SplashOrange, Offset(c.x - s / 2, c.y - s / 2), Size(s, s), CornerRadius(22f * k * pop.value))
+            zimamDot(c, s * 1.04f, SplashOrange)
         }
         Text(name, Modifier.alpha(byline.value), color = SplashCream, fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
         Text("by Zimam", Modifier.alpha(byline.value), color = SplashOrange, fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)

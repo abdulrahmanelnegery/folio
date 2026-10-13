@@ -167,7 +167,7 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
             Action(Icons.Rounded.CleaningServices, "Clear saved pages (they are drawn again as you read)") { model.pageCache.clear(); refresh++ }
 
             Header("About")
-            Text("Rukn 0.8.1  ·  by Zimam", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
+            Text("Rukn 0.8.2  ·  by Zimam", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
             Text("A calm PDF reader. Everything stays on this phone.", Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
