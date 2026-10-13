@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0
+
+- **EPUB books.** Add an `.epub` like any other book. It opens chapter by chapter with the reading theme (Normal, Night, Soft night, Sepia) and a text size you can change with A− and A+; a slider and arrows move between chapters, and Rukn remembers the chapter and the place in it. The cover and title come from the book. The book is unpacked once into its own folder (refusing any entry that would escape it), pages cannot reach the network, and removing the book deletes the unpacked copy.
+
 ## 0.8.4
 
 - **Find details online** now asks Wikidata what an Arabic title is called in its original language (for example a translated novel), and searches the catalogues with that too. When nothing is found, a button uses what you typed as the title. (Issue #8)

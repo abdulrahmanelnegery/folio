@@ -166,6 +166,8 @@ data class LibraryState(
     val brightness: Float = -1f,
     /** Ask before leaving Rukn when back is pressed on the home screen. */
     val confirmExit: Boolean = true,
+    /** Text size in EPUB books, as a percentage of the book's own size. */
+    val epubTextPercent: Int = 100,
     /** Optional free Google Books key; without it the shared quota is often used up for the day. */
     val googleBooksKey: String = "",
     /** The folder the file explorer was last in. */

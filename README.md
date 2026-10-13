@@ -16,6 +16,7 @@ Rukn is made for long reading: your books live in a library with covers, lists a
 - **File explorer**: browse the phone (Downloads, Documents, SD cards), search a folder and everything below it, filter, sort, and add books straight to the library or to a list. The same file reached by two routes is one book.
 - **Reading**: continuous scrolling, pinch and double-tap zoom, tap to hide the bars, a slim progress bar, jump to a page, bookmarks, comments on pages, auto-scroll with adjustable speed, margin cropping, and the book's own theme, brightness and rotation (each book remembers its own).
 - **Themes**: Normal, Night, Soft night and Sepia. Night flips lightness and keeps hue, so figures stay readable.
+- **EPUB books**: read chapter by chapter with the four reading themes and a text size of your own; your place in the book is remembered.
 - **Text, Markdown and code files** (`.txt`, `.md`, `.json`, `.yml`, `Dockerfile`, shell, config and source files): highlighted reading with line numbers, Markdown rendered, an edit mode, save, save as, and a prompt before you lose changes.
 - **Ratings, notes and details**: stars, a note for each book, and a details sheet (file name, page size, producer, dates, where it is stored). Long files are read in the background and big books are drawn within a fixed memory budget.
 - **Paper books**: add a book you read on paper and log sittings (the page you are on, or the pages you read, and the minutes). Progress, the Stats tab and your sessions follow along.
@@ -66,7 +67,7 @@ PDFs are drawn by Android's own `PdfRenderer` on a worker thread; the library is
 
 ## Roadmap
 
-EPUB and comic books, editing PDFs (highlights, drawing, comments) with save-as, text search and in-app translation. A Linux edition comes after version 1.
+Comic books, editing PDFs (highlights, drawing, comments) with save-as, text search and in-app translation. A Linux edition comes after version 1.
 
 ## Licence
 
