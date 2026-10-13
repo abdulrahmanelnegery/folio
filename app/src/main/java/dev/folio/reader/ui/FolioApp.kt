@@ -49,13 +49,16 @@ fun FolioApp(model: FolioViewModel) {
         }
     }
     var settings by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    var explorer by remember { androidx.compose.runtime.mutableStateOf<ExplorerRequest?>(null) }
+    // Opening a file from the explorer leaves it, so back from the book lands in the library.
+    androidx.compose.runtime.LaunchedEffect(reading) { if (reading != null) explorer = null }
     // The text reader asks about unsaved edits itself; every other reader closes straight away.
     BackHandler(enabled = reading != null && kindOfReading != dev.folio.reader.data.Kind.Text) { model.closeBook() }
     BackHandler(enabled = reading == null && settings) { settings = false }
     // Back walks out one screen at a time; on the home screen it can ask before closing Folio.
     var askExit by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     val activity = androidx.activity.compose.LocalActivity.current
-    BackHandler(enabled = reading == null && !settings && confirmExit) { askExit = true }
+    BackHandler(enabled = reading == null && !settings && explorer == null && confirmExit) { askExit = true }
     if (askExit) ExitDialog(
         onStay = { askExit = false },
         onClose = { dontAsk ->
@@ -70,13 +73,15 @@ fun FolioApp(model: FolioViewModel) {
         },
     ) {
         AnimatedContent(
-            targetState = reading ?: if (settings) "settings" else null,
+            targetState = reading ?: if (explorer != null) "explorer" else if (settings) "settings" else null,
             // A short cross-fade: sliding two heavy screens at once is what made it stutter.
             transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(110)) },
             label = "screen",
         ) { id ->
             if (id == null) {
-                LibraryScreen(model, onOpenPicker = { picker.launch(arrayOf("*/*")) }, onSettings = { settings = true })
+                LibraryScreen(model, onOpenPicker = { picker.launch(arrayOf("*/*")) }, onSettings = { settings = true }, onBrowse = { list, dir -> explorer = ExplorerRequest(list, dir) })
+            } else if (id == "explorer") {
+                explorer?.let { ExplorerScreen(model, it, onClose = { explorer = null }) }
             } else if (id == "settings") {
                 SettingsScreen(model, onBack = { settings = false })
             } else if (kindOfReading == dev.folio.reader.data.Kind.Text) {

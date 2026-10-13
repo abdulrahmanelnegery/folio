@@ -121,13 +121,14 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Adds the documents the picker or another app handed over, then opens the first one. */
-    fun importUris(uris: List<Uri>, flags: Int = 0, open: Boolean = true) {
+    fun importUris(uris: List<Uri>, flags: Int = 0, open: Boolean = true, addToList: String? = null) {
         viewModelScope.launch {
             var first: String? = null
             for (uri in uris) {
                 val book = withContext(Dispatchers.IO) { import(uri) }
                 if (book == null) continue
                 repo.add(book)
+                if (addToList != null && addToList !in (repo.book(book.id)?.lists ?: emptyList())) repo.toggleList(book.id, addToList)
                 if (first == null) first = book.id
             }
             if (open && first != null) openBook(first)
@@ -148,6 +149,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         if (name == "Document") uri.lastPathSegment?.substringAfterLast('/')?.let { name = it }
+        if (size == 0L && uri.scheme == "file") size = runCatching { File(uri.path.orEmpty()).length() }.getOrDefault(0L)
         val mime = runCatching { resolver.getType(uri) }.getOrNull()
         val kind = FileTypes.kindOf(name, mime) ?: sniffKind(uri) ?: run {
             _message.value = "Folio cannot open “$name”. It reads PDF, EPUB, comic and text files."
