@@ -312,7 +312,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                             )
                         }
                         .pointerInput(Unit) {
-                            // Two fingers pinch and pan, zooming around the point between them; one finger is left to the list so it scrolls.
+                            // Two fingers pinch and pan; one finger on a zoomed page pans it, and on a fit page is left to the list so it scrolls.
                             awaitEachGesture {
                                 awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                                 do {
@@ -324,6 +324,15 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                         offX = (c.x * zoom + offX + pan.x - c.x * nz).coerceIn(size.width * (1f - nz), 0f)
                                         offY = (c.y * zoom + offY + pan.y - c.y * nz).coerceIn(size.height * (1f - nz), 0f)
                                         zoom = nz
+                                        event.changes.forEach { it.consume() }
+                                    } else if (zoom > 1.01f && event.changes.size == 1) {
+                                        // One finger on a zoomed page moves the page around; once its edge is reached the rest scrolls the book.
+                                        val pan = event.calculatePan()
+                                        offX = (offX + pan.x).coerceIn(size.width * (1f - zoom), 0f)
+                                        val wantY = offY + pan.y
+                                        offY = wantY.coerceIn(size.height * (1f - zoom), 0f)
+                                        val spill = wantY - offY
+                                        if (spill != 0f) list.dispatchRawDelta(-spill / zoom)
                                         event.changes.forEach { it.consume() }
                                     }
                                 } while (event.changes.any { it.pressed })

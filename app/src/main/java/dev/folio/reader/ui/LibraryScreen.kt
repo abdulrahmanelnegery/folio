@@ -23,6 +23,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -207,6 +210,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     var statsSheet by remember { mutableStateOf(false) }
     var folderMenu by remember { mutableStateOf<String?>(null) }
     var addBooks by remember { mutableStateOf(false) }
+    var addOpen by remember { mutableStateOf(false) }
+    var homeIndex by rememberSaveable { mutableStateOf(0) }
     var confirmBulkRemove by remember { mutableStateOf(false) }
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -363,19 +368,10 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 )
             },
-            floatingActionButton = {
-                AddMenu(
-                    listPath = (tab as? Tab.List)?.path,
-                    onBrowse = { onBrowse((tab as? Tab.List)?.path, null) },
-                    onPick = onOpenPicker,
-                    onFromLibrary = { addBooks = true },
-                    onNewList = { newList = NewList((tab as? Tab.List)?.path.orEmpty(), null) },
-                )
-            },
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
                 if (tab == Tab.Home && query.isBlank()) {
-                    HomeContent(model, state, lists, onOpen = open, onDetails = details, onOpenList = { tab = Tab.List(it) }, onShelf = { tab = it }, onStats = { statsSheet = true })
+                    HomeContent(model, state, lists, onOpen = open, onDetails = details, onOpenList = { tab = Tab.List(it) }, onShelf = { tab = it }, onStats = { statsSheet = true }, startIndex = homeIndex, onIndex = { homeIndex = it })
                 } else if (shown.isEmpty() && children.isEmpty()) {
                     EmptyShelf(tab, onOpenPicker)
                 } else if (state.view == ViewMode.List || state.view == ViewMode.Details) {
@@ -419,6 +415,18 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                     }
                 }
             }
+        }
+        if (addOpen) Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { addOpen = false } })
+        Box(Modifier.align(Alignment.BottomEnd).padding(16.dp).navigationBarsPadding()) {
+            AddMenu(
+                open = addOpen,
+                onToggle = { addOpen = !addOpen },
+                listPath = (tab as? Tab.List)?.path,
+                onBrowse = { addOpen = false; onBrowse((tab as? Tab.List)?.path, null) },
+                onPick = { addOpen = false; onOpenPicker() },
+                onFromLibrary = { addOpen = false; addBooks = true },
+                onNewList = { addOpen = false; newList = NewList((tab as? Tab.List)?.path.orEmpty(), null) },
+            )
         }
         // The left edge opens the side menu: a swipe that starts in this strip, going right. Android's own back gesture
         // also lives on the edge, so the middle of the strip is excluded from it (the system allows about 200dp), and
@@ -1237,22 +1245,33 @@ private fun MoveListDialog(state: dev.folio.reader.data.LibraryState, path: Stri
 
 /** The round + : inside a list it adds books or a list there, elsewhere it opens a file or creates a list. */
 @Composable
-private fun AddMenu(listPath: String?, onBrowse: () -> Unit, onPick: () -> Unit, onFromLibrary: () -> Unit, onNewList: () -> Unit) {
-    var open by remember { mutableStateOf(false) }
+private fun AddMenu(open: Boolean, onToggle: () -> Unit, listPath: String?, onBrowse: () -> Unit, onPick: () -> Unit, onFromLibrary: () -> Unit, onNewList: () -> Unit) {
+    androidx.activity.compose.BackHandler(enabled = open) { onToggle() }
+    val turn by androidx.compose.animation.core.animateFloatAsState(
+        if (open) 135f else 0f, androidx.compose.animation.core.tween(220), label = "addTurn",
+    )
     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        androidx.compose.animation.AnimatedVisibility(open) {
+        androidx.compose.animation.AnimatedVisibility(
+            open,
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(180)) +
+                androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(220)) { it / 3 } +
+                androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(220), initialScale = 0.85f),
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140)) +
+                androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(160)) { it / 3 } +
+                androidx.compose.animation.scaleOut(androidx.compose.animation.core.tween(160), targetScale = 0.85f),
+        ) {
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (listPath != null) MenuAction(Icons.Rounded.AutoStories, "Add books from the library") { open = false; onFromLibrary() }
-                MenuAction(Icons.Rounded.FolderOpen, if (listPath != null) "Browse files to add" else "Browse files") { open = false; onBrowse() }
-                MenuAction(Icons.Rounded.UploadFile, "Pick a file with the system") { open = false; onPick() }
-                MenuAction(Icons.Rounded.CreateNewFolder, if (listPath != null) "New list here" else "New list") { open = false; onNewList() }
+                if (listPath != null) MenuAction(Icons.Rounded.AutoStories, "Add books from the library", onFromLibrary)
+                MenuAction(Icons.Rounded.FolderOpen, if (listPath != null) "Browse files to add" else "Browse files", onBrowse)
+                MenuAction(Icons.Rounded.UploadFile, "Pick a file with the system", onPick)
+                MenuAction(Icons.Rounded.CreateNewFolder, if (listPath != null) "New list here" else "New list", onNewList)
             }
         }
         androidx.compose.material3.FloatingActionButton(
-            onClick = { open = !open },
+            onClick = onToggle,
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
-        ) { Icon(if (open) Icons.Rounded.Close else Icons.Rounded.Add, if (open) "Close" else "Add") }
+        ) { Icon(Icons.Rounded.Add, if (open) "Close" else "Add", Modifier.graphicsLayer { rotationZ = turn }) }
     }
 }
 
@@ -1310,12 +1329,15 @@ private fun HomeContent(
     onOpenList: (String) -> Unit,
     onShelf: (Tab) -> Unit,
     onStats: () -> Unit,
+    startIndex: Int,
+    onIndex: (Int) -> Unit,
 ) {
     val tabs = state.homeTabs().filter { it.visible }.map { it.tab }
     val n = tabs.size
-    val start = Int.MAX_VALUE / 2 - (Int.MAX_VALUE / 2) % n
+    val start = Int.MAX_VALUE / 2 - (Int.MAX_VALUE / 2) % n + startIndex.coerceIn(0, n - 1)
     val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = start) { Int.MAX_VALUE }
     val here = pager.currentPage % n
+    LaunchedEffect(here) { onIndex(here) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     Column(Modifier.fillMaxSize()) {
         // The header stays put while the page under it scrolls or flicks.
