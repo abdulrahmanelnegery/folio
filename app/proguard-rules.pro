@@ -1,0 +1,5 @@
+-keep class io.legere.pdfiumandroid.** { *; }
+-keep class com.shockwave.pdfium.** { *; }
+-keepattributes *Annotation*, InnerClasses
+-keep,includedescriptorclasses class dev.folio.reader.**$$serializer { *; }
+-keepclassmembers class dev.folio.reader.** { *** Companion; }
