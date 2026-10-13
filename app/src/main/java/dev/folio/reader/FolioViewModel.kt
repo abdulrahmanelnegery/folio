@@ -178,8 +178,8 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
             _message.value = "Rukn cannot open “$name”. It reads PDF, EPUB, comic and text files."
             return null
         }
-        if (kind == Kind.Epub || kind == Kind.Comic) {
-            _message.value = "${if (kind == Kind.Epub) "EPUB" else "Comic"} files are coming in the next update."
+        if (kind == Kind.Comic) {
+            _message.value = "Comic files are coming in the next update."
             return null
         }
 
@@ -209,6 +209,10 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
                 if (size > MAX_TEXT) { _message.value = "That file is too large to open as text (limit ${MAX_TEXT / 1048576} MB)."; return null }
                 val text = readText(stored) ?: run { _message.value = "That file could not be read."; return null }
                 base.copy(name = name, pages = text.count { it == '\n' } + 1, size = if (size > 0) size else text.length.toLong())
+            }
+            Kind.Epub -> {
+                val (pkg, _) = dev.folio.reader.epub.EpubStore.open(context, stored, base.id) ?: run { _message.value = "That file could not be opened as an EPUB."; return null }
+                base.copy(name = pkg.title.ifBlank { clean }, author = pkg.author, pages = pkg.spine.size)
             }
             else -> null
         }
@@ -259,6 +263,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     fun remove(id: String) {
         covers.forget(id)
         pageCache.forget(id)
+        dev.folio.reader.epub.EpubStore.delete(getApplication(), id)
         discardText(id)
         repo.remove(id)
     }

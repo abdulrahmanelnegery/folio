@@ -31,6 +31,7 @@ class Covers(private val context: Context, private val storage: dev.folio.reader
             val custom = withContext(Dispatchers.IO) { File(mine, "${book.id}.jpg").takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.path) } }
             if (custom != null) { memory.put(book.id, custom); return custom }
         }
+        if (book.kind == dev.folio.reader.data.Kind.Epub) return epubCover(book)
         if (book.kind != dev.folio.reader.data.Kind.Pdf || book.physical) return null
         return withContext(Dispatchers.IO) {
             val file = File(dir, "${book.id}.jpg")
@@ -38,6 +39,25 @@ class Covers(private val context: Context, private val storage: dev.folio.reader
             val bitmap = cached ?: gate.withPermit { draw(book, file) }
             bitmap?.also { memory.put(book.id, it) }
         }
+    }
+
+    /** The cover image named in the EPUB's package file, scaled down and kept as a small JPEG like other covers. */
+    private suspend fun epubCover(book: Book): Bitmap? = withContext(Dispatchers.IO) {
+        val file = File(dir, "${book.id}.jpg")
+        val cached = if (file.exists()) BitmapFactory.decodeFile(file.path) else null
+        val bitmap = cached ?: run {
+            val (pkg, _) = dev.folio.reader.epub.EpubStore.open(context, Uri.parse(book.uri), book.id) ?: return@run null
+            val path = pkg.cover ?: return@run null
+            val src = dev.folio.reader.epub.EpubStore.file(context, book.id, pkg, path)
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(src.path, bounds)
+            if (bounds.outWidth <= 0) return@run null
+            val sample = Integer.highestOneBit((bounds.outWidth / COVER_WIDTH).coerceAtLeast(1))
+            BitmapFactory.decodeFile(src.path, BitmapFactory.Options().apply { inSampleSize = sample })?.also { bmp ->
+                runCatching { file.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) } }
+            }
+        }
+        bitmap?.also { memory.put(book.id, it) }
     }
 
     private suspend fun draw(book: Book, file: File): Bitmap? {

@@ -108,7 +108,11 @@ fun FolioApp(model: FolioViewModel) {
                 LaunchedEffect(settled) { if (settled) built = true }
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                     androidx.compose.animation.AnimatedVisibility(built, enter = fadeIn(tween(140))) {
-                        if (kindOfReading == dev.folio.reader.data.Kind.Text) TextScreen(model, id) else ReaderScreen(model, id)
+                        when (kindOfReading) {
+                            dev.folio.reader.data.Kind.Text -> TextScreen(model, id)
+                            dev.folio.reader.data.Kind.Epub -> EpubScreen(model, id)
+                            else -> ReaderScreen(model, id)
+                        }
                     }
                 }
             }
