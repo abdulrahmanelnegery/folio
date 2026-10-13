@@ -117,7 +117,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     /** Shows a short message at the bottom of the screen. */
     fun notify(text: String) { _message.value = text }
 
-    /** The "All files access" setting may have changed; move to the .folio folder when it has. */
+    /** The "All files access" setting may have changed; move to the Folio folder when it has. */
     fun refreshStorage() {
         viewModelScope.launch(Dispatchers.IO) {
             if (storage.refresh()) {

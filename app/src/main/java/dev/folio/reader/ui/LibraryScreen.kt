@@ -1018,7 +1018,9 @@ internal fun friendlyLocation(uri: String): String {
     val decoded = Uri.decode(uri)
     return when {
         decoded.startsWith("file://") -> decoded.removePrefix("file://").replace("/storage/emulated/0", "Phone").replace("/storage/", "").trim('/').split('/').filter { it.isNotEmpty() }.joinToString(" › ")
-        decoded.contains("/document/") -> "Opened with the system file picker: " + decoded.substringAfterLast('/').substringAfterLast(':')
+        decoded.startsWith("content://com.android.providers.downloads") -> "Downloads (opened with the file picker)"
+        decoded.startsWith("content://com.android.externalstorage") -> "Phone storage (opened with the file picker)"
+        decoded.contains("/document/") -> "Opened with the system file picker"
         else -> decoded
     }
 }

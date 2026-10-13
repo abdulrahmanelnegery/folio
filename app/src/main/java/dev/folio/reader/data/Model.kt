@@ -282,11 +282,18 @@ fun LibraryState.mostRead(days: Int, limit: Int, now: Long = System.currentTimeM
 // ---- the same file added twice -----------------------------------------------------------------
 
 /** The key two entries share when they are the same file reached by different routes: its name and size. */
-private fun Book.sameFileKey(): String? = if (fileName.isNotEmpty() && size > 0) fileName.lowercase() + "|" + size else null
+private fun Book.sameFileKey(): String? {
+    // Older entries have no stored file name; their title is the name without ".pdf", which is what is compared.
+    val base = fileName.ifEmpty { name }.substringBeforeLast('.', fileName.ifEmpty { name }).lowercase()
+    return if (base.isNotEmpty() && size > 0) "$base|$size" else null
+}
 
 /** Finds the library entry for a file with this name and size, if there is one. */
-fun LibraryState.findSameFile(fileName: String, size: Long): Book? =
-    if (fileName.isEmpty() || size <= 0) null else books.firstOrNull { it.sameFileKey() == fileName.lowercase() + "|" + size }
+fun LibraryState.findSameFile(fileName: String, size: Long): Book? {
+    if (fileName.isEmpty() || size <= 0) return null
+    val key = fileName.substringBeforeLast('.', fileName).lowercase() + "|" + size
+    return books.firstOrNull { it.sameFileKey() == key }
+}
 
 /**
  * Merges entries that are the same file (opened once from the picker and once from the explorer, say):
@@ -304,7 +311,11 @@ fun LibraryState.deduplicated(): LibraryState {
         val keep = group.maxWith(compareBy<Book>({ it.progress }, { it.lastOpened }))
         if (book.id != keep.id) { remap[book.id] = keep.id; continue }
         val others = group - keep
+        // The explorer's file:// path is more dependable than a picker address, so it is the one kept when there is one.
+        val bestUri = (listOf(keep) + others).map { it.uri }.firstOrNull { it.startsWith("file://") } ?: keep.uri
         merged += keep.copy(
+            uri = bestUri,
+            fileName = (listOf(keep) + others).map { it.fileName }.firstOrNull { it.isNotEmpty() } ?: keep.fileName,
             lists = (keep.lists + others.flatMap { it.lists }).distinct(),
             bookmarks = (keep.bookmarks + others.flatMap { it.bookmarks }).distinct().sorted(),
             comments = (keep.comments + others.flatMap { it.comments }).distinctBy { it.page to it.text },

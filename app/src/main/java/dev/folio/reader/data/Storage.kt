@@ -7,8 +7,9 @@ import java.io.File
 
 /**
  * Where Folio keeps its own data: the library (reading places, lists, ratings, notes), backups
- * and cover thumbnails. With "All files access" it is a `.folio` folder on the phone, which
- * survives reinstalling the app; without it, the app's private folder.
+ * and cover thumbnails. With "All files access" it is a visible `Folio` folder on the phone, which
+ * survives reinstalling the app; without it, the app's private folder. The old hidden `.folio` folder is
+ * moved into it the first time.
  */
 class Storage(private val context: Context) {
     @Volatile
@@ -17,7 +18,10 @@ class Storage(private val context: Context) {
 
     val shared: Boolean get() = root != context.filesDir
 
-    val sharedFolder: File get() = File(Environment.getExternalStorageDirectory(), ".folio")
+    val sharedFolder: File get() = File(Environment.getExternalStorageDirectory(), "Folio")
+
+    /** Where earlier versions kept it, hidden. */
+    val legacyFolder: File get() = File(Environment.getExternalStorageDirectory(), ".folio")
 
     fun canUseShared(): Boolean = Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()
 
@@ -30,6 +34,7 @@ class Storage(private val context: Context) {
      * changed, so callers reload. Data moves to the shared folder when it has nothing newer.
      */
     fun refresh(): Boolean {
+        if (canUseShared()) migrateLegacyFolder(legacyFolder, sharedFolder)
         val target = if (canUseShared()) sharedFolder.also { it.mkdirs() }.takeIf { it.isDirectory && it.canWrite() } ?: context.filesDir else context.filesDir
         if (target == root) return false
         val sourceLibrary = File(root, LIBRARY)
@@ -49,6 +54,28 @@ class Storage(private val context: Context) {
     }
 
     companion object {
+        /**
+         * Moves the old hidden folder into the visible one. On the same volume that is one rename; if the visible
+         * folder already exists (or the rename fails) whatever is missing or newer is copied over first. The old
+         * folder is deleted only after everything was copied, so a failure loses nothing. True when it moved.
+         */
+        fun migrateLegacyFolder(legacy: File, target: File): Boolean {
+            if (!legacy.isDirectory || legacy.absolutePath == target.absolutePath) return false
+            if (!target.exists() && legacy.renameTo(target)) return true
+            return runCatching {
+                target.mkdirs()
+                legacy.walkTopDown().forEach { f ->
+                    val dest = File(target, f.relativeTo(legacy).path)
+                    if (f.isDirectory) dest.mkdirs()
+                    else if (!dest.exists() || f.lastModified() > dest.lastModified()) {
+                        dest.parentFile?.mkdirs()
+                        f.copyTo(dest, overwrite = true)
+                    }
+                }
+                legacy.deleteRecursively()
+            }.getOrDefault(false)
+        }
+
         const val LIBRARY = "library.json"
         const val BACKUPS = "backups"
     }
