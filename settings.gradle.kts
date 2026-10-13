@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "folio-apk"
+rootProject.name = "folio"
 include(":app")
