@@ -152,7 +152,7 @@ fun BookEditor(model: FolioViewModel, book: Book?, onDismiss: () -> Unit) {
             }
         }
     }
-    if (finding) OnlineFinder(draft, startQuery = listOf(draft.isbn.ifBlank { draft.title }, if (draft.isbn.isBlank()) draft.author else "").filter { it.isNotBlank() }.joinToString(" "), onDismiss = { finding = false })
+    if (finding) OnlineFinder(draft, model.repo.state.value.googleBooksKey, startQuery = listOf(draft.isbn.ifBlank { draft.title }, if (draft.isbn.isBlank()) draft.author else "").filter { it.isNotBlank() }.joinToString(" "), onDismiss = { finding = false })
     if (confirmDiscard) AlertDialog(
         onDismissRequest = { confirmDiscard = false },
         title = { Text("Discard your changes?") },
@@ -210,7 +210,7 @@ private suspend fun save(model: FolioViewModel, book: Book?, d: Draft) {
 
 /** Search, pick a result, then choose which of its parts to take; "Use selected" only fills the editor. */
 @Composable
-private fun OnlineFinder(draft: Draft, startQuery: String, onDismiss: () -> Unit) {
+private fun OnlineFinder(draft: Draft, googleKey: String, startQuery: String, onDismiss: () -> Unit) {
     var query by remember { mutableStateOf(startQuery) }
     var results by remember { mutableStateOf<List<BookMeta>?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -220,7 +220,7 @@ private fun OnlineFinder(draft: Draft, startQuery: String, onDismiss: () -> Unit
     fun run() {
         busy = true; error = null
         scope.launch {
-            results = runCatching { BookLookup.search(query) }.onFailure { error = "No connection, or the catalogue did not answer." }.getOrNull()
+            results = runCatching { BookLookup.search(query, googleKey) }.onFailure { error = "No connection, or the catalogue did not answer." }.getOrNull()
             busy = false
         }
     }
@@ -244,7 +244,7 @@ private fun OnlineFinder(draft: Draft, startQuery: String, onDismiss: () -> Unit
                 if (busy) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 results?.let { list ->
-                    if (list.isEmpty() && !busy) Text("Nothing found.")
+                    if (list.isEmpty() && !busy) Text("Nothing found. Translated books are often listed under the original title and author, so try those in English, or the ISBN.")
                     Column(Modifier.height(340.dp).verticalScroll(rememberScrollState())) {
                         list.forEach { m ->
                             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable {

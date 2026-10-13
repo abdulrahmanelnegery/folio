@@ -39,7 +39,7 @@ object BookLookup {
     private const val BASE = "https://openlibrary.org"
 
     /** Every way of asking, on both catalogues at once, merged into one list without repeats. */
-    suspend fun search(query: String): List<BookMeta> = coroutineScope {
+    suspend fun search(query: String, googleKey: String = ""): List<BookMeta> = coroutineScope {
         val q = query.trim()
         if (q.isEmpty()) return@coroutineScope emptyList()
         val enc = URLEncoder.encode(q, "UTF-8")
@@ -47,7 +47,7 @@ object BookLookup {
         val isIsbn = digits.length in setOf(10, 13) && q.all { it.isDigit() || it in "-xX " }
         val fields = "key,title,author_name,publisher,first_publish_year,number_of_pages_median,isbn,cover_i"
         val ol = "$BASE/search.json?limit=12&fields=$fields&"
-        val gb = "https://www.googleapis.com/books/v1/volumes?maxResults=12&printType=books&q="
+        val gb = "https://www.googleapis.com/books/v1/volumes?maxResults=12&printType=books" + (if (googleKey.isBlank()) "" else "&key=${URLEncoder.encode(googleKey.trim(), "UTF-8")}") + "&q="
         val calls = buildList<Pair<String, (String) -> List<BookMeta>>> {
             if (isIsbn) {
                 add("$ol" + "isbn=$digits" to ::parse)
@@ -103,7 +103,10 @@ object BookLookup {
         val ws = words(q)
         if (ws.isEmpty()) return list
         fun hits(m: BookMeta) = fold(m.title + " " + m.author).let { t -> ws.count { it in t } }
-        return list.sortedByDescending { hits(it) }.take(24)
+        val scored = list.map { it to hits(it) }
+        // In Arabic, a result that shares none of your words is noise (the catalogues match transliterated names loosely).
+        val arabic = q.any { it in '\u0600'..'\u06FF' }
+        return scored.filter { !arabic || it.second > 0 }.sortedByDescending { it.second }.map { it.first }.take(24)
     }
 
     internal fun parseArchive(body: String): List<BookMeta> {

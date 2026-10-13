@@ -243,6 +243,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     androidx.activity.compose.BackHandler(enabled = tab != Tab.Home && tab !is Tab.List) { tab = Tab.Home }
     androidx.activity.compose.BackHandler(enabled = searching) { searching = false; query = "" }
     androidx.activity.compose.BackHandler(enabled = selecting) { selecting = false; selected = emptySet() }
+    // Registered last, so it wins: with the side menu open, back only closes the menu.
+    androidx.activity.compose.BackHandler(enabled = drawer.currentValue == DrawerValue.Open || drawer.targetValue == DrawerValue.Open) { scope.launch { drawer.close() } }
 
     // A list that was deleted or renamed while it was open falls back to All.
     LaunchedEffect(lists, tab) { (tab as? Tab.List)?.let { if (it.path !in lists) tab = Tab.All } }

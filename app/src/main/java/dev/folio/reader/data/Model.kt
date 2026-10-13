@@ -166,6 +166,8 @@ data class LibraryState(
     val brightness: Float = -1f,
     /** Ask before leaving Folio when back is pressed on the home screen. */
     val confirmExit: Boolean = true,
+    /** Optional free Google Books key; without it the shared quota is often used up for the day. */
+    val googleBooksKey: String = "",
     /** The folder the file explorer was last in. */
     val explorerDir: String = "",
     /** One entry per time a book was opened and closed. */

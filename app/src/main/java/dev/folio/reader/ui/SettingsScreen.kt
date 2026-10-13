@@ -153,6 +153,15 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
                 }
             }
 
+            Header("Online lookup")
+            var key by remember { mutableStateOf(library.googleBooksKey) }
+            androidx.compose.material3.OutlinedTextField(
+                key, { key = it; model.repo.update { s -> s.copy(googleBooksKey = it.trim()) } },
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp), singleLine = true,
+                label = { Text("Google Books key (optional)") },
+                supportingText = { Text("Free from Google. Without it the shared quota is often used up, and Arabic books are found less.") },
+            )
+
             Header("Storage")
             Action(Icons.Rounded.CleaningServices, "Clear saved covers") { model.covers.clear(); refresh++ }
             Action(Icons.Rounded.CleaningServices, "Clear saved pages (they are drawn again as you read)") { model.pageCache.clear(); refresh++ }
