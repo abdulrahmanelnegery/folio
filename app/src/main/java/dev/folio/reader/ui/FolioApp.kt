@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -44,13 +45,8 @@ fun FolioApp(model: FolioViewModel) {
     Box(Modifier.fillMaxSize().let { it }) {
         AnimatedContent(
             targetState = reading ?: if (settings) "settings" else null,
-            transitionSpec = {
-                if (targetState != null) {
-                    (slideInHorizontally { it / 4 } + fadeIn()) togetherWith fadeOut()
-                } else {
-                    fadeIn() togetherWith (slideOutHorizontally { it / 4 } + fadeOut())
-                }
-            },
+            // A short cross-fade: sliding two heavy screens at once is what made it stutter.
+            transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(110)) },
             label = "screen",
         ) { id ->
             if (id == null) {

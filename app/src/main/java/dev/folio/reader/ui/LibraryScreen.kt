@@ -79,6 +79,9 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -167,7 +170,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     var viewMenu by remember { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
     var detailsFor by remember { mutableStateOf<String?>(null) }
-    var newListIn by remember { mutableStateOf<String?>(null) }
+    var newList by remember { mutableStateOf<NewList?>(null) }
     var manageLists by remember { mutableStateOf(false) }
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -201,7 +204,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                         val t = Tab.List(path)
                         DrawerEntry(Icons.Rounded.Folder, nameOf(path), state.books.count { it.inTab(t) }, tab == t, depthOf(path)) { tab = t; scope.launch { drawer.close() } }
                     }
-                    DrawerEntry(Icons.Rounded.CreateNewFolder, "New list", null, false, 0) { scope.launch { drawer.close() }; newListIn = "" }
+                    DrawerEntry(Icons.Rounded.CreateNewFolder, "New list", null, false, 0) { scope.launch { drawer.close() }; newList = NewList("", null) }
                     HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
                     DrawerEntry(Icons.Rounded.Settings, "Settings and backup", null, false, 0) { scope.launch { drawer.close() }; onSettings() }
                     Spacer(Modifier.height(24.dp))
@@ -320,20 +323,19 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
 
     detailsFor?.let { id ->
         val book = state.books.firstOrNull { it.id == id }
-        if (book == null) detailsFor = null else DetailsSheet(model, book, lists, onDismiss = { detailsFor = null })
+        if (book == null) detailsFor = null else DetailsSheet(model, book, lists, onNewList = { newList = NewList("", book.id) }, onDismiss = { detailsFor = null })
     }
-    newListIn?.let { parent ->
-        NameDialog(
-            title = if (parent.isEmpty()) "New list" else "New list in ${nameOf(parent)}",
-            initial = "",
-            confirm = "Create",
-            onDismiss = { newListIn = null },
-        ) { name ->
-            if (model.repo.addList(name, parent)) tab = Tab.List(if (parent.isEmpty()) name.trim() else "$parent/${name.trim()}")
-            newListIn = null
+    newList?.let { request ->
+        ListDialog(lists, request.parent, onDismiss = { newList = null }) { name, parent ->
+            if (model.repo.addList(name, parent)) {
+                val path = if (parent.isEmpty()) name.trim() else "$parent/${name.trim()}"
+                request.forBook?.let { model.repo.toggleList(it, path) }
+                if (request.forBook == null) tab = Tab.List(path)
+            }
+            newList = null
         }
     }
-    if (manageLists) ManageListsSheet(model, lists, onNewIn = { newListIn = it }, onDismiss = { manageLists = false })
+    if (manageLists) ManageListsSheet(model, lists, onNewIn = { newList = NewList(it, null) }, onDismiss = { manageLists = false })
 }
 
 @Composable
@@ -533,88 +535,41 @@ private fun DrawerEntry(icon: ImageVector, label: String, count: Int?, selected:
 
 // ---- details of one book ------------------------------------------------------------------
 
+private enum class SheetSection(val label: String) { Actions("Actions"), Details("Details"), Notes("Notes") }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>, onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    var listPicker by remember { mutableStateOf(false) }
+private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>, onNewList: () -> Unit, onDismiss: () -> Unit) {
+    var section by remember { mutableStateOf(SheetSection.Actions) }
     var confirmRemove by remember { mutableStateOf(false) }
-    val facts by produceState<List<Pair<String, String>>?>(null, book.id) {
-        value = withContext(Dispatchers.IO) {
-            val uri = Uri.parse(book.uri)
-            val out = ArrayList<Pair<String, String>>()
-            PdfFile.open(context, uri)?.use { pdf ->
-                pdf.sizeOf(0)?.let { (w, h) -> out += "Page size" to pageSize(w, h) }
-            }
-            out += PdfInfo.read(context, uri)
-            out
-        }
-    }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
-            Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Cover(model, book, Modifier.width(92.dp).aspectRatio(0.7f))
+        Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+            Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Cover(model, book, Modifier.width(64.dp).aspectRatio(0.7f))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(book.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 4, overflow = TextOverflow.Ellipsis)
-                    Stars(book.rating, 28) { model.repo.setRating(book.id, it) }
+                    Text(book.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     ReadingProgress(book)
                 }
             }
-            Spacer(Modifier.height(16.dp))
-
-            SectionLabel("Your notes")
-            var note by remember(book.id) { mutableStateOf(book.note) }
-            OutlinedTextField(
-                note,
-                { note = it; model.repo.setNote(book.id, it) },
-                placeholder = { Text("Write a note about this book") },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                minLines = 2,
-                maxLines = 6,
-            )
-            if (book.comments.isNotEmpty() || book.bookmarks.isNotEmpty()) {
-                Text(
-                    "${book.comments.size} page comments  ·  ${book.bookmarks.size} bookmarks",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp),
-                )
-            }
-
-            SectionLabel("About this file")
-            val rows = buildList {
-                add("File name" to book.fileName.ifEmpty { book.name })
-                add("Pages" to book.pages.toString())
-                add("Size" to formatSize(book.size))
-                addAll(facts.orEmpty())
-                if (book.added > 0) add("Added" to formatDate(book.added))
-                add("Last opened" to if (book.lastOpened > 0) formatDate(book.lastOpened) else "Never")
-                add("Reading place" to if (book.page > 0) "Page ${book.page + 1} of ${book.pages}" else "Start")
-                add("Status" to when (book.status) { Status.New -> "New"; Status.Reading -> "Reading"; Status.ToRead -> "To read"; Status.Finished -> "Finished" })
-                if (book.lists.isNotEmpty()) add("Lists" to book.lists.joinToString(", ") { it.replace("/", " › ") })
-                add("Location" to book.uri)
-            }
-            rows.forEach { (k, v) -> FactRow(k, v) }
-            if (facts == null) Text("Reading the file…", Modifier.padding(horizontal = 24.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-            SectionLabel("Actions")
-            SheetRow(if (book.favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, if (book.favorite) "Remove from favorites" else "Add to favorites") {
-                model.repo.updateBook(book.id) { it.copy(favorite = !it.favorite) }
-            }
-            SheetRow(Icons.Rounded.BookmarkAdd, if (book.status == Status.ToRead) "Remove from To read" else "To read") {
-                model.repo.updateBook(book.id) { it.copy(status = if (it.status == Status.ToRead) Status.Reading else Status.ToRead) }
-            }
-            SheetRow(Icons.Rounded.CheckCircle, if (book.status == Status.Finished) "Mark as reading" else "Mark as finished") {
-                model.repo.updateBook(book.id) { it.copy(status = if (it.status == Status.Finished) Status.Reading else Status.Finished) }
-            }
-            SheetRow(Icons.Rounded.Folder, "Lists…") { listPicker = !listPicker }
-            if (listPicker) {
-                if (lists.isEmpty()) Text("Create a list from the menu first.", Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                lists.forEach { list ->
-                    val on = list in book.lists
-                    SheetRow(if (on) Icons.Rounded.Check else Icons.Rounded.Folder, nameOf(list), highlighted = on, indent = depthOf(list)) { model.repo.toggleList(book.id, list) }
+            Spacer(Modifier.height(14.dp))
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                SheetSection.entries.forEachIndexed { i, s ->
+                    SegmentedButton(
+                        selected = section == s,
+                        onClick = { section = s },
+                        shape = SegmentedButtonDefaults.itemShape(i, SheetSection.entries.size),
+                        label = { Text(s.label) },
+                    )
                 }
             }
-            SheetRow(Icons.Rounded.Delete, "Remove from library") { confirmRemove = true }
+            Spacer(Modifier.height(6.dp))
+            Box(Modifier.fillMaxWidth().height(380.dp)) {
+                when (section) {
+                    SheetSection.Actions -> ActionsSection(model, book, lists, onNewList) { confirmRemove = true }
+                    SheetSection.Details -> DetailsSection(book)
+                    SheetSection.Notes -> NotesSection(model, book)
+                }
+            }
         }
     }
     if (confirmRemove) AlertDialog(
@@ -627,15 +582,108 @@ private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>,
 }
 
 @Composable
+private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String>, onNewList: () -> Unit, onRemove: () -> Unit) {
+    var listPicker by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        SheetRow(if (book.favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, if (book.favorite) "Remove from favorites" else "Add to favorites") {
+            model.repo.updateBook(book.id) { it.copy(favorite = !it.favorite) }
+        }
+        SheetRow(Icons.Rounded.BookmarkAdd, if (book.status == Status.ToRead) "Remove from To read" else "To read") {
+            model.repo.updateBook(book.id) { it.copy(status = if (it.status == Status.ToRead) Status.Reading else Status.ToRead) }
+        }
+        SheetRow(Icons.Rounded.CheckCircle, if (book.status == Status.Finished) "Mark as reading" else "Mark as finished") {
+            model.repo.updateBook(book.id) { it.copy(status = if (it.status == Status.Finished) Status.Reading else Status.Finished) }
+        }
+        SheetRow(Icons.Rounded.Folder, if (listPicker) "Lists (tap to close)" else "Add to a list…") { listPicker = !listPicker }
+        if (listPicker) {
+            lists.forEach { list ->
+                val on = list in book.lists
+                SheetRow(if (on) Icons.Rounded.Check else Icons.Rounded.Folder, nameOf(list), highlighted = on, indent = depthOf(list) + 1) { model.repo.toggleList(book.id, list) }
+            }
+            SheetRow(Icons.Rounded.CreateNewFolder, "New list…", indent = 1, onClick = onNewList)
+        }
+        SheetRow(Icons.Rounded.Delete, "Remove from library", onClick = onRemove)
+    }
+}
+
+/** The facts, one line each; tap a row to read all of a long value. */
+@Composable
+private fun DetailsSection(book: Book) {
+    val context = LocalContext.current
+    val facts by produceState<List<Pair<String, String>>?>(null, book.id) {
+        value = withContext(Dispatchers.IO) {
+            val uri = Uri.parse(book.uri)
+            val out = ArrayList<Pair<String, String>>()
+            PdfFile.open(context, uri)?.use { pdf -> pdf.sizeOf(0)?.let { (w, h) -> out += "Page size" to pageSize(w, h) } }
+            out += PdfInfo.read(context, uri)
+            out
+        }
+    }
+    val rows = buildList {
+        add("File name" to book.fileName.ifEmpty { book.name })
+        add("Pages" to book.pages.toString())
+        add("Size" to formatSize(book.size))
+        addAll(facts.orEmpty())
+        if (book.added > 0) add("Added" to formatDate(book.added))
+        add("Last opened" to if (book.lastOpened > 0) formatDate(book.lastOpened) else "Never")
+        add("Reading place" to if (book.page > 0) "Page ${book.page + 1} of ${book.pages}" else "Start")
+        add("Status" to when (book.status) { Status.New -> "New"; Status.Reading -> "Reading"; Status.ToRead -> "To read"; Status.Finished -> "Finished" })
+        if (book.lists.isNotEmpty()) add("Lists" to book.lists.joinToString(", ") { it.replace("/", " › ") })
+        add("Location" to book.uri)
+    }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
+        rows.forEach { (k, v) -> FactRow(k, v) }
+        if (facts == null) Text("Reading the file…", Modifier.padding(horizontal = 24.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun NotesSection(model: FolioViewModel, book: Book) {
+    var editing by remember { mutableStateOf<dev.folio.reader.data.PageNote?>(null) }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("Your rating", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        Stars(book.rating, 34) { model.repo.setRating(book.id, it) }
+        Text("Note about this book", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp))
+        var note by remember(book.id) { mutableStateOf(book.note) }
+        OutlinedTextField(note, { note = it; model.repo.setNote(book.id, it) }, placeholder = { Text("Write a note") }, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 5)
+        Text("Page comments (${book.comments.size})", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp))
+        if (book.comments.isEmpty()) Text("Add them while reading with the comment icon.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        book.comments.forEach { c ->
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { editing = c }.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text("Page ${c.page + 1}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Text(c.text, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+                IconButton(onClick = { model.repo.deleteComment(book.id, c.id) }) { Icon(Icons.Rounded.Delete, "Delete comment") }
+            }
+        }
+    }
+    editing?.let { c ->
+        var text by remember(c.id) { mutableStateOf(c.text) }
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text("Comment on page ${c.page + 1}") },
+            text = { OutlinedTextField(text, { text = it }, minLines = 3, maxLines = 8, modifier = Modifier.fillMaxWidth()) },
+            confirmButton = { TextButton(onClick = { model.repo.saveComment(book.id, c.page, text, c.id); editing = null }, enabled = text.isNotBlank()) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancel") } },
+        )
+    }
+}
+
+@Composable
 private fun SectionLabel(text: String) {
     Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 6.dp))
 }
 
 @Composable
 private fun FactRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(label, Modifier.width(112.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(horizontal = 24.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(label, Modifier.width(112.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Text(value, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = if (expanded) Int.MAX_VALUE else 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -650,6 +698,8 @@ private fun SheetRow(icon: ImageVector, label: String, highlighted: Boolean = fa
         Text(label, style = MaterialTheme.typography.bodyLarge, color = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
     }
 }
+
+private data class NewList(val parent: String, val forBook: String?)
 
 // ---- managing lists -----------------------------------------------------------------------
 
@@ -697,6 +747,37 @@ private fun ManageListsSheet(model: FolioViewModel, lists: List<String>, onNewIn
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
         )
     }
+}
+
+@Composable
+private fun ListDialog(lists: List<String>, initialParent: String, onDismiss: () -> Unit, onDone: (String, String) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var parent by remember { mutableStateOf(initialParent) }
+    var menu by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New list") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(name, { name = it.replace("/", "") }, singleLine = true, placeholder = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                Box {
+                    TextButton(onClick = { menu = true }) {
+                        Icon(Icons.Rounded.Folder, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (parent.isEmpty()) "Top level" else "Inside " + parent.replace("/", " › "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    DropdownMenu(menu, { menu = false }) {
+                        DropdownMenuItem(text = { Text("Top level") }, onClick = { parent = ""; menu = false })
+                        lists.forEach { path ->
+                            DropdownMenuItem(text = { Text(nameOf(path), modifier = Modifier.padding(start = (depthOf(path) * 14).dp)) }, onClick = { parent = path; menu = false })
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onDone(name, parent) }, enabled = name.isNotBlank()) { Text("Create") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

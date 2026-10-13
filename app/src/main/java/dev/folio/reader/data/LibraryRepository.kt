@@ -1,6 +1,5 @@
 package dev.folio.reader.data
 
-import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,8 +12,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 /** The library on disk: one JSON file, saved shortly after every change. */
-class LibraryRepository(context: Context, scope: CoroutineScope) {
-    private val file = File(context.filesDir, "library.json")
+class LibraryRepository(private val storage: Storage, scope: CoroutineScope) {
     private val _state = MutableStateFlow(load())
     val state: StateFlow<LibraryState> = _state
 
@@ -24,10 +22,14 @@ class LibraryRepository(context: Context, scope: CoroutineScope) {
         }
     }
 
-    private fun load(): LibraryState = runCatching { decode(file.readText()) }.getOrDefault(LibraryState())
+    private fun load(): LibraryState = runCatching { decode(storage.file(Storage.LIBRARY).readText()) }.getOrDefault(LibraryState())
+
+    /** Reads the library again from the current folder (it moved). */
+    fun reload() { _state.value = load() }
 
     private fun save(state: LibraryState) {
         runCatching {
+            val file = storage.file(Storage.LIBRARY)
             val tmp = File(file.parentFile, "library.json.tmp")
             tmp.writeText(encode(state))
             tmp.renameTo(file)

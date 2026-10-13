@@ -12,7 +12,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.CleaningServices
+import androidx.compose.material.icons.rounded.FolderSpecial
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.History
@@ -27,6 +29,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,7 +56,16 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { confirm = { model.restoreFrom(it) } }
     }
-    val backups: List<File> = remember(refresh) { model.backups.files() }
+    val tick by model.backupTick.collectAsState()
+    val backups: List<File> = remember(refresh, tick) { model.backups.files() }
+    val context = LocalContext.current
+    // Coming back from the system's All files access screen, move to the .folio folder if it was allowed.
+    val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) model.refreshStorage() }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -62,12 +78,26 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
+            Header("Folio folder")
+            Text(
+                if (model.storage.shared) "Folio keeps its library, backups and covers in ${model.storage.root.path}. It survives reinstalling the app."
+                else "Folio keeps its data inside the app. Allow access to all files to use a hidden .folio folder on the phone instead, so your reading places and backups survive reinstalling the app, like other readers do.",
+                Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!model.storage.shared && android.os.Build.VERSION.SDK_INT >= 30) {
+                Action(Icons.Rounded.FolderSpecial, "Use the .folio folder") {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, android.net.Uri.parse("package:${context.packageName}"))
+                    runCatching { context.startActivity(intent) }.onFailure { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)) }
+                }
+            }
+
             Header("Backup")
             Text(
-                "Your reading places, lists, ratings, notes and bookmarks are copied to this phone once a day, and the last ${Backups.KEEP} copies are kept. " +
+                "Reading places, lists, ratings, notes and bookmarks are copied automatically when you close a book (at most every few hours), and the last ${Backups.KEEP} copies are kept. " +
                     "Save a copy to a file to keep it elsewhere or move to another phone.",
                 Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Action(Icons.Rounded.Backup, "Back up now") { model.backupNow() }
             Action(Icons.Rounded.FileUpload, "Save a backup file") { export.launch(Backups.exportName()) }
             Action(Icons.Rounded.FileDownload, "Restore from a backup file") { import.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }
 
@@ -80,7 +110,7 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
                 Row(Modifier.fillMaxWidth().clickable(enabled = state != null) { confirm = { model.restoreFile(file) } }.padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.History, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Column(Modifier.weight(1f).padding(start = 20.dp)) {
-                        Text(file.nameWithoutExtension.removePrefix("folio-"), style = MaterialTheme.typography.bodyLarge)
+                        Text(Backups.label(file), style = MaterialTheme.typography.bodyLarge)
                         Text(
                             state?.let { "${it.books.size} books  ·  ${formatSize(file.length())}" } ?: "Unreadable",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -94,7 +124,7 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
             Action(Icons.Rounded.CleaningServices, "Clear saved covers") { model.covers.clear(); refresh++ }
 
             Header("About")
-            Text("Folio 0.2.0", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
+            Text("Folio 0.2.1", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
             Text("A calm PDF reader. Everything stays on this phone.", Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

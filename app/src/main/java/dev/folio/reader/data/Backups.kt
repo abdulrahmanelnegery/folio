@@ -1,25 +1,33 @@
 package dev.folio.reader.data
 
-import android.content.Context
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * Local backups of the library and every reading place in it: one copy a day, the newest
- * [KEEP] kept, in the app's private folder. A copy can also be exported to, and restored from,
- * any file the user picks.
+ * Local backups of the library and every reading place in it, in the `backups` folder next to the
+ * library: one when Folio starts if the last is over [GAP_MS] old, one whenever a book is closed
+ * after that gap, and one on demand. The newest [KEEP] are kept. A copy can also be exported to,
+ * and restored from, any file the user picks.
  */
-class Backups(context: Context) {
-    private val dir = File(context.filesDir, "backups").apply { mkdirs() }
+class Backups(private val storage: Storage) {
+    private val dir: File get() = storage.dir(Storage.BACKUPS)
 
-    /** Writes today's copy when there is not one yet, and drops the oldest past [KEEP]. */
-    fun daily(state: LibraryState) {
-        if (state.books.isEmpty()) return
-        val today = File(dir, "folio-${stamp(System.currentTimeMillis())}.json")
-        if (!today.exists()) runCatching { today.writeText(LibraryRepository.encode(state)) }
+    /** Writes a copy when the newest is older than [GAP_MS]. Returns true when it wrote one. */
+    fun auto(state: LibraryState): Boolean {
+        if (state.books.isEmpty()) return false
+        val newest = files().firstOrNull()?.lastModified() ?: 0L
+        if (System.currentTimeMillis() - newest < GAP_MS) return false
+        return now(state) != null
+    }
+
+    /** Writes a copy now. */
+    fun now(state: LibraryState): File? {
+        val file = File(dir, "folio-${stamp(System.currentTimeMillis())}.json")
+        val ok = runCatching { file.writeText(LibraryRepository.encode(state)) }.isSuccess
         files().drop(KEEP).forEach { it.delete() }
+        return file.takeIf { ok }
     }
 
     /** Backups, newest first. */
@@ -28,8 +36,16 @@ class Backups(context: Context) {
     fun read(file: File): LibraryState? = runCatching { LibraryRepository.decode(file.readText()) }.getOrNull()
 
     companion object {
-        const val KEEP = 14
-        fun stamp(millis: Long): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(millis))
+        const val KEEP = 40
+        private const val GAP_MS = 3L * 60 * 60 * 1000
+
+        fun stamp(millis: Long): String = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date(millis))
         fun exportName(): String = "folio-backup-${stamp(System.currentTimeMillis())}.json"
+
+        /** "2026-10-13 18:40" from a backup file name. */
+        fun label(file: File): String = file.nameWithoutExtension.removePrefix("folio-").replace('_', ' ').let {
+            val (date, time) = it.split(' ').let { p -> p[0] to p.getOrElse(1) { "" } }
+            if (time.isEmpty()) date else "$date ${time.substring(0, 5).replace('-', ':')}"
+        }
     }
 }

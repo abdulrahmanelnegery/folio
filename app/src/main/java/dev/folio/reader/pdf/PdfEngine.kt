@@ -16,11 +16,21 @@ import kotlinx.coroutines.sync.withLock
 class PdfFile private constructor(
     private val descriptor: ParcelFileDescriptor,
     private val renderer: PdfRenderer,
-    /** Page sizes in points, read once. */
-    private val sizes: List<Pair<Float, Float>>,
+    /** Page sizes in points; pages not read yet share the first page's shape. */
+    private val sizes: Array<Pair<Float, Float>>,
 ) : AutoCloseable {
     private val lock = Mutex()
     val pageCount: Int = sizes.size
+
+    /** Reads the real size of every page after the book is already on screen; true if any differ from the first. */
+    suspend fun readAllSizes(): Boolean = lock.withLock {
+        var changed = false
+        for (i in 1 until pageCount) {
+            val size = runCatching { renderer.openPage(i).use { it.width.toFloat() to it.height.toFloat() } }.getOrNull() ?: continue
+            if (size != sizes[i]) { sizes[i] = size; changed = true }
+        }
+        changed
+    }
 
     /** Width and height of [page] in points. */
     fun sizeOf(page: Int): Pair<Float, Float>? = sizes.getOrNull(page)
@@ -58,10 +68,9 @@ class PdfFile private constructor(
             val descriptor = runCatching { context.contentResolver.openFileDescriptor(uri, "r") }.getOrNull() ?: return null
             return try {
                 val renderer = PdfRenderer(descriptor)
-                val sizes = (0 until renderer.pageCount).map { i ->
-                    renderer.openPage(i).use { it.width.toFloat() to it.height.toFloat() }
-                }
-                PdfFile(descriptor, renderer, sizes)
+                // Only the first page is measured now; the rest follow in the background.
+                val first = renderer.openPage(0).use { it.width.toFloat() to it.height.toFloat() }
+                PdfFile(descriptor, renderer, Array(renderer.pageCount) { first })
             } catch (e: Exception) {
                 Log.w("Folio", "could not open $uri", e)
                 runCatching { descriptor.close() }

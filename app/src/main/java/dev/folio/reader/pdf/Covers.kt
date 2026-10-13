@@ -13,11 +13,11 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /** First-page covers: drawn once, kept as small JPEGs in the cache folder. */
-class Covers(private val context: Context) {
+class Covers(private val context: Context, private val storage: dev.folio.reader.data.Storage) {
     private val memory = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
-    private val dir = File(context.cacheDir, "covers").apply { mkdirs() }
+    private val dir: File get() = storage.dir("covers")
     private val gate = Semaphore(2)
 
     suspend fun get(book: Book): Bitmap? {

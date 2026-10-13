@@ -7,8 +7,10 @@ import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.folio.reader.data.Book
+import dev.folio.reader.data.Backups
 import dev.folio.reader.data.LibraryRepository
 import dev.folio.reader.data.LibraryState
+import dev.folio.reader.data.Storage
 import dev.folio.reader.data.Status
 import dev.folio.reader.pdf.Covers
 import dev.folio.reader.pdf.PdfFile
@@ -21,12 +23,36 @@ import java.io.File
 import java.security.MessageDigest
 
 class FolioViewModel(app: Application) : AndroidViewModel(app) {
-    val repo = LibraryRepository(app, viewModelScope)
-    val covers = Covers(app)
-    val backups = dev.folio.reader.data.Backups(app)
+    val storage = Storage(app).also { it.refresh() }
+    val repo = LibraryRepository(storage, viewModelScope)
+    val covers = Covers(app, storage)
+    val backups = Backups(storage)
+
+    /** Bumped when a backup is made, so the backup list redraws. */
+    private val _backupTick = MutableStateFlow(0)
+    val backupTick: StateFlow<Int> = _backupTick
 
     init {
-        viewModelScope.launch(Dispatchers.IO) { backups.daily(repo.state.value) }
+        viewModelScope.launch(Dispatchers.IO) { if (backups.auto(repo.state.value)) _backupTick.value++ }
+    }
+
+    /** The "All files access" setting may have changed; move to the .folio folder when it has. */
+    fun refreshStorage() {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (storage.refresh()) {
+                repo.reload()
+                _backupTick.value++
+                _message.value = "Folio now keeps its data in ${storage.root.path}"
+            }
+        }
+    }
+
+    fun backupNow() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = backups.now(repo.state.value) != null
+            _backupTick.value++
+            _message.value = if (ok) "Backup made." else "The backup could not be made."
+        }
     }
 
     private val _reading = MutableStateFlow<String?>(null)
@@ -91,7 +117,11 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
 
     fun closeBook() {
         _reading.value = null
-        repo.flush()
+        // Saving and the backup happen off the main thread so the screen change stays smooth.
+        viewModelScope.launch(Dispatchers.IO) {
+            repo.flush()
+            if (backups.auto(repo.state.value)) _backupTick.value++
+        }
     }
 
     fun remove(id: String) {

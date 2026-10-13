@@ -173,6 +173,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var jumpDialog by remember { mutableStateOf(false) }
     var editNote by remember { mutableStateOf<NoteEdit?>(null) }
     var menu by remember { mutableStateOf(false) }
+    var sizesVersion by remember { mutableStateOf(0) }
     var autoScroll by remember { mutableStateOf(false) }
     var autoSpeed by remember { mutableFloatStateOf(70f) }
     var tool by remember { mutableStateOf<ReaderTool?>(null) }
@@ -185,6 +186,8 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
             Text("Opening…", Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             val list = rememberLazyListState()
+            // The other pages' real sizes arrive after the book is already showing.
+            LaunchedEffect(file) { if (file.readAllSizes()) sizesVersion++ }
             BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
                 val widthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx() }.roundToInt()
                 val cache = remember(file) { object : LruCache<String, Bitmap>(96 * 1024 * 1024) { override fun sizeOf(k: String, v: Bitmap) = v.byteCount } }
@@ -243,6 +246,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(file.pageCount) { index ->
+                        @Suppress("UNUSED_VARIABLE") val layoutVersion = sizesVersion
                         PageView(file, index, widthPx, zoom, cache, theme, noteCount = book.comments.count { it.page == index }, onNotes = { bookmarkSheet = true })
                     }
                 }
@@ -308,8 +312,8 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
 
             // The reading tools float above the bottom bar and stay while you use them.
             AnimatedVisibility(
-                tool != null,
-                Modifier.align(Alignment.BottomCenter).padding(bottom = if (barsVisible) 104.dp else 24.dp).navigationBarsPadding().padding(horizontal = 16.dp),
+                tool != null && barsVisible,
+                Modifier.align(Alignment.BottomCenter).padding(bottom = 112.dp).navigationBarsPadding().padding(horizontal = 16.dp),
                 enter = fadeIn() + slideInVertically { it / 2 },
                 exit = fadeOut() + slideOutVertically { it / 2 },
             ) {

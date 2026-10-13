@@ -13,7 +13,8 @@ Folio is made for long reading: your books live in a library with covers, you pi
 - **Ratings, notes and comments**: stars for each book, a note for the whole book, and comments pinned to pages. Bookmarks too.
 - **Reading themes**: Normal, Night, Soft night and Sepia. One tap on the sun or moon flips the page; hold it to pick any theme.
 - **Reading tools**: auto-scroll with adjustable speed, brightness control for the book, a page slider that names the page while you drag, jump to a page by number, pinch and double-tap zoom, tap to hide the bars, screen stays awake.
-- **Backups**: reading places, lists, ratings, notes and bookmarks are copied to the phone once a day (the last 14 are kept). Save a backup to a file, or restore one, from Settings.
+- **Its own `.folio` folder** (optional, with *All files access*): the library, backups and cover thumbnails live in a hidden folder on the phone and survive reinstalling the app, like other readers. Without the permission Folio keeps them inside the app.
+- **Backups**: reading places, lists, ratings, notes and bookmarks are copied automatically when you close a book (the last 40 are kept). Make one on demand, save one to a file, or restore any of them from Settings.
 - **Real Android behaviour**: the system file picker, "Open with" from other apps, edge-to-edge screens that respect the status and navigation bars, dark mode, and Arabic or any other file name.
 - **Private**: everything stays on the device. No account, no telemetry, no network access.
 
@@ -37,7 +38,7 @@ PDF pages are drawn by Android's own `PdfRenderer` (the system's PDFium), so the
 
 ## Roadmap
 
-Text search and selection, table of contents, drawing and highlighting on pages, a share sheet, a Linux desktop edition (`folio-linux`).
+Text search, in-app translation of selected text (Google Translate), table of contents, drawing and highlighting on pages, a share sheet, a Linux desktop edition (`folio-linux`).
 
 ## Licence
 
