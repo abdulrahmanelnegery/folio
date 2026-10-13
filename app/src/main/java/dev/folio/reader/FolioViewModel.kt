@@ -16,6 +16,9 @@ import dev.folio.reader.data.FileTypes
 import dev.folio.reader.data.Kind
 import dev.folio.reader.data.LibraryRepository
 import dev.folio.reader.data.LibraryState
+import dev.folio.reader.data.deduplicated
+import dev.folio.reader.data.findSameFile
+import dev.folio.reader.data.ReadSession
 import dev.folio.reader.data.Status
 import dev.folio.reader.data.Storage
 import dev.folio.reader.pdf.Covers
@@ -48,6 +51,8 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     val backupTick: StateFlow<Int> = _backupTick
 
     init {
+        // The same file added by two routes becomes one entry.
+        repo.update { it.deduplicated() }
         viewModelScope.launch(Dispatchers.IO) { if (backups.auto(repo.state.value)) _backupTick.value++ }
     }
 
@@ -58,6 +63,12 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     private var pendingPages = 0
     private var pendingBook: String? = null
     private val pagesSeen = HashSet<String>()
+
+    // The sitting in progress: which book, since when, and what it has added up to.
+    private var sessionBook: String? = null
+    private var sessionStart = 0L
+    private var sessionSeconds = 0.0
+    private var sessionPages = 0
 
     /** Any touch counts as "still reading"; the clock stops after [IDLE_MS] without one. */
     @Synchronized
@@ -70,6 +81,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         if (pendingBook != null && pendingBook != id) commitReading()
         pendingBook = id
         pendingSeconds += elapsedMs.coerceIn(0, 2000) / 1000.0
+        if (sessionBook == id) sessionSeconds += elapsedMs.coerceIn(0, 2000) / 1000.0
         if (pendingSeconds >= 20) commitReading()
     }
 
@@ -80,6 +92,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         if (pendingBook != null && pendingBook != id) commitReading()
         pendingBook = id
         pendingPages++
+        if (sessionBook == id) sessionPages++
     }
 
     /** Writes the time and pages gathered so far into the library. */
@@ -100,6 +113,9 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message
     fun messageShown() { _message.value = null }
+
+    /** Shows a short message at the bottom of the screen. */
+    fun notify(text: String) { _message.value = text }
 
     /** The "All files access" setting may have changed; move to the .folio folder when it has. */
     fun refreshStorage() {
@@ -172,7 +188,9 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
             stored = Uri.fromFile(copy)
         }
         val clean = name.substringBeforeLast('.', name).ifEmpty { name }
-        val base = Book(id = hash(uri.toString()), uri = stored.toString(), name = clean, fileName = name, kind = kind, size = size, added = System.currentTimeMillis())
+        // The same file reached another way (picker, explorer, a shared link) keeps its one entry.
+        val sameId = repo.state.value.findSameFile(name, size)?.id
+        val base = Book(id = sameId ?: hash(uri.toString()), uri = stored.toString(), name = clean, fileName = name, kind = kind, size = size, added = System.currentTimeMillis())
         return when (kind) {
             Kind.Pdf -> {
                 val pdf = PdfFile.open(context, stored) ?: run { _message.value = "That file could not be opened as a PDF."; return null }
@@ -205,11 +223,13 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
 
     fun openBook(id: String) {
         _reading.value = id
+        sessionBook = id; sessionStart = System.currentTimeMillis(); sessionSeconds = 0.0; sessionPages = 0
         repo.updateBook(id) { it.copy(lastOpened = System.currentTimeMillis(), status = if (it.status == Status.Finished) it.status else Status.Reading) }
     }
 
     fun closeBook() {
         val closing = _reading.value
+        endSession()
         // The screen changes first; saving and the backup follow off the main thread.
         _reading.value = null
         viewModelScope.launch(Dispatchers.IO) {
@@ -218,6 +238,14 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
             repo.flush()
             if (backups.auto(repo.state.value)) _backupTick.value++
         }
+    }
+
+    /** Records the sitting that is ending, if it was long enough to count. */
+    @Synchronized
+    private fun endSession() {
+        val id = sessionBook ?: return
+        sessionBook = null
+        if (sessionSeconds >= 5) repo.addSession(ReadSession(id, sessionStart, sessionSeconds.toLong(), sessionPages))
     }
 
     fun remove(id: String) {

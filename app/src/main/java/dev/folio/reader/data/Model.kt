@@ -71,6 +71,13 @@ data class Book(
     /** Seconds spent reading this book, and pages read in it. */
     val readSeconds: Long = 0,
     val pagesRead: Int = 0,
+    /** How this book rotates while it is open; other books and the library are not affected. */
+    val orientation: Orientation = Orientation.Normal,
+    /** The screen brightness while reading this book (0.02..1); negative follows the system. */
+    val brightness: Float = -1f,
+    /** Whether the blank page margins are cropped away, and the margins found (left, top, right, bottom as fractions). */
+    val cropMargins: Boolean = false,
+    val margins: List<Float> = emptyList(),
 ) {
     /** Reading progress 0..1; a finished book counts as complete. */
     val progress: Float
@@ -106,6 +113,30 @@ data class Book(
 @Serializable
 data class DayStat(val seconds: Long = 0, val pages: Int = 0)
 
+/** One sitting with a book: when it started, how long you really read, and the pages you stayed on. */
+@Serializable
+data class ReadSession(val bookId: String, val start: Long, val seconds: Long, val pages: Int)
+
+@Serializable
+enum class HomeTab(val label: String, val note: String) {
+    Home("Home", "Continue reading and the latest three books"),
+    Stats("Stats", "Reading time, sittings and what you read most"),
+    Library("Library", "Your shelves, lists and favorites"),
+}
+
+@Serializable
+data class HomeTabConfig(val tab: HomeTab, val visible: Boolean = true)
+
+/** How the screen rotates. */
+@Serializable
+enum class Orientation(val label: String, val note: String) {
+    Normal("Normal", "Follow the phone's rotation setting"),
+    Portrait("Portrait", "Always upright"),
+    Landscape("Landscape", "Always sideways"),
+    Dynamic("Dynamic", "Rotate with the sensor, even if the phone's rotation is locked"),
+    Locked("Locked", "Stay as it is now"),
+}
+
 /** A comment on one page. */
 @Serializable
 data class PageNote(val id: Long, val page: Int, val text: String)
@@ -124,12 +155,18 @@ data class LibraryState(
     val confirmExit: Boolean = true,
     /** The folder the file explorer was last in. */
     val explorerDir: String = "",
+    /** One entry per time a book was opened and closed. */
+    val sessions: List<ReadSession> = emptyList(),
+    /** The tabs of the home page in the order shown; Home is always first and always there. */
+    val homeTabs: List<HomeTabConfig> = emptyList(),
+    val orientation: Orientation = Orientation.Normal,
     /** Reading time and pages per day, keyed "yyyy-MM-dd" in the phone's time zone. */
     val days: Map<String, DayStat> = emptyMap(),
 )
 
 /** What the library screen is showing. */
 sealed interface Tab {
+    data object Home : Tab
     data object ReadingNow : Tab
     data object ToRead : Tab
     data object Finished : Tab
@@ -159,6 +196,7 @@ fun LibraryState.orderedLists(): List<String> {
 
 /** [deep]: a list also holds the books of the lists inside it. */
 fun Book.inTab(tab: Tab, deep: Boolean = true): Boolean = when (tab) {
+    Tab.Home -> true
     Tab.ReadingNow -> status == Status.Reading
     Tab.ToRead -> status == Status.ToRead
     Tab.Finished -> status == Status.Finished
@@ -223,3 +261,62 @@ fun LibraryState.withListMoved(path: String, newParent: String): LibraryState? {
 /** Where [path] could move to: the top level and every list that is not inside it, minus where it already is. */
 fun LibraryState.moveTargets(path: String): List<String> =
     (listOf("") + orderedLists().filter { !isInside(it, path) }).filter { it != parentOf(path) }
+
+// ---- the home page ----------------------------------------------------------------------------
+
+/** The home tabs: Home first and always shown, the others in the user's order with any new one appended. */
+fun LibraryState.homeTabs(): List<HomeTabConfig> {
+    val others = homeTabs.filter { it.tab != HomeTab.Home }.distinctBy { it.tab }
+    return listOf(HomeTabConfig(HomeTab.Home)) + others + HomeTab.entries.filter { t -> t != HomeTab.Home && others.none { it.tab == t } }.map { HomeTabConfig(it) }
+}
+
+fun LibraryState.sessionsSince(days: Int, now: Long = System.currentTimeMillis()): List<ReadSession> =
+    sessions.filter { it.start >= now - days * DAY_MS }
+
+/** The books read the most in the last [days] days, with the seconds, longest first. */
+fun LibraryState.mostRead(days: Int, limit: Int, now: Long = System.currentTimeMillis()): List<Pair<Book, Long>> =
+    sessionsSince(days, now).groupBy { it.bookId }.mapValues { (_, s) -> s.sumOf { it.seconds } }
+        .mapNotNull { (id, secs) -> books.firstOrNull { it.id == id }?.let { it to secs } }
+        .sortedByDescending { it.second }.take(limit)
+
+// ---- the same file added twice -----------------------------------------------------------------
+
+/** The key two entries share when they are the same file reached by different routes: its name and size. */
+private fun Book.sameFileKey(): String? = if (fileName.isNotEmpty() && size > 0) fileName.lowercase() + "|" + size else null
+
+/** Finds the library entry for a file with this name and size, if there is one. */
+fun LibraryState.findSameFile(fileName: String, size: Long): Book? =
+    if (fileName.isEmpty() || size <= 0) null else books.firstOrNull { it.sameFileKey() == fileName.lowercase() + "|" + size }
+
+/**
+ * Merges entries that are the same file (opened once from the picker and once from the explorer, say):
+ * progress, lists, notes, bookmarks, ratings and reading time are all kept on the one that stays.
+ */
+fun LibraryState.deduplicated(): LibraryState {
+    val groups = books.groupBy { it.sameFileKey() }
+    if (groups.all { (key, list) -> key == null || list.size == 1 }) return this
+    val remap = HashMap<String, String>()
+    val merged = ArrayList<Book>()
+    for (book in books) {
+        val key = book.sameFileKey()
+        val group = if (key == null) listOf(book) else groups.getValue(key)
+        if (group.size == 1) { merged += book; continue }
+        val keep = group.maxWith(compareBy<Book>({ it.progress }, { it.lastOpened }))
+        if (book.id != keep.id) { remap[book.id] = keep.id; continue }
+        val others = group - keep
+        merged += keep.copy(
+            lists = (keep.lists + others.flatMap { it.lists }).distinct(),
+            bookmarks = (keep.bookmarks + others.flatMap { it.bookmarks }).distinct().sorted(),
+            comments = (keep.comments + others.flatMap { it.comments }).distinctBy { it.page to it.text },
+            favorite = keep.favorite || others.any { it.favorite },
+            rating = maxOf(keep.rating, others.maxOf { it.rating }),
+            note = keep.note.ifBlank { others.map { it.note }.firstOrNull { it.isNotBlank() }.orEmpty() },
+            readSeconds = keep.readSeconds + others.sumOf { it.readSeconds },
+            pagesRead = keep.pagesRead + others.sumOf { it.pagesRead },
+            lastOpened = maxOf(keep.lastOpened, others.maxOf { it.lastOpened }),
+            added = listOf(keep.added).plus(others.map { it.added }).filter { it > 0 }.minOrNull() ?: keep.added,
+            status = if (keep.status == Status.New) others.map { it.status }.firstOrNull { it != Status.New } ?: Status.New else keep.status,
+        )
+    }
+    return copy(books = merged, sessions = sessions.map { if (it.bookId in remap) it.copy(bookId = remap.getValue(it.bookId)) else it })
+}

@@ -12,6 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.FolderSpecial
@@ -44,6 +46,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import dev.folio.reader.FolioViewModel
 import dev.folio.reader.data.Backups
+import dev.folio.reader.data.homeTabs
 import java.io.File
 import java.util.Date
 
@@ -79,6 +82,23 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
             val library by model.repo.state.collectAsState()
+            Header("Home page tabs")
+            Text("Home is always first. Hide the others or use the arrows to put them in the order you like.", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val tabs = library.homeTabs()
+            tabs.forEachIndexed { i, cfg ->
+                Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(cfg.tab.label, style = MaterialTheme.typography.bodyLarge)
+                        Text(cfg.tab.note, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (cfg.tab != dev.folio.reader.data.HomeTab.Home) {
+                        IconButton(onClick = { model.repo.setHomeTabs(tabs.toMutableList().also { java.util.Collections.swap(it, i, i - 1) }) }, enabled = i > 1) { Icon(Icons.Rounded.ArrowUpward, "Move up") }
+                        IconButton(onClick = { model.repo.setHomeTabs(tabs.toMutableList().also { java.util.Collections.swap(it, i, i + 1) }) }, enabled = i < tabs.lastIndex) { Icon(Icons.Rounded.ArrowDownward, "Move down") }
+                        androidx.compose.material3.Switch(cfg.visible, { v -> model.repo.setHomeTabs(tabs.map { if (it.tab == cfg.tab) it.copy(visible = v) else it }) })
+                    }
+                }
+            }
+
             Header("General")
             Row(
                 Modifier.fillMaxWidth().clickable { model.repo.update { it.copy(confirmExit = !it.confirmExit) } }.padding(horizontal = 24.dp, vertical = 8.dp),
@@ -137,7 +157,7 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
             Action(Icons.Rounded.CleaningServices, "Clear saved covers") { model.covers.clear(); refresh++ }
 
             Header("About")
-            Text("Folio 0.5.0", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
+            Text("Folio 0.7.1", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
             Text("A calm PDF reader. Everything stays on this phone.", Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

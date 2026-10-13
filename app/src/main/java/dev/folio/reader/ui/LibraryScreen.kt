@@ -9,7 +9,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,6 +43,8 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material.icons.rounded.FolderOpen
@@ -143,6 +149,10 @@ import dev.folio.reader.data.nameOf
 import dev.folio.reader.data.orderedLists
 import dev.folio.reader.data.parentOf
 import dev.folio.reader.data.visible
+import dev.folio.reader.data.HomeTab
+import dev.folio.reader.data.homeTabs
+import dev.folio.reader.data.mostRead
+import dev.folio.reader.data.sessionsSince
 import dev.folio.reader.pdf.PdfFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -151,6 +161,7 @@ import java.text.DateFormat
 import java.util.Date
 
 private fun Tab.title(): String = when (this) {
+    Tab.Home -> "Home"
     Tab.ReadingNow -> "Reading now"
     Tab.ToRead -> "To read"
     Tab.Finished -> "Finished"
@@ -160,6 +171,7 @@ private fun Tab.title(): String = when (this) {
 }
 
 private fun Tab.icon(): ImageVector = when (this) {
+    Tab.Home -> Icons.Rounded.Home
     Tab.ReadingNow -> Icons.Rounded.AutoStories
     Tab.ToRead -> Icons.Rounded.BookmarkAdd
     Tab.Finished -> Icons.Rounded.Done
@@ -180,7 +192,7 @@ private fun ViewMode.icon(): ImageVector = when (this) {
 @Composable
 fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: () -> Unit, onBrowse: (list: String?, dir: String?) -> Unit) {
     val state by model.repo.state.collectAsState()
-    var tab by remember { mutableStateOf<Tab>(Tab.ReadingNow) }
+    var tab by remember { mutableStateOf<Tab>(Tab.Home) }
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
     var viewMenu by remember { mutableStateOf(false) }
@@ -201,7 +213,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     val heroFirst = tab == Tab.ReadingNow && query.isBlank() && shown.isNotEmpty()
     val hero = if (heroFirst) shown.first() else null
     val rest = if (heroFirst) shown.drop(1) else shown
-    val shelves = listOf(Tab.ReadingNow, Tab.ToRead, Tab.Finished, Tab.Favorites, Tab.All)
+    val shelves = listOf(Tab.Home, Tab.ReadingNow, Tab.ToRead, Tab.Finished, Tab.Favorites, Tab.All)
     val lists = state.orderedLists()
     fun toggle(id: String) { selected = if (id in selected) selected - id else selected + id; if (selected.isEmpty()) selecting = false }
     val open: (Book) -> Unit = { if (selecting) toggle(it.id) else model.openBook(it.id) }
@@ -213,8 +225,10 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     // Back goes up one list at a time, then closes search, then leaves picking.
     androidx.activity.compose.BackHandler(enabled = tab is Tab.List) {
         val parent = parentOf((tab as Tab.List).path)
-        tab = if (parent.isEmpty()) Tab.ReadingNow else Tab.List(parent)
+        tab = if (parent.isEmpty()) Tab.Home else Tab.List(parent)
     }
+    // From any other shelf, back returns to Home; the exit question is asked only there.
+    androidx.activity.compose.BackHandler(enabled = tab != Tab.Home && tab !is Tab.List) { tab = Tab.Home }
     androidx.activity.compose.BackHandler(enabled = searching) { searching = false; query = "" }
     androidx.activity.compose.BackHandler(enabled = selecting) { selecting = false; selected = emptySet() }
 
@@ -224,12 +238,15 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     androidx.compose.runtime.CompositionLocalProvider(LocalSelection provides selected) {
     ModalNavigationDrawer(
         drawerState = drawer,
+        // The menu opens from the far left edge only (below), so flicking across the page never opens it; once open,
+        // a tap outside or a swipe left closes it.
+        gesturesEnabled = drawer.currentValue != DrawerValue.Closed || drawer.targetValue != DrawerValue.Closed,
         drawerContent = {
             ModalDrawerSheet {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text("Folio", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp))
                     shelves.forEach { t ->
-                        DrawerEntry(t.icon(), t.title(), state.books.count { it.inTab(t) }, tab == t, 0) { tab = t; scope.launch { drawer.close() } }
+                        DrawerEntry(t.icon(), t.title(), if (t == Tab.Home) null else state.books.count { it.inTab(t) }, tab == t, 0) { tab = t; scope.launch { drawer.close() } }
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
                     Row(Modifier.fillMaxWidth().padding(start = 28.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -255,6 +272,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
             }
         },
     ) {
+      Box(Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
@@ -302,12 +320,14 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                         } else {
                             Column {
                                 Text(tab.title(), fontSize = 22.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("${shown.size} ${if (shown.size == 1) "book" else "books"}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(if (tab == Tab.Home && query.isBlank()) "Your reading at a glance" else "${shown.size} ${if (shown.size == 1) "book" else "books"}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
                     navigationIcon = { IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(Icons.Rounded.Menu, "Menu") } },
                     actions = {
+                        // Home has no tools of its own; the shelves and lists get search, view, sort and select.
+                        if (tab != Tab.Home) {
                         IconButton(onClick = { selecting = true }) { Icon(Icons.Rounded.Checklist, "Select books") }
                         IconButton(onClick = { searching = !searching; if (!searching) query = "" }) {
                             Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, "Search")
@@ -337,6 +357,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                                 }
                             }
                         }
+                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 )
@@ -352,7 +373,9 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
             },
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
-                if (shown.isEmpty() && children.isEmpty()) {
+                if (tab == Tab.Home && query.isBlank()) {
+                    HomeContent(model, state, lists, onOpen = open, onDetails = details, onOpenList = { tab = Tab.List(it) }, onShelf = { tab = it }, onStats = { statsSheet = true })
+                } else if (shown.isEmpty() && children.isEmpty()) {
                     EmptyShelf(tab, onOpenPicker)
                 } else if (state.view == ViewMode.List || state.view == ViewMode.Details) {
                     LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -396,6 +419,18 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                 }
             }
         }
+        // A thin strip on the left edge: a swipe that starts here, going right, opens the side menu.
+        var pulled by remember { mutableStateOf(0f) }
+        Box(
+            Modifier.align(Alignment.CenterStart).fillMaxHeight().width(28.dp).pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { pulled = 0f },
+                    onDragEnd = { if (pulled > 60f) scope.launch { drawer.open() }; pulled = 0f },
+                    onDragCancel = { pulled = 0f },
+                ) { _, delta -> pulled += delta }
+            },
+        )
+      }
     }
 
     }
@@ -620,6 +655,7 @@ private fun DetailRow(model: FolioViewModel, book: Book, onOpen: () -> Unit, onD
 @Composable
 private fun EmptyShelf(tab: Tab, onOpen: () -> Unit) {
     val (title, hint) = when (tab) {
+        Tab.Home -> "Welcome" to "Open a file to start your library."
         Tab.ReadingNow -> "Nothing here yet" to "Books you open show up here, so you can pick up where you stopped."
         Tab.ToRead -> "Your to-read shelf is empty" to "Press and hold a book, then choose To read."
         Tab.Finished -> "No finished books" to "Books you reach the end of land here."
@@ -761,7 +797,7 @@ private fun DetailsSection(book: Book) {
         add("Reading place" to if (book.progress > 0f) book.placeLabel else "Start")
         add("Status" to when (book.status) { Status.New -> "New"; Status.Reading -> "Reading"; Status.ToRead -> "To read"; Status.Finished -> "Finished" })
         if (book.lists.isNotEmpty()) add("Lists" to book.lists.joinToString(", ") { it.replace("/", " › ") })
-        add("Location" to book.uri)
+        add("Location" to friendlyLocation(book.uri))
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
         rows.forEach { (k, v) -> FactRow(k, v) }
@@ -977,7 +1013,18 @@ private fun ListHeader(tab: Tab.List, onOpen: (String) -> Unit, onRoot: () -> Un
     }
 }
 
+/** "Phone › Download › هوس القراءة.pdf" instead of an encoded address. */
+internal fun friendlyLocation(uri: String): String {
+    val decoded = Uri.decode(uri)
+    return when {
+        decoded.startsWith("file://") -> decoded.removePrefix("file://").replace("/storage/emulated/0", "Phone").replace("/storage/", "").trim('/').split('/').filter { it.isNotEmpty() }.joinToString(" › ")
+        decoded.contains("/document/") -> "Opened with the system file picker: " + decoded.substringAfterLast('/').substringAfterLast(':')
+        else -> decoded
+    }
+}
+
 private fun minutesLabel(seconds: Long): String {
+    if (seconds < 60) return "$seconds s"
     val m = seconds / 60
     return if (m < 60) "$m min" else "${m / 60} h ${m % 60} min"
 }
@@ -1232,6 +1279,203 @@ private fun AddBooksSheet(candidates: List<Book>, listPath: String, onAdd: (Set<
                 }
             }
             Button(onClick = { onAdd(chosen) }, enabled = chosen.isNotEmpty(), modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).fillMaxWidth()) { Text("Add ${chosen.size}") }
+        }
+    }
+}
+
+// ---- the home page ------------------------------------------------------------------------------
+
+/** The home page: a few real tabs under a sticky header; flick sideways to move between them, round and round. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeContent(
+    model: FolioViewModel,
+    state: dev.folio.reader.data.LibraryState,
+    lists: List<String>,
+    onOpen: (Book) -> Unit,
+    onDetails: (Book) -> Unit,
+    onOpenList: (String) -> Unit,
+    onShelf: (Tab) -> Unit,
+    onStats: () -> Unit,
+) {
+    val tabs = state.homeTabs().filter { it.visible }.map { it.tab }
+    val n = tabs.size
+    val start = Int.MAX_VALUE / 2 - (Int.MAX_VALUE / 2) % n
+    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = start) { Int.MAX_VALUE }
+    val here = pager.currentPage % n
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    Column(Modifier.fillMaxSize()) {
+        // The header stays put while the page under it scrolls or flicks.
+        androidx.compose.material3.PrimaryTabRow(selectedTabIndex = here, containerColor = MaterialTheme.colorScheme.background) {
+            tabs.forEachIndexed { i, t ->
+                androidx.compose.material3.Tab(
+                    selected = i == here,
+                    onClick = {
+                        // The nearest copy of that page, so the header never spins the whole way round.
+                        val base = pager.currentPage - here
+                        val target = listOf(base + i - n, base + i, base + i + n).minBy { kotlin.math.abs(it - pager.currentPage) }
+                        scope.launch { pager.animateScrollToPage(target) }
+                    },
+                    text = { Text(t.label, fontWeight = if (i == here) FontWeight.SemiBold else FontWeight.Normal) },
+                )
+            }
+        }
+        androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 0) { index ->
+            val recent = state.books.filter { it.lastOpened > 0 }.sortedByDescending { it.lastOpened }
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                when (tabs[index % n]) {
+                    HomeTab.Home -> {
+                        if (state.books.isEmpty()) item { EmptyShelf(Tab.Home, {}) }
+                        recent.firstOrNull { it.status != Status.Finished }?.let { b -> item(key = "continue") { HeroCard(model, b, onOpen = { onOpen(b) }, onDetails = { onDetails(b) }) } }
+                        if (recent.isNotEmpty()) item(key = "latest") {
+                            Column {
+                                HomeTitle("Pick up where you left off", "Reading now") { onShelf(Tab.ReadingNow) }
+                                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    items(recent.take(3), key = { it.id }) { b -> Box(Modifier.width(120.dp)) { GridBook(model, b, 0.7f, compact = false, { onOpen(b) }, { onDetails(b) }) } }
+                                }
+                            }
+                        }
+                    }
+                    HomeTab.Stats -> {
+                        item(key = "stats") { HomeStats(state, onStats) }
+                        val top = state.mostRead(7, 4)
+                        if (top.isNotEmpty()) item(key = "mostread") {
+                            Panel2("Most read this week") {
+                                val max = top.first().second.coerceAtLeast(1)
+                                top.forEach { (b, seconds) ->
+                                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(b) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Cover(model, b, Modifier.width(36.dp).aspectRatio(0.7f), marks = false)
+                                        Column(Modifier.weight(1f)) {
+                                            Text(b.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Spacer(Modifier.height(4.dp))
+                                            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                                                Box(Modifier.fillMaxWidth(seconds.toFloat() / max).height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.primary))
+                                            }
+                                        }
+                                        Text(minutesLabel(seconds), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                        val sittings = state.sessions.takeLast(6).reversed()
+                        if (sittings.isNotEmpty()) item(key = "sittings") {
+                            Panel2("Recent sittings") {
+                                sittings.forEach { sess ->
+                                    val b = state.books.firstOrNull { it.id == sess.bookId }
+                                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(b?.name ?: "A removed book", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(formatDate(sess.start), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(minutesLabel(sess.seconds), style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    HomeTab.Library -> {
+                        item(key = "shelves") {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                HomeTitle("Shelves", null) {}
+                                listOf(Tab.ReadingNow, Tab.ToRead, Tab.Finished, Tab.Favorites, Tab.All).chunked(2).forEach { pair ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        pair.forEach { t ->
+                                            Card(Modifier.weight(1f).clickable { onShelf(t) }, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                                                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                    Icon(t.icon(), null, tint = MaterialTheme.colorScheme.primary)
+                                                    Column {
+                                                        Text(t.title(), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1)
+                                                        Text("${state.books.count { it.inTab(t) }}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+                        val top = lists.filter { depthOf(it) == 0 }
+                        if (top.isNotEmpty()) item(key = "lists") {
+                            Column {
+                                HomeTitle("Lists", null) {}
+                                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    items(top) { path ->
+                                        val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
+                                        val inner = state.childLists(path).size
+                                        Card(Modifier.clickable { onOpenList(path) }, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                                            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                                Column {
+                                                    Text(nameOf(path), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                                    Text(folderSummary(books, inner), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        val favs = state.books.filter { it.favorite }
+                        if (favs.isNotEmpty()) item(key = "favorites") {
+                            Column {
+                                HomeTitle("Favorites", "All favorites") { onShelf(Tab.Favorites) }
+                                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    items(favs.take(12), key = { it.id }) { b -> Box(Modifier.width(110.dp)) { GridBook(model, b, 0.7f, compact = true, { onOpen(b) }, { onDetails(b) }) } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeTitle(title: String, action: String?, onAction: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        if (action != null) androidx.compose.material3.TextButton(onClick = onAction) { Text(action) }
+    }
+}
+
+@Composable
+private fun Panel2(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            content()
+        }
+    }
+}
+
+/** Today, the week, the streak, the number and length of sittings, and a 7-day chart. */
+@Composable
+private fun HomeStats(state: dev.folio.reader.data.LibraryState, onClick: () -> Unit) {
+    val today = state.day(0)
+    val week = state.lastDays(7)
+    val sittings = state.sessionsSince(7)
+    val sittingsToday = state.sessionsSince(1).size
+    val avg = if (sittings.isEmpty()) 0L else sittings.sumOf { it.seconds } / sittings.size
+    val streak = state.streak()
+    val days = (6 downTo 0).map { state.day(it) }
+    val top = days.maxOf { it.seconds }.coerceAtLeast(60)
+    Card(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row {
+                Stat("Today", minutesLabel(today.seconds), "${today.pages} ${if (today.pages == 1) "page" else "pages"}", Modifier.weight(1f))
+                Stat("This week", minutesLabel(week.seconds), "${week.pages} pages", Modifier.weight(1f))
+                Stat("Streak", "$streak ${if (streak == 1) "day" else "days"}", if (streak > 0) "keep going" else "read a minute", Modifier.weight(1f))
+            }
+            Row {
+                Stat("Sittings", "${sittings.size}", "$sittingsToday today", Modifier.weight(1f))
+                Stat("Average sitting", minutesLabel(avg), "this week", Modifier.weight(1f))
+                Stat("Books", "${state.books.count { it.status == Status.Reading }}", "being read", Modifier.weight(1f))
+            }
+            Row(Modifier.fillMaxWidth().height(54.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+                days.forEachIndexed { i, d ->
+                    Box(Modifier.weight(1f).height((46f * d.seconds / top).coerceAtLeast(3f).dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = if (i == 6) 0.9f else 0.4f)))
+                }
+            }
         }
     }
 }

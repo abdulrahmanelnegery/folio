@@ -126,4 +126,60 @@ class ModelTest {
         assertEquals(listOf("", "C"), s.moveTargets("A/B"))
         assertEquals(listOf("C"), s.moveTargets("A"))
     }
+
+    @Test
+    fun `most read ranks books by time in the last days and ignores old sessions`() {
+        val now = 10L * 24 * 60 * 60 * 1000
+        val day = 24L * 60 * 60 * 1000
+        val s = state(book("1"), book("2"), book("3")).copy(
+            sessions = listOf(
+                ReadSession("1", now - day, 600, 5),
+                ReadSession("2", now - 2 * day, 1200, 9),
+                ReadSession("1", now - 3 * day, 900, 7),
+                ReadSession("3", now - 9 * day, 5000, 50),
+            ),
+        )
+        val top = s.mostRead(7, 5, now)
+        assertEquals(listOf("1" to 1500L, "2" to 1200L), top.map { it.first.id to it.second })
+        assertEquals(3, s.sessionsSince(7, now).size)
+    }
+
+    @Test
+    fun `home tabs keep Home first and always shown, then the user's order`() {
+        val s = LibraryState(homeTabs = listOf(HomeTabConfig(HomeTab.Library, false), HomeTabConfig(HomeTab.Home, false), HomeTabConfig(HomeTab.Stats)))
+        val tabs = s.homeTabs()
+        assertEquals(listOf(HomeTab.Home, HomeTab.Library, HomeTab.Stats), tabs.map { it.tab })
+        assertTrue("Home cannot be hidden", tabs[0].visible)
+        assertFalse(tabs[1].visible)
+        assertEquals("an empty setting shows every tab", HomeTab.entries.size, LibraryState().homeTabs().size)
+    }
+
+    @Test
+    fun `the same file added twice becomes one entry that keeps everything`() {
+        val a = Book("a", "content://picker/1", "Book", fileName = "Book.pdf", size = 1000, lists = listOf("X"), favorite = true, lastOpened = 5, readSeconds = 30)
+        val b = Book("b", "file:///x/Book.pdf", "Book", fileName = "Book.pdf", size = 1000, pages = 10, page = 5, lists = listOf("Y"), rating = 4, lastOpened = 9, readSeconds = 60, status = Status.Reading)
+        val other = Book("c", "u", "Other", fileName = "Other.pdf", size = 10)
+        val s = LibraryState(books = listOf(a, b, other), sessions = listOf(ReadSession("a", 1, 10, 1), ReadSession("b", 2, 20, 2))).deduplicated()
+        assertEquals(2, s.books.size)
+        val merged = s.books.first { it.fileName == "Book.pdf" }
+        assertEquals("the one with more progress stays", "b", merged.id)
+        assertEquals(listOf("Y", "X"), merged.lists)
+        assertEquals(4, merged.rating)
+        assertTrue(merged.favorite)
+        assertEquals(90, merged.readSeconds)
+        assertEquals(listOf("b", "b"), s.sessions.map { it.bookId })
+    }
+
+    @Test
+    fun `entries of different files or unknown sizes are left alone`() {
+        val s = state(
+            Book("a", "u", "A", fileName = "A.pdf", size = 5),
+            Book("b", "u", "A", fileName = "A.pdf", size = 6),
+            Book("c", "u", "C", fileName = "C.pdf", size = 0),
+            Book("d", "u", "C", fileName = "C.pdf", size = 0),
+        )
+        assertEquals(4, s.deduplicated().books.size)
+        assertEquals("b", s.findSameFile("a.PDF", 6)?.id)
+        assertNull(s.findSameFile("C.pdf", 0))
+    }
 }

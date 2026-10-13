@@ -36,12 +36,20 @@ import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.rounded.ScreenLockRotation
+import androidx.compose.material.icons.rounded.ScreenRotationAlt
+import androidx.compose.material.icons.rounded.StayCurrentLandscape
+import androidx.compose.material.icons.rounded.StayCurrentPortrait
+import androidx.compose.material.icons.rounded.Crop
+import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.BrightnessHigh
 import androidx.compose.material.icons.rounded.BrightnessLow
+import androidx.compose.material.icons.rounded.BrightnessMedium
 import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Speed
@@ -103,6 +111,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
@@ -169,11 +178,13 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     val theme = state.theme
     ImmersiveBars(barsVisible)
     ReadingClock(model, id)
-    var themeSheet by remember { mutableStateOf(false) }
     var bookmarkSheet by remember { mutableStateOf(false) }
     var jumpDialog by remember { mutableStateOf(false) }
     var editNote by remember { mutableStateOf<NoteEdit?>(null) }
     var menu by remember { mutableStateOf(false) }
+    var scrub by remember { mutableStateOf<Int?>(null) }
+    var detecting by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     var sizesVersion by remember { mutableStateOf(0) }
     var autoScroll by remember { mutableStateOf(false) }
     var autoSpeed by remember { mutableFloatStateOf(70f) }
@@ -184,21 +195,42 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     Box(Modifier.fillMaxSize().background(theme.background())) {
         val file = pdf
         if (file == null) {
-            Text("Opening…", Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // The cover is already in memory: show it at once, so opening feels instant while the file loads.
+            val cover by produceState<androidx.compose.ui.graphics.ImageBitmap?>(model.covers.peek(book)?.asImageBitmap(), book.id) {
+                value = value ?: model.covers.get(book)?.asImageBitmap()
+            }
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                cover?.let { Image(it, null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth, colorFilter = theme.filter(), alignment = Alignment.TopCenter) }
+                androidx.compose.material3.CircularProgressIndicator(Modifier.align(Alignment.Center).size(32.dp), strokeWidth = 3.dp)
+            }
         } else {
             val list = rememberLazyListState()
             // A page counts as read once the reader stays on it for a moment.
             LaunchedEffect(file) {
                 snapshotFlow { list.firstVisibleItemIndex }.debounce(1500).collect { model.pageSeen(id, it) }
             }
-            // The other pages' real sizes arrive after the book is already showing.
-            LaunchedEffect(file) {
-                kotlinx.coroutines.delay(600)
-                if (file.readAllSizes()) sizesVersion++
+            // A page's real shape is learned as it is drawn; the layout follows.
+            DisposableEffect(file) {
+                file.onShapeLearned = { sizesVersion++ }
+                onDispose { file.onShapeLearned = null }
             }
             BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
                 val widthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx() }.roundToInt()
-                val cache = remember(file) { object : LruCache<String, Bitmap>(48 * 1024 * 1024) { override fun sizeOf(k: String, v: Bitmap) = v.byteCount } }
+                val cache = remember(file) {
+                    // A share of the app's memory, never so much that a big page can crowd out everything else.
+                    val budget = (Runtime.getRuntime().maxMemory() / 6).toInt().coerceIn(24 * 1024 * 1024, 96 * 1024 * 1024)
+                    object : LruCache<String, Bitmap>(budget) { override fun sizeOf(k: String, v: Bitmap) = v.byteCount }
+                }
+                val appContext = LocalContext.current
+                DisposableEffect(cache) {
+                    val callbacks = object : android.content.ComponentCallbacks2 {
+                        override fun onTrimMemory(level: Int) { if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) cache.evictAll() }
+                        override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {}
+                        @Deprecated("Replaced by onTrimMemory") override fun onLowMemory() { cache.evictAll() }
+                    }
+                    appContext.registerComponentCallbacks(callbacks)
+                    onDispose { appContext.unregisterComponentCallbacks(callbacks); cache.evictAll() }
+                }
 
                 // Pick up where the book was left: the page and how far down it.
                 LaunchedEffect(file) {
@@ -255,7 +287,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 ) {
                     items(file.pageCount) { index ->
                         @Suppress("UNUSED_VARIABLE") val layoutVersion = sizesVersion
-                        PageView(file, index, widthPx, zoom, cache, theme, noteCount = book.comments.count { it.page == index }, onNotes = { bookmarkSheet = true })
+                        PageView(file, index, widthPx, zoom, cache, theme, crop = if (book.cropMargins && book.margins.size == 4) book.margins else null, noteCount = book.comments.count { it.page == index }, onNotes = { bookmarkSheet = true })
                     }
                 }
             }
@@ -286,34 +318,55 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 exit = slideOutVertically { -it } + fadeOut(),
             ) {
                 Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.97f), tonalElevation = 3.dp, shadowElevation = 4.dp) {
-                    Row(Modifier.statusBarsPadding().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { model.closeBook() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-                        Text(book.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val marked = (current - 1) in book.bookmarks
-                        IconButton(onClick = { model.repo.toggleBookmark(id, current - 1) }) {
-                            Icon(if (marked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (marked) "Remove bookmark" else "Add bookmark", tint = if (marked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                        }
-                        IconButton(onClick = { editNote = NoteEdit(null, current - 1, "") }) { Icon(Icons.Rounded.AddComment, "Comment on this page") }
-                        ThemeToggle(theme, onToggle = { model.repo.update { it.copy(theme = if (it.theme == PageTheme.Normal) PageTheme.Night else PageTheme.Normal) } }, onMore = { themeSheet = true })
-                        Box {
-                            IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Reading options") }
-                            DropdownMenu(menu, { menu = false }) {
-                                DropdownMenuItem(
-                                    leadingIcon = { Icon(Icons.Rounded.PlayCircle, null) },
-                                    text = { Text(if (autoScroll) "Stop auto-scroll" else "Auto-scroll") },
-                                    onClick = { menu = false; autoScroll = !autoScroll; tool = if (autoScroll) ReaderTool.AutoScroll else null; barsVisible = !autoScroll },
-                                )
-                                DropdownMenuItem(
-                                    leadingIcon = { Icon(Icons.Rounded.LightMode, null) },
-                                    text = { Text("Brightness") },
-                                    onClick = { menu = false; tool = ReaderTool.Brightness },
-                                )
-                                DropdownMenuItem(
-                                    leadingIcon = { Icon(Icons.Rounded.Bookmarks, null) },
-                                    text = { Text("Bookmarks and notes") },
-                                    onClick = { menu = false; bookmarkSheet = true },
-                                )
+                    Column(Modifier.statusBarsPadding().padding(horizontal = 4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { model.closeBook() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+                            Text(book.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            val marked = (current - 1) in book.bookmarks
+                            IconButton(onClick = { model.repo.toggleBookmark(id, current - 1) }) {
+                                Icon(if (marked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (marked) "Remove bookmark" else "Add bookmark", tint = if (marked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                             }
+                            Box {
+                                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Reading options") }
+                                DropdownMenu(menu, { menu = false }) {
+                                    DropdownMenuItem(
+                                        leadingIcon = { Icon(Icons.Rounded.PlayCircle, null) },
+                                        text = { Text(if (autoScroll) "Stop auto-scroll" else "Auto-scroll") },
+                                        onClick = { menu = false; autoScroll = !autoScroll; tool = if (autoScroll) ReaderTool.AutoScroll else null; barsVisible = !autoScroll },
+                                    )
+                                    DropdownMenuItem(
+                                        leadingIcon = { Icon(Icons.Rounded.AddComment, null) },
+                                        text = { Text("Comment on this page") },
+                                        onClick = { menu = false; editNote = NoteEdit(null, current - 1, "") },
+                                    )
+                                    DropdownMenuItem(
+                                        leadingIcon = { Icon(Icons.Rounded.Bookmarks, null) },
+                                        text = { Text("Bookmarks and notes") },
+                                        onClick = { menu = false; bookmarkSheet = true },
+                                    )
+                                }
+                            }
+                        }
+                        // The reading controls, each an icon: theme, margins, brightness, rotation.
+                        Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                            ThemeMenu(theme) { picked -> model.repo.update { it.copy(theme = picked) } }
+                            CropButton(book.cropMargins, detecting) {
+                                if (book.cropMargins) {
+                                    model.repo.updateBook(id) { it.copy(cropMargins = false) }
+                                } else if (book.margins.size == 4) {
+                                    model.repo.updateBook(id) { it.copy(cropMargins = true) }
+                                } else if (!detecting) {
+                                    detecting = true
+                                    scope.launch {
+                                        val found = file.detectMargins()
+                                        detecting = false
+                                        if (found == null) model.notify("No clear margins to remove in this book.")
+                                        else model.repo.updateBook(id) { it.copy(margins = found, cropMargins = true) }
+                                    }
+                                }
+                            }
+                            BrightnessButton(book.brightness) { v -> model.repo.updateBook(id) { it.copy(brightness = v) } }
+                            RotationMenu(book.orientation) { o -> model.repo.updateBook(id) { it.copy(orientation = o) } }
                         }
                     }
                 }
@@ -329,20 +382,6 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 6.dp, shadowElevation = 8.dp) {
                     Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
                         when (tool) {
-                            ReaderTool.Brightness -> {
-                                ToolHeader("Brightness", onClose = { tool = null })
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Rounded.BrightnessLow, null, Modifier.size(20.dp))
-                                    Slider(
-                                        value = if (state.brightness < 0f) 0.5f else state.brightness,
-                                        onValueChange = { v -> model.repo.update { it.copy(brightness = v.coerceIn(0.02f, 1f)) } },
-                                        valueRange = 0.02f..1f,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    Icon(Icons.Rounded.BrightnessHigh, null, Modifier.size(20.dp))
-                                }
-                                TextButton(onClick = { model.repo.update { it.copy(brightness = -1f) } }, enabled = state.brightness >= 0f) { Text("Use the system brightness") }
-                            }
                             ReaderTool.AutoScroll -> {
                                 ToolHeader("Auto-scroll", onClose = { autoScroll = false; tool = null })
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -367,26 +406,33 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 exit = slideOutVertically { it } + fadeOut(),
             ) {
                 Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.97f), tonalElevation = 3.dp, shadowElevation = 6.dp) {
-                    Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp)) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "Page $current of ${file.pageCount}",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { jumpDialog = true }.padding(horizontal = 8.dp, vertical = 4.dp),
-                            )
-                            Spacer(Modifier.weight(1f))
-                            Text("${(current * 100f / file.pageCount).roundToInt()}%", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        PageSlider(current - 1, file.pageCount) { page -> list.requestScrollToItem(page) }
+                    // One slim row: the page, the slider, the percentage.
+                    Row(Modifier.navigationBarsPadding().padding(horizontal = 12.dp).height(44.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "$current/${file.pageCount}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { jumpDialog = true }.padding(horizontal = 6.dp, vertical = 6.dp),
+                        )
+                        PageSlider(current - 1, file.pageCount, Modifier.weight(1f), onScrub = { scrub = it }) { page -> list.requestScrollToItem(page) }
+                        Text("${(current * 100f / file.pageCount).roundToInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
                     }
+                }
+            }
+            // The page number while you drag, floating above the slim bar.
+            scrub?.let { p ->
+                Surface(
+                    shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primary, shadowElevation = 6.dp,
+                    modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 56.dp),
+                ) {
+                    Text("Page ${p + 1}", Modifier.padding(horizontal = 18.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
                 }
             }
         }
     }
     val pages = pdf?.pageCount ?: 0
-    KeepScreenOn(state.brightness)
-    if (themeSheet) ThemeSheet(theme, onPick = { picked -> model.repo.update { it.copy(theme = picked) } }, onDismiss = { themeSheet = false })
+    KeepScreenOn(book.brightness)
+    ReadingOrientation(book.orientation)
     if (bookmarkSheet) NotesSheet(
         book,
         onGo = { page -> jumpTo.value = page; bookmarkSheet = false },
@@ -407,18 +453,25 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
 
 private data class NoteEdit(val id: Long?, val page: Int, val text: String)
 
-private enum class ReaderTool { Brightness, AutoScroll }
+private enum class ReaderTool { AutoScroll }
 
 /** One page: a placeholder of the right shape until its bitmap is drawn. */
 @Composable
-private fun PageView(file: PdfFile, index: Int, widthPx: Int, zoom: Float, cache: LruCache<String, Bitmap>, theme: PageTheme, noteCount: Int, onNotes: () -> Unit) {
+private fun PageView(file: PdfFile, index: Int, widthPx: Int, zoom: Float, cache: LruCache<String, Bitmap>, theme: PageTheme, crop: List<Float>?, noteCount: Int, onNotes: () -> Unit) {
+    // With the margins cropped only the middle of the page is shown, so it is drawn wider to keep the text as sharp.
+    val (l, t, r, b) = crop ?: listOf(0f, 0f, 0f, 0f)
+    val visW = (1f - l - r).coerceAtLeast(0.3f)
+    val visH = (1f - t - b).coerceAtLeast(0.3f)
     // Sharper pixels when zoomed, in steps so a pinch does not re-render every frame.
-    val target = (widthPx * (if (zoom > 1.6f) 2.5f else if (zoom > 1.05f) 1.6f else 1f)).roundToInt().coerceAtMost(3000)
-    val bitmap by produceState<Bitmap?>(cache.get("$index@$target") ?: cache.get("$index@$widthPx"), index, target) {
+    val target = (widthPx / visW * (if (zoom > 1.6f) 2.5f else if (zoom > 1.05f) 1.6f else 1f)).roundToInt().coerceAtMost(3600)
+    val bitmap by produceState<Bitmap?>(cache.get("$index@$target") ?: cache.get("$index@${(target / 1.6f).roundToInt()}"), index, target) {
         cache.get("$index@$target")?.let { value = it; return@produceState }
+        // A half-size draw first: it is ready in a fraction of the time, so the page appears at once and sharpens after.
+        if (value == null) file.render(index, (target / 2).coerceAtLeast(1))?.also { cache.put("$index@${target / 2}", it); value = it }
         file.render(index, target)?.also { cache.put("$index@$target", it); value = it }
     }
-    Box(Modifier.fillMaxWidth().aspectRatio(1f / file.aspect(index)).background(Color.White)) {
+    val filter = theme.filter()
+    Box(Modifier.fillMaxWidth().aspectRatio(visW / (file.aspect(index) * visH)).background(Color.White)) {
         if (bitmap == null) {
             Text("${index + 1}", Modifier.align(Alignment.Center), color = Color(0xFFB8B2A4), style = MaterialTheme.typography.displaySmall)
         }
@@ -427,7 +480,18 @@ private fun PageView(file: PdfFile, index: Int, widthPx: Int, zoom: Float, cache
                 Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFF2B12E)).clickable(onClick = onNotes).padding(horizontal = 8.dp, vertical = 4.dp),
             ) { Text("✎ $noteCount", color = Color(0xFF3B2A00), style = MaterialTheme.typography.labelMedium) }
         }
-        bitmap?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds, colorFilter = theme.filter()) }
+        bitmap?.let { bmp ->
+            val image = remember(bmp) { bmp.asImageBitmap() }
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                drawImage(
+                    image,
+                    srcOffset = androidx.compose.ui.unit.IntOffset((l * image.width).roundToInt(), (t * image.height).roundToInt()),
+                    srcSize = androidx.compose.ui.unit.IntSize((visW * image.width).roundToInt().coerceAtLeast(1), (visH * image.height).roundToInt().coerceAtLeast(1)),
+                    dstSize = androidx.compose.ui.unit.IntSize(size.width.roundToInt().coerceAtLeast(1), size.height.roundToInt().coerceAtLeast(1)),
+                    colorFilter = filter,
+                )
+            }
+        }
     }
 }
 
@@ -448,39 +512,6 @@ private fun ImmersiveBars(barsVisible: Boolean) {
     DisposableEffect(Unit) {
         onDispose {
             activity?.window?.let { WindowCompat.getInsetsController(it, view).show(WindowInsetsCompat.Type.systemBars()) }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ThemeSheet(current: PageTheme, onPick: (PageTheme) -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
-            Text("Page theme", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PageTheme.entries.forEach { t ->
-                    val (paper, ink) = when (t) {
-                        PageTheme.Normal -> Color.White to Color(0xFF222222)
-                        PageTheme.Night -> Color(0xFF0C0C0C) to Color(0xFFF0F0F0)
-                        PageTheme.SoftNight -> Color(0xFF201E1A) to Color(0xFFD6CFBE)
-                        PageTheme.Sepia -> Color(0xFFF4E8D0) to Color(0xFF3B3226)
-                    }
-                    Column(Modifier.weight(1f).clickable { onPick(t) }, horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            Modifier.fillMaxWidth().height(72.dp).clip(RoundedCornerShape(14.dp)).background(paper)
-                                .border(if (t == current) 3.dp else 1.dp, if (t == current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("Aa", color = ink, style = MaterialTheme.typography.titleLarge)
-                            if (t == current) Icon(Icons.Rounded.Check, null, Modifier.align(Alignment.TopEnd).padding(4.dp).size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        Text(t.label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
-                    }
-                }
-            }
         }
     }
 }
@@ -540,26 +571,71 @@ private fun NoteDialog(edit: NoteEdit, onSave: (String) -> Unit, onDelete: () ->
     )
 }
 
-/** Sun or moon: one tap flips between the plain page and night; long press picks any theme. */
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+/** The page theme as a dropdown, each choice drawn as the paper and ink it gives. */
 @Composable
-private fun ThemeToggle(theme: PageTheme, onToggle: () -> Unit, onMore: () -> Unit) {
-    val night = theme != PageTheme.Normal
-    Box(
-        Modifier.size(48.dp).clip(androidx.compose.foundation.shape.CircleShape).combinedClickable(onClick = onToggle, onLongClick = onMore),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            Modifier.size(36.dp).clip(androidx.compose.foundation.shape.CircleShape)
-                .background(if (night) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                if (night) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
-                if (night) "Switch to the plain page" else "Switch to night",
-                Modifier.size(22.dp),
-                tint = if (night) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-            )
+private fun ThemeMenu(current: PageTheme, onPick: (PageTheme) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(if (current == PageTheme.Normal) Icons.Rounded.LightMode else Icons.Rounded.DarkMode, "Page theme", tint = if (current == PageTheme.Normal) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary)
+        }
+        DropdownMenu(open, { open = false }) {
+            PageTheme.entries.forEach { t ->
+                val (paper, ink) = when (t) {
+                    PageTheme.Normal -> Color.White to Color(0xFF222222)
+                    PageTheme.Night -> Color(0xFF0C0C0C) to Color(0xFFF0F0F0)
+                    PageTheme.SoftNight -> Color(0xFF201E1A) to Color(0xFFD6CFBE)
+                    PageTheme.Sepia -> Color(0xFFF4E8D0) to Color(0xFF3B3226)
+                }
+                DropdownMenuItem(
+                    leadingIcon = {
+                        Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(paper).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                            Text("A", color = ink, style = MaterialTheme.typography.labelLarge)
+                        }
+                    },
+                    text = { Text(t.label, fontWeight = if (t == current) FontWeight.SemiBold else FontWeight.Normal) },
+                    trailingIcon = { if (t == current) Icon(Icons.Rounded.Check, null) },
+                    onClick = { onPick(t); open = false },
+                )
+            }
+        }
+    }
+}
+
+/** Remove the blank margins around the text: on or off for this book. */
+@Composable
+private fun CropButton(on: Boolean, detecting: Boolean, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        if (detecting) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+        else Icon(Icons.Rounded.Crop, if (on) "Show the margins" else "Remove the margins", tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+private fun dev.folio.reader.data.Orientation.icon() = when (this) {
+    dev.folio.reader.data.Orientation.Normal -> Icons.Rounded.ScreenRotation
+    dev.folio.reader.data.Orientation.Portrait -> Icons.Rounded.StayCurrentPortrait
+    dev.folio.reader.data.Orientation.Landscape -> Icons.Rounded.StayCurrentLandscape
+    dev.folio.reader.data.Orientation.Dynamic -> Icons.Rounded.ScreenRotationAlt
+    dev.folio.reader.data.Orientation.Locked -> Icons.Rounded.ScreenLockRotation
+}
+
+/** How this book turns: the button shows the current choice, the menu shows each with its own icon. */
+@Composable
+private fun RotationMenu(current: dev.folio.reader.data.Orientation, onPick: (dev.folio.reader.data.Orientation) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(current.icon(), "Rotation: ${current.label}", tint = if (current == dev.folio.reader.data.Orientation.Normal) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary)
+        }
+        DropdownMenu(open, { open = false }) {
+            dev.folio.reader.data.Orientation.entries.forEach { o ->
+                DropdownMenuItem(
+                    leadingIcon = { Icon(o.icon(), null) },
+                    text = { Column { Text(o.label, fontWeight = if (o == current) FontWeight.SemiBold else FontWeight.Normal); Text(o.note, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } },
+                    trailingIcon = { if (o == current) Icon(Icons.Rounded.Check, null) },
+                    onClick = { onPick(o); open = false },
+                )
+            }
         }
     }
 }
@@ -572,32 +648,53 @@ private fun ToolHeader(title: String, onClose: () -> Unit) {
     }
 }
 
-/** A page slider with a bubble over the thumb that names the page while you drag. */
+/** A slim page slider; it reports the page while you drag so the screen can name it. */
 @Composable
-private fun PageSlider(page: Int, pageCount: Int, onSeek: (Int) -> Unit) {
+private fun PageSlider(page: Int, pageCount: Int, modifier: Modifier, onScrub: (Int?) -> Unit, onSeek: (Int) -> Unit) {
     var dragging by remember { mutableStateOf<Float?>(null) }
     val maxIndex = (pageCount - 1).coerceAtLeast(1)
-    val value = dragging ?: page.toFloat()
-    BoxWithConstraints(Modifier.fillMaxWidth().height(60.dp)) {
-        val fraction = (value / maxIndex).coerceIn(0f, 1f)
-        val track = maxWidth - 32.dp
-        if (dragging != null) {
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.primary,
-                shadowElevation = 6.dp,
-                modifier = Modifier.align(Alignment.TopStart).offset(x = 16.dp + track * fraction - 26.dp, y = 0.dp).width(52.dp),
-            ) {
-                Text("${value.roundToInt() + 1}", Modifier.padding(vertical = 6.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
+    Slider(
+        value = dragging ?: page.toFloat(),
+        onValueChange = { dragging = it; onScrub(it.roundToInt()); onSeek(it.roundToInt()) },
+        onValueChangeFinished = { dragging = null; onScrub(null) },
+        valueRange = 0f..maxIndex.toFloat(),
+        modifier = modifier,
+    )
+}
+
+/** A sun button that opens a small slider for this book's brightness. */
+@Composable
+private fun BrightnessButton(brightness: Float, onChange: (Float) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) { Icon(if (brightness < 0f) Icons.Rounded.BrightnessMedium else Icons.Rounded.BrightnessHigh, "Brightness", tint = if (brightness < 0f) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary) }
+        DropdownMenu(open, { open = false }) {
+            Column(Modifier.width(240.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("Brightness for this book", style = MaterialTheme.typography.labelLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.BrightnessLow, null, Modifier.size(18.dp))
+                    Slider(value = if (brightness < 0f) 0.5f else brightness, onValueChange = { onChange(it.coerceIn(0.02f, 1f)) }, valueRange = 0.02f..1f, modifier = Modifier.weight(1f))
+                    Icon(Icons.Rounded.BrightnessHigh, null, Modifier.size(18.dp))
+                }
+                TextButton(onClick = { onChange(-1f) }, enabled = brightness >= 0f) { Text("Use the system brightness") }
             }
         }
-        Slider(
-            value = value,
-            onValueChange = { dragging = it; onSeek(it.roundToInt()) },
-            onValueChangeFinished = { dragging = null },
-            valueRange = 0f..maxIndex.toFloat(),
-            modifier = Modifier.align(Alignment.BottomStart),
-        )
+    }
+}
+
+/** Applies a book's rotation while it is open, and gives the phone's own setting back afterwards. */
+@Composable
+private fun ReadingOrientation(orientation: dev.folio.reader.data.Orientation) {
+    val activity = LocalActivity.current
+    DisposableEffect(orientation) {
+        activity?.requestedOrientation = when (orientation) {
+            dev.folio.reader.data.Orientation.Normal -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            dev.folio.reader.data.Orientation.Portrait -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            dev.folio.reader.data.Orientation.Landscape -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            dev.folio.reader.data.Orientation.Dynamic -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+            dev.folio.reader.data.Orientation.Locked -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
+        }
+        onDispose { activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
     }
 }
 
