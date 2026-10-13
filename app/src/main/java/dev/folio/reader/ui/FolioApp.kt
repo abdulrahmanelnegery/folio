@@ -12,6 +12,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
@@ -49,14 +50,16 @@ fun FolioApp(model: FolioViewModel) {
         }
     }
     var settings by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    var about by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     var explorer by remember { androidx.compose.runtime.mutableStateOf<ExplorerRequest?>(null) }
     // The text reader asks about unsaved edits itself; every other reader closes straight away.
     BackHandler(enabled = reading != null && kindOfReading != dev.folio.reader.data.Kind.Text) { model.closeBook() }
     BackHandler(enabled = reading == null && settings) { settings = false }
-    // Back walks out one screen at a time; on the home screen it can ask before closing Folio.
+    BackHandler(enabled = reading == null && about) { about = false }
+    // Back walks out one screen at a time; on the home screen it can ask before closing Rukn.
     var askExit by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     val activity = androidx.activity.compose.LocalActivity.current
-    BackHandler(enabled = reading == null && !settings && explorer == null && confirmExit) { askExit = true }
+    BackHandler(enabled = reading == null && !settings && !about && explorer == null && confirmExit) { askExit = true }
     if (askExit) ExitDialog(
         onStay = { askExit = false },
         onClose = { dontAsk ->
@@ -71,34 +74,43 @@ fun FolioApp(model: FolioViewModel) {
         },
     ) {
         AnimatedContent(
-            targetState = reading ?: if (explorer != null) "explorer" else if (settings) "settings" else null,
+            targetState = reading ?: if (explorer != null) "explorer" else if (settings) "settings" else if (about) "about" else null,
             // Short and soft: a book opens by growing and fading in from just under full size while the library gives way, and
             // closes by easing out a touch larger while the library appears beneath; other screens simply cross-fade.
             transitionSpec = {
-                fun isBook(id: String?) = id != null && id != "settings" && id != "explorer"
+                fun isBook(id: String?) = id != null && id != "settings" && id != "explorer" && id != "about"
                 when {
                     !isBook(initialState) && isBook(targetState) ->
                         (fadeIn(tween(190, easing = androidx.compose.animation.core.FastOutSlowInEasing)) +
                             androidx.compose.animation.scaleIn(initialScale = 0.94f, animationSpec = tween(230, easing = androidx.compose.animation.core.FastOutSlowInEasing))) togetherWith
                             fadeOut(tween(90))
-                    isBook(initialState) && !isBook(targetState) ->
-                        (fadeIn(tween(170)) togetherWith
-                            (fadeOut(tween(150)) + androidx.compose.animation.scaleOut(targetScale = 1.04f, animationSpec = tween(170, easing = androidx.compose.animation.core.FastOutSlowInEasing)))).apply { targetContentZIndex = -1f }
+                    // Closing is only a short cross-fade: the library has to draw its covers again, and a bigger move would stutter.
+                    isBook(initialState) && !isBook(targetState) -> fadeIn(tween(180)) togetherWith fadeOut(tween(120))
                     else -> fadeIn(tween(150)) togetherWith fadeOut(tween(110))
                 }
             },
             label = "screen",
         ) { id ->
             if (id == null) {
-                LibraryScreen(model, onOpenPicker = { picker.launch(arrayOf("*/*")) }, onSettings = { settings = true }, onBrowse = { list, dir -> explorer = ExplorerRequest(list, dir) })
+                LibraryScreen(model, onOpenPicker = { picker.launch(arrayOf("*/*")) }, onSettings = { settings = true }, onAbout = { about = true }, onBrowse = { list, dir -> explorer = ExplorerRequest(list, dir) })
             } else if (id == "explorer") {
                 explorer?.let { ExplorerScreen(model, it, onClose = { explorer = null }) }
+            } else if (id == "about") {
+                AboutScreen(onBack = { about = false })
             } else if (id == "settings") {
                 SettingsScreen(model, onBack = { settings = false })
-            } else if (kindOfReading == dev.folio.reader.data.Kind.Text) {
-                TextScreen(model, id)
             } else {
-                ReaderScreen(model, id)
+                // The book is built only once the opening glide has finished, so the glide itself is not competing with
+                // opening the file; the page then fades in over the same paper-coloured sheet.
+                val settled = transition.currentState == androidx.compose.animation.EnterExitState.Visible &&
+                    transition.targetState == androidx.compose.animation.EnterExitState.Visible
+                var built by remember(id) { androidx.compose.runtime.mutableStateOf(false) }
+                LaunchedEffect(settled) { if (settled) built = true }
+                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                    androidx.compose.animation.AnimatedVisibility(built, enter = fadeIn(tween(140))) {
+                        if (kindOfReading == dev.folio.reader.data.Kind.Text) TextScreen(model, id) else ReaderScreen(model, id)
+                    }
+                }
             }
         }
         SnackbarHost(snackbar, Modifier.align(androidx.compose.ui.Alignment.BottomCenter))
@@ -110,7 +122,7 @@ private fun ExitDialog(onStay: () -> Unit, onClose: (dontAskAgain: Boolean) -> U
     var dontAsk by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onStay,
-        title = { androidx.compose.material3.Text("Close Folio?") },
+        title = { androidx.compose.material3.Text("Close Rukn?") },
         text = {
             androidx.compose.foundation.layout.Column {
                 androidx.compose.material3.Text("You are on the home screen. Your reading places are saved.")

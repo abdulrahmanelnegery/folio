@@ -124,13 +124,13 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     /** Shows a short message at the bottom of the screen. */
     fun notify(text: String) { _message.value = text }
 
-    /** The "All files access" setting may have changed; move to the Folio folder when it has. */
+    /** The "All files access" setting may have changed; move to the Rukn folder when it has. */
     fun refreshStorage() {
         viewModelScope.launch(Dispatchers.IO) {
             if (storage.refresh()) {
                 repo.reload()
                 _backupTick.value++
-                _message.value = "Folio now keeps its data in ${storage.root.path}"
+                _message.value = "Rukn now keeps its data in ${storage.root.path}"
             }
         }
     }
@@ -175,7 +175,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         if (size == 0L && uri.scheme == "file") size = runCatching { File(uri.path.orEmpty()).length() }.getOrDefault(0L)
         val mime = runCatching { resolver.getType(uri) }.getOrNull()
         val kind = FileTypes.kindOf(name, mime) ?: sniffKind(uri) ?: run {
-            _message.value = "Folio cannot open “$name”. It reads PDF, EPUB, comic and text files."
+            _message.value = "Rukn cannot open “$name”. It reads PDF, EPUB, comic and text files."
             return null
         }
         if (kind == Kind.Epub || kind == Kind.Comic) {
@@ -301,7 +301,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
                 repo.updateBook(id) { it.copy(pages = text.count { c -> c == '\n' } + 1, size = text.toByteArray().size.toLong()) }
                 _message.value = "Saved."
             } else {
-                _message.value = "Folio could not write to this file. Use Save as to keep your changes."
+                _message.value = "Rukn could not write to this file. Use Save as to keep your changes."
             }
             after(ok)
         }
@@ -366,7 +366,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun applyRestore(state: LibraryState?) {
         if (state == null) {
-            _message.value = "That is not a Folio backup."
+            _message.value = "That is not a Rukn backup."
         } else {
             repo.replace(state)
             repo.flush()

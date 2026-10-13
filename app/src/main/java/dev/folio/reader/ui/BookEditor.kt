@@ -96,7 +96,7 @@ fun BookEditor(model: FolioViewModel, book: Book?, onDismiss: () -> Unit) {
             val bytes = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
             if (bytes != null && bytes.size < 12_000_000 && BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inJustDecodeBounds = true }).let { true }) {
                 draft.newCover = bytes; draft.dropCover = false
-            } else model.notify("Folio could not read that image.")
+            } else model.notify("Rukn could not read that image.")
         }
     }
     val changed = remember(draft.title, draft.author, draft.publisher, draft.year, draft.pages, draft.isbn, draft.description, draft.newCover, draft.dropCover) {
@@ -144,8 +144,8 @@ fun BookEditor(model: FolioViewModel, book: Book?, onDismiss: () -> Unit) {
                     Field("ISBN", draft.isbn) { draft.isbn = it }
                     Field("Description", draft.description, minLines = 3) { draft.description = it }
                     Text(
-                        if (book == null || book.physical) "Details are kept in your Folio library."
-                        else "Details are kept in your Folio library; the PDF file itself is not changed.",
+                        if (book == null || book.physical) "Details are kept in your Rukn library."
+                        else "Details are kept in your Rukn library; the PDF file itself is not changed.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

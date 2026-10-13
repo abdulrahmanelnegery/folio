@@ -74,6 +74,7 @@ import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
@@ -197,7 +198,7 @@ private fun ViewMode.icon(): ImageVector = when (this) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: () -> Unit, onBrowse: (list: String?, dir: String?) -> Unit) {
+fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: () -> Unit, onAbout: () -> Unit, onBrowse: (list: String?, dir: String?) -> Unit) {
     val state by model.repo.state.collectAsState()
     var tab by model::libraryTab
     var query by model::libraryQuery
@@ -258,7 +259,10 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
         drawerContent = {
             ModalDrawerSheet {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    Text("Folio", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp))
+                    Column(Modifier.padding(horizontal = 28.dp, vertical = 24.dp)) {
+                        Text("Rukn", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                        Text("by Zimam", style = MaterialTheme.typography.labelMedium, color = Color(0xFFFF5A1F))
+                    }
                     shelves.forEach { t ->
                         DrawerEntry(t.icon(), t.title(), if (t == Tab.Home) null else state.books.count { it.inTab(t) }, tab == t, 0) { tab = t; scope.launch { drawer.close() } }
                     }
@@ -281,6 +285,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                     DrawerEntry(Icons.Rounded.Description, "Documents", null, false, 0) { scope.launch { drawer.close() }; onBrowse(null, android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS).absolutePath) }
                     HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
                     DrawerEntry(Icons.Rounded.Settings, "Settings and backup", null, false, 0) { scope.launch { drawer.close() }; onSettings() }
+                    DrawerEntry(Icons.Rounded.Info, "About Rukn", null, false, 0) { scope.launch { drawer.close() }; onAbout() }
                     Spacer(Modifier.height(24.dp))
                 }
             }

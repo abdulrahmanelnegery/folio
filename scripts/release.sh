@@ -18,14 +18,14 @@ VERSION="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | hea
 OUT="dist/$VERSION"
 rm -rf "$OUT"; mkdir -p "$OUT"
 for abi in arm64-v8a armeabi-v7a x86_64; do
-  cp "app/build/outputs/apk/release/app-$abi-release.apk" "$OUT/Folio_${VERSION}_Android_$abi.apk"
+  cp "app/build/outputs/apk/release/app-$abi-release.apk" "$OUT/Rukn_${VERSION}_Android_$abi.apk"
 done
 
 # One checksum file per release file, named after it, so `sha256sum -c <file>.sha256` works.
-(cd "$OUT" && for f in Folio_*; do case "$f" in *.sha256) ;; *) sha256sum -- "$f" > "$f.sha256" ;; esac; done)
+(cd "$OUT" && for f in Rukn_*; do case "$f" in *.sha256) ;; *) sha256sum -- "$f" > "$f.sha256" ;; esac; done)
 ls -l "$OUT"
 
 if [ "${1:-}" = "--publish" ]; then
   NOTES="$(awk -v v="## $VERSION" '$0==v{p=1;next} /^## /{p=0} p' CHANGELOG.md)"
-  gh release create "v$VERSION" "$OUT"/* --title "Folio $VERSION" --notes "${NOTES:-Folio $VERSION}"
+  gh release create "v$VERSION" "$OUT"/* --title "Rukn $VERSION" --notes "${NOTES:-Rukn $VERSION}"
 fi

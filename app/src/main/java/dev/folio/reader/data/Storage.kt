@@ -6,8 +6,8 @@ import android.os.Environment
 import java.io.File
 
 /**
- * Where Folio keeps its own data: the library (reading places, lists, ratings, notes), backups
- * and cover thumbnails. With "All files access" it is a visible `Folio` folder on the phone, which
+ * Where Rukn keeps its own data: the library (reading places, lists, ratings, notes), backups
+ * and cover thumbnails. With "All files access" it is a visible `Rukn` folder on the phone, which
  * survives reinstalling the app; without it, the app's private folder. The old hidden `.folio` folder is
  * moved into it the first time.
  */
@@ -18,10 +18,11 @@ class Storage(private val context: Context) {
 
     val shared: Boolean get() = root != context.filesDir
 
-    val sharedFolder: File get() = File(Environment.getExternalStorageDirectory(), "Folio")
+    val sharedFolder: File get() = File(Environment.getExternalStorageDirectory(), "Rukn")
 
     /** Where earlier versions kept it, hidden. */
-    val legacyFolder: File get() = File(Environment.getExternalStorageDirectory(), ".folio")
+    /** Where earlier versions kept it: the hidden `.folio`, then the visible `Folio` (the app was called Folio before Rukn). */
+    val legacyFolders: List<File> get() = listOf(".folio", "Folio").map { File(Environment.getExternalStorageDirectory(), it) }
 
     fun canUseShared(): Boolean = Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()
 
@@ -34,7 +35,7 @@ class Storage(private val context: Context) {
      * changed, so callers reload. Data moves to the shared folder when it has nothing newer.
      */
     fun refresh(): Boolean {
-        if (canUseShared()) migrateLegacyFolder(legacyFolder, sharedFolder)
+        if (canUseShared()) legacyFolders.forEach { migrateLegacyFolder(it, sharedFolder) }
         val target = if (canUseShared()) sharedFolder.also { it.mkdirs() }.takeIf { it.isDirectory && it.canWrite() } ?: context.filesDir else context.filesDir
         if (target == root) return false
         val sourceLibrary = File(root, LIBRARY)

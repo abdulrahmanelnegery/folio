@@ -7,7 +7,7 @@ import java.util.Locale
 
 /**
  * Local backups of the library and every reading place in it, in the `backups` folder next to the
- * library: one when Folio starts if the last is over [GAP_MS] old, one whenever a book is closed
+ * library: one when Rukn starts if the last is over [GAP_MS] old, one whenever a book is closed
  * after that gap, and one on demand. The newest [KEEP] are kept. A copy can also be exported to,
  * and restored from, any file the user picks.
  */
@@ -24,14 +24,14 @@ class Backups(private val storage: Storage) {
 
     /** Writes a copy now. */
     fun now(state: LibraryState): File? {
-        val file = File(dir, "folio-${stamp(System.currentTimeMillis())}.json")
+        val file = File(dir, "rukn-${stamp(System.currentTimeMillis())}.json")
         val ok = runCatching { file.writeText(LibraryRepository.encode(state)) }.isSuccess
         files().drop(KEEP).forEach { it.delete() }
         return file.takeIf { ok }
     }
 
     /** Backups, newest first. */
-    fun files(): List<File> = dir.listFiles { f -> f.name.startsWith("folio-") && f.extension == "json" }.orEmpty().sortedByDescending { it.name }
+    fun files(): List<File> = dir.listFiles { f -> (f.name.startsWith("rukn-") || f.name.startsWith("folio-")) && f.extension == "json" }.orEmpty().sortedByDescending { it.name }
 
     fun read(file: File): LibraryState? = runCatching { LibraryRepository.decode(file.readText()) }.getOrNull()
 
@@ -40,10 +40,10 @@ class Backups(private val storage: Storage) {
         private const val GAP_MS = 3L * 60 * 60 * 1000
 
         fun stamp(millis: Long): String = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date(millis))
-        fun exportName(): String = "folio-backup-${stamp(System.currentTimeMillis())}.json"
+        fun exportName(): String = "rukn-backup-${stamp(System.currentTimeMillis())}.json"
 
         /** "2026-10-13 18:40" from a backup file name. */
-        fun label(file: File): String = file.nameWithoutExtension.removePrefix("folio-").replace('_', ' ').let {
+        fun label(file: File): String = file.nameWithoutExtension.removePrefix("rukn-").removePrefix("folio-").replace('_', ' ').let {
             val (date, time) = it.split(' ').let { p -> p[0] to p.getOrElse(1) { "" } }
             if (time.isEmpty()) date else "$date ${time.substring(0, 5).replace('-', ':')}"
         }

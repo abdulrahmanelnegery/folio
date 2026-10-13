@@ -208,7 +208,7 @@ class ModelTest {
     @Test
     fun `the old hidden folder moves into the visible one with everything in it`() {
         val legacy = tmp.newFolder(".folio").also { java.io.File(it, "library.json").writeText("{}"); java.io.File(it, "backups").mkdirs(); java.io.File(it, "backups/b.json").writeText("b") }
-        val target = java.io.File(tmp.root, "Folio")
+        val target = java.io.File(tmp.root, "Rukn")
         assertTrue(Storage.migrateLegacyFolder(legacy, target))
         assertFalse(legacy.exists())
         assertEquals("{}", java.io.File(target, "library.json").readText())
@@ -220,7 +220,7 @@ class ModelTest {
         val legacy = tmp.newFolder(".folio")
         java.io.File(legacy, "library.json").also { it.writeText("old"); it.setLastModified(1_000) }
         java.io.File(legacy, "extra.txt").writeText("extra")
-        val target = tmp.newFolder("Folio")
+        val target = tmp.newFolder("Rukn")
         java.io.File(target, "library.json").also { it.writeText("new"); it.setLastModified(5_000) }
         assertTrue(Storage.migrateLegacyFolder(legacy, target))
         assertEquals("the newer file wins", "new", java.io.File(target, "library.json").readText())
@@ -230,7 +230,7 @@ class ModelTest {
 
     @Test
     fun `nothing to migrate when there is no old folder`() {
-        assertFalse(Storage.migrateLegacyFolder(java.io.File(tmp.root, ".folio"), java.io.File(tmp.root, "Folio")))
+        assertFalse(Storage.migrateLegacyFolder(java.io.File(tmp.root, ".folio"), java.io.File(tmp.root, "Rukn")))
     }
 
     @Test
