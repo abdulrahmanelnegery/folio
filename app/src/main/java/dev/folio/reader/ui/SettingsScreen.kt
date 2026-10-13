@@ -79,6 +79,20 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
             val library by model.repo.state.collectAsState()
+            Header("Screen")
+            dev.folio.reader.data.Orientation.entries.forEach { o ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { model.repo.update { it.copy(orientation = o) } }.padding(horizontal = 24.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    androidx.compose.material3.RadioButton(library.orientation == o, { model.repo.update { it.copy(orientation = o) } })
+                    Column(Modifier.padding(start = 8.dp)) {
+                        Text(o.label, style = MaterialTheme.typography.bodyLarge)
+                        Text(o.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
             Header("General")
             Row(
                 Modifier.fillMaxWidth().clickable { model.repo.update { it.copy(confirmExit = !it.confirmExit) } }.padding(horizontal = 24.dp, vertical = 8.dp),
@@ -137,7 +151,7 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
             Action(Icons.Rounded.CleaningServices, "Clear saved covers") { model.covers.clear(); refresh++ }
 
             Header("About")
-            Text("Folio 0.5.0", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
+            Text("Folio 0.6.0", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
             Text("A calm PDF reader. Everything stays on this phone.", Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

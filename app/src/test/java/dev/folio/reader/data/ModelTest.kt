@@ -126,4 +126,32 @@ class ModelTest {
         assertEquals(listOf("", "C"), s.moveTargets("A/B"))
         assertEquals(listOf("C"), s.moveTargets("A"))
     }
+
+    @Test
+    fun `most read ranks books by time in the last days and ignores old sessions`() {
+        val now = 10L * 24 * 60 * 60 * 1000
+        val day = 24L * 60 * 60 * 1000
+        val s = state(book("1"), book("2"), book("3")).copy(
+            sessions = listOf(
+                ReadSession("1", now - day, 600, 5),
+                ReadSession("2", now - 2 * day, 1200, 9),
+                ReadSession("1", now - 3 * day, 900, 7),
+                ReadSession("3", now - 9 * day, 5000, 50),
+            ),
+        )
+        val top = s.mostRead(7, 5, now)
+        assertEquals(listOf("1" to 1500L, "2" to 1200L), top.map { it.first.id to it.second })
+        assertEquals(3, s.sessionsSince(7, now).size)
+    }
+
+    @Test
+    fun `home sections keep the user's order and add new ones at the end`() {
+        val s = LibraryState(home = listOf(HomeSectionConfig(HomeSection.Stats, false), HomeSectionConfig(HomeSection.Continue)))
+        val sections = s.homeSections()
+        assertEquals(HomeSection.Stats, sections[0].section)
+        assertFalse(sections[0].visible)
+        assertEquals(HomeSection.Continue, sections[1].section)
+        assertEquals(HomeSection.entries.size, sections.size)
+        assertEquals("an empty setting shows every section", HomeSection.entries.size, LibraryState().homeSections().size)
+    }
 }

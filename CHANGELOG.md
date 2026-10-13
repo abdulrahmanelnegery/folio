@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+- A home page you arrange: Continue reading, the latest three books, reading stats (today, week, streak, sittings, average sitting, a 7-day chart), most read this week, your lists and favorites. Switch sections on or off and reorder them from the page itself.
+- Every time you open and close a book is kept as a sitting, so the stats can count them.
+- Screen rotation: Normal, Portrait, Landscape, Dynamic (follows the sensor even when the phone's rotation is locked) or Locked. Set it in Settings or from the reader's menu.
+
 ## 0.5.0
 
 - A file explorer of our own: breadcrumb, quick places (Phone, Downloads, Documents, SD cards), search in a folder and everything below it, filters (All, Books, Folders), sorting, hidden files, multi-select, and a mark on files already in the library. Tap a book to read it, or pick several and add them to the library or to a list.

@@ -155,6 +155,10 @@ class LibraryRepository(private val storage: Storage, scope: CoroutineScope) {
 
     fun deleteComment(id: String, noteId: Long) = updateBook(id) { b -> b.copy(comments = b.comments.filter { it.id != noteId }) }
 
+    fun addSession(session: ReadSession) = update { s -> s.copy(sessions = (s.sessions + session).takeLast(1500)) }
+
+    fun setHomeSections(list: List<HomeSectionConfig>) = update { it.copy(home = list) }
+
     /** Replaces the whole library, for a restored backup. */
     fun replace(state: LibraryState) = update { state }
 

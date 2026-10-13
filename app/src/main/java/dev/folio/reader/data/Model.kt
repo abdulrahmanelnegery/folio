@@ -106,6 +106,33 @@ data class Book(
 @Serializable
 data class DayStat(val seconds: Long = 0, val pages: Int = 0)
 
+/** One sitting with a book: when it started, how long you really read, and the pages you stayed on. */
+@Serializable
+data class ReadSession(val bookId: String, val start: Long, val seconds: Long, val pages: Int)
+
+@Serializable
+enum class HomeSection(val label: String, val note: String) {
+    Continue("Continue reading", "The book you read last, with a big Continue button"),
+    Latest("Latest three", "The three books you opened most recently"),
+    Stats("Reading stats", "Today, this week, streak, sessions and a 7-day chart"),
+    MostRead("Most read", "The books you spent the most time on in the last 7 days"),
+    Lists("Lists", "Your top-level lists as folders"),
+    Favorites("Favorites", "Books you starred"),
+}
+
+@Serializable
+data class HomeSectionConfig(val section: HomeSection, val visible: Boolean = true)
+
+/** How the screen rotates. */
+@Serializable
+enum class Orientation(val label: String, val note: String) {
+    Normal("Normal", "Follow the phone's rotation setting"),
+    Portrait("Portrait", "Always upright"),
+    Landscape("Landscape", "Always sideways"),
+    Dynamic("Dynamic", "Rotate with the sensor, even if the phone's rotation is locked"),
+    Locked("Locked", "Stay as it is now"),
+}
+
 /** A comment on one page. */
 @Serializable
 data class PageNote(val id: Long, val page: Int, val text: String)
@@ -124,12 +151,18 @@ data class LibraryState(
     val confirmExit: Boolean = true,
     /** The folder the file explorer was last in. */
     val explorerDir: String = "",
+    /** One entry per time a book was opened and closed. */
+    val sessions: List<ReadSession> = emptyList(),
+    /** The sections of the home page, in the order shown. */
+    val home: List<HomeSectionConfig> = emptyList(),
+    val orientation: Orientation = Orientation.Normal,
     /** Reading time and pages per day, keyed "yyyy-MM-dd" in the phone's time zone. */
     val days: Map<String, DayStat> = emptyMap(),
 )
 
 /** What the library screen is showing. */
 sealed interface Tab {
+    data object Home : Tab
     data object ReadingNow : Tab
     data object ToRead : Tab
     data object Finished : Tab
@@ -159,6 +192,7 @@ fun LibraryState.orderedLists(): List<String> {
 
 /** [deep]: a list also holds the books of the lists inside it. */
 fun Book.inTab(tab: Tab, deep: Boolean = true): Boolean = when (tab) {
+    Tab.Home -> true
     Tab.ReadingNow -> status == Status.Reading
     Tab.ToRead -> status == Status.ToRead
     Tab.Finished -> status == Status.Finished
@@ -223,3 +257,20 @@ fun LibraryState.withListMoved(path: String, newParent: String): LibraryState? {
 /** Where [path] could move to: the top level and every list that is not inside it, minus where it already is. */
 fun LibraryState.moveTargets(path: String): List<String> =
     (listOf("") + orderedLists().filter { !isInside(it, path) }).filter { it != parentOf(path) }
+
+// ---- the home page ----------------------------------------------------------------------------
+
+/** The home sections in the user's order, with any section added later appended (visible). */
+fun LibraryState.homeSections(): List<HomeSectionConfig> {
+    val known = home.filter { c -> HomeSection.entries.contains(c.section) }.distinctBy { it.section }
+    return known + HomeSection.entries.filter { s -> known.none { it.section == s } }.map { HomeSectionConfig(it) }
+}
+
+fun LibraryState.sessionsSince(days: Int, now: Long = System.currentTimeMillis()): List<ReadSession> =
+    sessions.filter { it.start >= now - days * DAY_MS }
+
+/** The books read the most in the last [days] days, with the seconds, longest first. */
+fun LibraryState.mostRead(days: Int, limit: Int, now: Long = System.currentTimeMillis()): List<Pair<Book, Long>> =
+    sessionsSince(days, now).groupBy { it.bookId }.mapValues { (_, s) -> s.sumOf { it.seconds } }
+        .mapNotNull { (id, secs) -> books.firstOrNull { it.id == id }?.let { it to secs } }
+        .sortedByDescending { it.second }.take(limit)

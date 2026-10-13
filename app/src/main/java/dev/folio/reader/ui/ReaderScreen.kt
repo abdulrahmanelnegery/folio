@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
@@ -307,6 +308,11 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                     leadingIcon = { Icon(Icons.Rounded.LightMode, null) },
                                     text = { Text("Brightness") },
                                     onClick = { menu = false; tool = ReaderTool.Brightness },
+                                )
+                                DropdownMenuItem(
+                                    leadingIcon = { Icon(Icons.Rounded.ScreenRotation, null) },
+                                    text = { Text("Rotation: ${state.orientation.label}") },
+                                    onClick = { menu = false; model.repo.update { it.copy(orientation = dev.folio.reader.data.Orientation.entries[(it.orientation.ordinal + 1) % dev.folio.reader.data.Orientation.entries.size]) } },
                                 )
                                 DropdownMenuItem(
                                     leadingIcon = { Icon(Icons.Rounded.Bookmarks, null) },
