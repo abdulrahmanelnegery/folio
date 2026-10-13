@@ -39,6 +39,10 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.UploadFile
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DriveFileMove
 import androidx.compose.material.icons.rounded.FolderOff
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -174,7 +178,7 @@ private fun ViewMode.icon(): ImageVector = when (this) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: () -> Unit) {
+fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: () -> Unit, onBrowse: (list: String?, dir: String?) -> Unit) {
     val state by model.repo.state.collectAsState()
     var tab by remember { mutableStateOf<Tab>(Tab.ReadingNow) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -189,6 +193,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     var bulkLists by remember { mutableStateOf(false) }
     var statsSheet by remember { mutableStateOf(false) }
     var folderMenu by remember { mutableStateOf<String?>(null) }
+    var addBooks by remember { mutableStateOf(false) }
     var confirmBulkRemove by remember { mutableStateOf(false) }
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -238,6 +243,11 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                         DrawerEntry(Icons.Rounded.Folder, nameOf(path), state.books.count { it.inTab(t, deep = false) }, inside, 0) { tab = t; scope.launch { drawer.close() } }
                     }
                     DrawerEntry(Icons.Rounded.CreateNewFolder, "New list", null, false, 0) { scope.launch { drawer.close() }; newList = NewList("", null) }
+                    HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
+                    Text("Files on this phone", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp))
+                    DrawerEntry(Icons.Rounded.FolderOpen, "Browse files", null, false, 0) { scope.launch { drawer.close() }; onBrowse(null, null) }
+                    DrawerEntry(Icons.Rounded.Download, "Downloads", null, false, 0) { scope.launch { drawer.close() }; onBrowse(null, android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS).absolutePath) }
+                    DrawerEntry(Icons.Rounded.Description, "Documents", null, false, 0) { scope.launch { drawer.close() }; onBrowse(null, android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS).absolutePath) }
                     HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
                     DrawerEntry(Icons.Rounded.Settings, "Settings and backup", null, false, 0) { scope.launch { drawer.close() }; onSettings() }
                     Spacer(Modifier.height(24.dp))
@@ -332,12 +342,12 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                 )
             },
             floatingActionButton = {
-                ExtendedFloatingActionButton(
-                    onClick = onOpenPicker,
-                    icon = { Icon(Icons.Rounded.Add, null) },
-                    text = { Text("Open PDF") },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                AddMenu(
+                    listPath = (tab as? Tab.List)?.path,
+                    onBrowse = { onBrowse((tab as? Tab.List)?.path, null) },
+                    onPick = onOpenPicker,
+                    onFromLibrary = { addBooks = true },
+                    onNewList = { newList = NewList((tab as? Tab.List)?.path.orEmpty(), null) },
                 )
             },
         ) { padding ->
@@ -412,6 +422,9 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
             onNewInside = { folderMenu = null; newList = NewList(path, null) },
             onDismiss = { folderMenu = null },
         )
+    }
+    (tab as? Tab.List)?.let { open ->
+        if (addBooks) AddBooksSheet(state.books.filter { open.path !in it.lists }, open.path, onAdd = { ids -> model.repo.setInList(ids, open.path, true); addBooks = false }, onDismiss = { addBooks = false })
     }
     if (statsSheet) StatsSheet(state) { statsSheet = false }
     if (bulkLists) BulkListSheet(
@@ -1160,4 +1173,65 @@ private fun MoveListDialog(state: dev.folio.reader.data.LibraryState, path: Stri
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+/** The round + : inside a list it adds books or a list there, elsewhere it opens a file or creates a list. */
+@Composable
+private fun AddMenu(listPath: String?, onBrowse: () -> Unit, onPick: () -> Unit, onFromLibrary: () -> Unit, onNewList: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        androidx.compose.animation.AnimatedVisibility(open) {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (listPath != null) MenuAction(Icons.Rounded.AutoStories, "Add books from the library") { open = false; onFromLibrary() }
+                MenuAction(Icons.Rounded.FolderOpen, if (listPath != null) "Browse files to add" else "Browse files") { open = false; onBrowse() }
+                MenuAction(Icons.Rounded.UploadFile, "Pick a file with the system") { open = false; onPick() }
+                MenuAction(Icons.Rounded.CreateNewFolder, if (listPath != null) "New list here" else "New list") { open = false; onNewList() }
+            }
+        }
+        androidx.compose.material3.FloatingActionButton(
+            onClick = { open = !open },
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ) { Icon(if (open) Icons.Rounded.Close else Icons.Rounded.Add, if (open) "Close" else "Add") }
+    }
+}
+
+@Composable
+private fun MenuAction(icon: ImageVector, label: String, onClick: () -> Unit) {
+    androidx.compose.material3.ExtendedFloatingActionButton(
+        onClick = onClick,
+        icon = { Icon(icon, null) },
+        text = { Text(label) },
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    )
+}
+
+/** Pick books already in the library to put into the open list. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddBooksSheet(candidates: List<Book>, listPath: String, onAdd: (Set<String>) -> Unit, onDismiss: () -> Unit) {
+    var chosen by remember { mutableStateOf(setOf<String>()) }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+            Text("Add to “${nameOf(listPath)}”", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            if (candidates.isEmpty()) Text("Every book in your library is already in this list.", Modifier.padding(horizontal = 24.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                candidates.forEach { b ->
+                    val on = b.id in chosen
+                    Row(
+                        Modifier.fillMaxWidth().clickable { chosen = if (on) chosen - b.id else chosen + b.id }.padding(horizontal = 24.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        androidx.compose.material3.Checkbox(on, { chosen = if (on) chosen - b.id else chosen + b.id })
+                        Column(Modifier.weight(1f)) {
+                            Text(b.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(b.countLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+            Button(onClick = { onAdd(chosen) }, enabled = chosen.isNotEmpty(), modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).fillMaxWidth()) { Text("Add ${chosen.size}") }
+        }
+    }
 }

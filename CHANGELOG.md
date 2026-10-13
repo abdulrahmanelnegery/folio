@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- A file explorer of our own: breadcrumb, quick places (Phone, Downloads, Documents, SD cards), search in a folder and everything below it, filters (All, Books, Folders), sorting, hidden files, multi-select, and a mark on files already in the library. Tap a book to read it, or pick several and add them to the library or to a list.
+- The side menu has a Files section: Browse files, Downloads, Documents.
+- The round + button replaces Open PDF. On the shelves it browses files, picks a file, or creates a list; inside a list it adds books from the library or from the phone, or creates a list there.
+
 ## 0.4.4
 
 - Inside a list, hold a book to open it, take it out of the list, move it to another list or add it to more lists.

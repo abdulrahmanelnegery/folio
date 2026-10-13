@@ -122,6 +122,8 @@ data class LibraryState(
     val brightness: Float = -1f,
     /** Ask before leaving Folio when back is pressed on the home screen. */
     val confirmExit: Boolean = true,
+    /** The folder the file explorer was last in. */
+    val explorerDir: String = "",
     /** Reading time and pages per day, keyed "yyyy-MM-dd" in the phone's time zone. */
     val days: Map<String, DayStat> = emptyMap(),
 )
