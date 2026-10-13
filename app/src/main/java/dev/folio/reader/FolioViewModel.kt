@@ -60,9 +60,11 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     private val pagesSeen = HashSet<String>()
 
     /** Any touch counts as "still reading"; the clock stops after [IDLE_MS] without one. */
+    @Synchronized
     fun touched() { lastTouch = android.os.SystemClock.elapsedRealtime() }
 
     /** Called about once a second while a book is open and the app is in front; [elapsedMs] is the real time since the last call. */
+    @Synchronized
     fun readingTick(id: String, elapsedMs: Long) {
         if (android.os.SystemClock.elapsedRealtime() - lastTouch > IDLE_MS) return
         if (pendingBook != null && pendingBook != id) commitReading()
@@ -72,6 +74,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** A page the reader stayed on; each page counts once per opening of the book. */
+    @Synchronized
     fun pageSeen(id: String, page: Int) {
         if (!pagesSeen.add("$id:$page")) return
         if (pendingBook != null && pendingBook != id) commitReading()
@@ -80,6 +83,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Writes the time and pages gathered so far into the library. */
+    @Synchronized
     fun commitReading() {
         val id = pendingBook ?: return
         val seconds = pendingSeconds.toLong()
@@ -198,16 +202,17 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     }.getOrNull()
 
     fun openBook(id: String) {
-        repo.updateBook(id) { it.copy(lastOpened = System.currentTimeMillis(), status = if (it.status == Status.Finished) it.status else Status.Reading) }
         _reading.value = id
+        repo.updateBook(id) { it.copy(lastOpened = System.currentTimeMillis(), status = if (it.status == Status.Finished) it.status else Status.Reading) }
     }
 
     fun closeBook() {
-        commitReading()
-        pagesSeen.removeAll { it.startsWith("${_reading.value}:") }
+        val closing = _reading.value
+        // The screen changes first; saving and the backup follow off the main thread.
         _reading.value = null
-        // Saving and the backup happen off the main thread so the screen change stays smooth.
         viewModelScope.launch(Dispatchers.IO) {
+            commitReading()
+            pagesSeen.removeAll { it.startsWith("$closing:") }
             repo.flush()
             if (backups.auto(repo.state.value)) _backupTick.value++
         }

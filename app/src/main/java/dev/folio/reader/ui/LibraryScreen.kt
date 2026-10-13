@@ -413,7 +413,7 @@ private val LocalSelection = androidx.compose.runtime.compositionLocalOf { empty
 
 @Composable
 private fun cover(model: FolioViewModel, book: Book): ImageBitmap? =
-    produceState<ImageBitmap?>(null, book.id) { value = model.covers.get(book)?.asImageBitmap() }.value
+    produceState<ImageBitmap?>(model.covers.peek(book)?.asImageBitmap(), book.id) { value = value ?: model.covers.get(book)?.asImageBitmap() }.value
 
 @Composable
 private fun Cover(model: FolioViewModel, book: Book, modifier: Modifier = Modifier, marks: Boolean = true) {

@@ -6,6 +6,7 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -22,14 +23,18 @@ class PdfFile private constructor(
     private val lock = Mutex()
     val pageCount: Int = sizes.size
 
-    /** Reads the real size of every page after the book is already on screen; true if any differ from the first. */
-    suspend fun readAllSizes(): Boolean = lock.withLock {
+    /**
+     * Reads the real size of every page after the book is already showing. The lock is taken one
+     * page at a time, so drawing the pages on screen is never stuck behind this.
+     */
+    suspend fun readAllSizes(): Boolean {
         var changed = false
         for (i in 1 until pageCount) {
-            val size = runCatching { renderer.openPage(i).use { it.width.toFloat() to it.height.toFloat() } }.getOrNull() ?: continue
+            val size = lock.withLock { runCatching { renderer.openPage(i).use { it.width.toFloat() to it.height.toFloat() } }.getOrNull() } ?: continue
             if (size != sizes[i]) { sizes[i] = size; changed = true }
+            if (i % 8 == 0) kotlinx.coroutines.yield()
         }
-        changed
+        return changed
     }
 
     /** Width and height of [page] in points. */
@@ -55,6 +60,11 @@ class PdfFile private constructor(
             bitmap.recycle()
             null
         }
+    }
+
+    /** Closes once no page is being drawn, off the calling thread. */
+    fun closeInBackground() {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch { lock.withLock { close() } }
     }
 
     override fun close() {

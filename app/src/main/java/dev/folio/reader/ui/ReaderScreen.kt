@@ -161,7 +161,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     }
     // Capture the file itself: the delegate would read the *new* value when the effect is disposed.
     val opened = pdf
-    DisposableEffect(opened) { onDispose { opened?.close() } }
+    DisposableEffect(opened) { onDispose { opened?.closeInBackground() } }
 
     var barsVisible by remember { mutableStateOf(true) }
     var zoom by remember { mutableFloatStateOf(1f) }
@@ -192,10 +192,13 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 snapshotFlow { list.firstVisibleItemIndex }.debounce(1500).collect { model.pageSeen(id, it) }
             }
             // The other pages' real sizes arrive after the book is already showing.
-            LaunchedEffect(file) { if (file.readAllSizes()) sizesVersion++ }
+            LaunchedEffect(file) {
+                kotlinx.coroutines.delay(600)
+                if (file.readAllSizes()) sizesVersion++
+            }
             BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
                 val widthPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxWidth.toPx() }.roundToInt()
-                val cache = remember(file) { object : LruCache<String, Bitmap>(96 * 1024 * 1024) { override fun sizeOf(k: String, v: Bitmap) = v.byteCount } }
+                val cache = remember(file) { object : LruCache<String, Bitmap>(48 * 1024 * 1024) { override fun sizeOf(k: String, v: Bitmap) = v.byteCount } }
 
                 // Pick up where the book was left: the page and how far down it.
                 LaunchedEffect(file) {

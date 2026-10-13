@@ -20,6 +20,9 @@ class Covers(private val context: Context, private val storage: dev.folio.reader
     private val dir: File get() = storage.dir("covers")
     private val gate = Semaphore(2)
 
+    /** The cover if it is already in memory, so a card can show it on its first frame. */
+    fun peek(book: Book): Bitmap? = memory.get(book.id)
+
     suspend fun get(book: Book): Bitmap? {
         if (book.kind != dev.folio.reader.data.Kind.Pdf) return null
         memory.get(book.id)?.let { return it }

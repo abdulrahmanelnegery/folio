@@ -24,6 +24,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -37,7 +39,9 @@ fun FolioApp(model: FolioViewModel) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) model.importUris(uris, Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    val library by model.repo.state.collectAsState()
+    // Only what this screen needs: the whole library changes every few seconds while reading.
+    val kindOfReading by remember(reading) { model.repo.state.map { st -> st.books.firstOrNull { it.id == reading }?.kind }.distinctUntilChanged() }.collectAsState(null)
+    val confirmExit by remember { model.repo.state.map { it.confirmExit }.distinctUntilChanged() }.collectAsState(true)
     LaunchedEffect(message) {
         message?.let {
             snackbar.showSnackbar(it)
@@ -46,12 +50,12 @@ fun FolioApp(model: FolioViewModel) {
     }
     var settings by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     // The text reader asks about unsaved edits itself; every other reader closes straight away.
-    BackHandler(enabled = reading != null && library.books.firstOrNull { it.id == reading }?.kind != dev.folio.reader.data.Kind.Text) { model.closeBook() }
+    BackHandler(enabled = reading != null && kindOfReading != dev.folio.reader.data.Kind.Text) { model.closeBook() }
     BackHandler(enabled = reading == null && settings) { settings = false }
     // Back walks out one screen at a time; on the home screen it can ask before closing Folio.
     var askExit by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     val activity = androidx.activity.compose.LocalActivity.current
-    BackHandler(enabled = reading == null && !settings && library.confirmExit) { askExit = true }
+    BackHandler(enabled = reading == null && !settings && confirmExit) { askExit = true }
     if (askExit) ExitDialog(
         onStay = { askExit = false },
         onClose = { dontAsk ->
@@ -75,7 +79,7 @@ fun FolioApp(model: FolioViewModel) {
                 LibraryScreen(model, onOpenPicker = { picker.launch(arrayOf("*/*")) }, onSettings = { settings = true })
             } else if (id == "settings") {
                 SettingsScreen(model, onBack = { settings = false })
-            } else if (library.books.firstOrNull { it.id == id }?.kind == dev.folio.reader.data.Kind.Text) {
+            } else if (kindOfReading == dev.folio.reader.data.Kind.Text) {
                 TextScreen(model, id)
             } else {
                 ReaderScreen(model, id)
