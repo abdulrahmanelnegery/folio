@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.2
+
+- Folio's data folder on the phone is now a visible `Folio` folder instead of the hidden `.folio`. The first start moves the old folder in (one rename, or a careful copy if both exist), so the library, backups and covers carry over.
+- A new README.
+
 ## 0.7.1
 
 - The home page is three real tabs under a sticky header: **Home** (continue reading and the latest three), **Stats** (reading time, sittings, most read, recent sittings) and **Library** (shelves, lists, favorites). Flick sideways to move between them, round and round. Order them or hide any but Home in Settings.
