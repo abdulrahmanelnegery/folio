@@ -31,7 +31,27 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Contrast
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.draw.clip
+import dev.folio.reader.data.Status
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -127,6 +147,11 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var panX by remember { mutableFloatStateOf(0f) }
     val theme = state.theme
     ImmersiveBars(barsVisible)
+    KeepScreenOn()
+    var themeSheet by remember { mutableStateOf(false) }
+    var bookmarkSheet by remember { mutableStateOf(false) }
+    var jumpDialog by remember { mutableStateOf(false) }
+    val jumpTo = remember { mutableStateOf<Int?>(null) }
 
     Box(Modifier.fillMaxSize().background(theme.background())) {
         val file = pdf
@@ -143,12 +168,23 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     val firstPx = (widthPx * file.aspect(book.page)).roundToInt()
                     list.scrollToItem(book.page.coerceIn(0, file.pageCount - 1), (book.offset * firstPx).roundToInt())
                 }
+                LaunchedEffect(jumpTo.value) {
+                    jumpTo.value?.let { list.scrollToItem(it.coerceIn(0, file.pageCount - 1)); jumpTo.value = null }
+                }
                 LaunchedEffect(file) {
                     snapshotFlow { list.firstVisibleItemIndex to list.firstVisibleItemScrollOffset }
                         .debounce(600)
                         .collect { (page, px) ->
                             val height = (widthPx * file.aspect(page)).coerceAtLeast(1f)
-                            model.repo.updateBook(id) { it.copy(page = page, offset = (px / height).coerceIn(0f, 1f), pages = file.pageCount) }
+                            val atEnd = page >= file.pageCount - 1 && px / height > 0.3f
+                            model.repo.updateBook(id) {
+                                it.copy(
+                                    page = page,
+                                    offset = (px / height).coerceIn(0f, 1f),
+                                    pages = file.pageCount,
+                                    status = if (atEnd && file.pageCount > 1) Status.Finished else it.status,
+                                )
+                            }
                         }
                 }
 
@@ -196,9 +232,12 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     Row(Modifier.statusBarsPadding().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { model.closeBook() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
                         Text(book.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        IconButton(onClick = { model.repo.update { it.copy(theme = it.theme.next()) } }) {
-                            Icon(Icons.Rounded.Contrast, "Page theme: ${theme.label}")
+                        val marked = (current - 1) in book.bookmarks
+                        IconButton(onClick = { model.repo.toggleBookmark(id, current - 1) }) {
+                            Icon(if (marked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (marked) "Remove bookmark" else "Add bookmark", tint = if (marked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                         }
+                        IconButton(onClick = { bookmarkSheet = true }) { Icon(Icons.Rounded.Bookmarks, "Bookmarks") }
+                        IconButton(onClick = { themeSheet = true }) { Icon(Icons.Rounded.Contrast, "Page theme") }
                     }
                 }
             }
@@ -211,7 +250,12 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.96f), tonalElevation = 3.dp) {
                     Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 10.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Page $current of ${file.pageCount}", style = MaterialTheme.typography.labelLarge)
+                            Text(
+                                "Page $current of ${file.pageCount}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { jumpDialog = true }.padding(horizontal = 8.dp, vertical = 4.dp),
+                            )
                             Text(theme.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         var dragging by remember { mutableStateOf<Float?>(null) }
@@ -230,6 +274,15 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
             }
         }
     }
+    val pages = pdf?.pageCount ?: 0
+    if (themeSheet) ThemeSheet(theme, onPick = { picked -> model.repo.update { it.copy(theme = picked) } }, onDismiss = { themeSheet = false })
+    if (bookmarkSheet) BookmarkSheet(
+        book.bookmarks,
+        onGo = { page -> jumpTo.value = page; bookmarkSheet = false },
+        onRemove = { page -> model.repo.toggleBookmark(id, page) },
+        onDismiss = { bookmarkSheet = false },
+    )
+    if (jumpDialog && pages > 0) JumpDialog(pages, onGo = { page -> jumpTo.value = page; jumpDialog = false }, onDismiss = { jumpDialog = false })
 }
 
 /** One page: a placeholder of the right shape until its bitmap is drawn. */
@@ -267,5 +320,88 @@ private fun ImmersiveBars(barsVisible: Boolean) {
         onDispose {
             activity?.window?.let { WindowCompat.getInsetsController(it, view).show(WindowInsetsCompat.Type.systemBars()) }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeSheet(current: PageTheme, onPick: (PageTheme) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
+            Text("Page theme", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                PageTheme.entries.forEach { t ->
+                    val (paper, ink) = when (t) {
+                        PageTheme.Normal -> Color.White to Color(0xFF222222)
+                        PageTheme.Night -> Color(0xFF0C0C0C) to Color(0xFFF0F0F0)
+                        PageTheme.SoftNight -> Color(0xFF201E1A) to Color(0xFFD6CFBE)
+                        PageTheme.Sepia -> Color(0xFFF4E8D0) to Color(0xFF3B3226)
+                    }
+                    Column(Modifier.weight(1f).clickable { onPick(t) }, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            Modifier.fillMaxWidth().height(72.dp).clip(RoundedCornerShape(14.dp)).background(paper)
+                                .border(if (t == current) 3.dp else 1.dp, if (t == current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Aa", color = ink, style = MaterialTheme.typography.titleLarge)
+                            if (t == current) Icon(Icons.Rounded.Check, null, Modifier.align(Alignment.TopEnd).padding(4.dp).size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(t.label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BookmarkSheet(pages: List<Int>, onGo: (Int) -> Unit, onRemove: (Int) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(bottom = 24.dp)) {
+            Text("Bookmarks", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            if (pages.isEmpty()) {
+                Text("Tap the bookmark icon on a page to mark it.", modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            pages.forEach { page ->
+                Row(Modifier.fillMaxWidth().clickable { onGo(page) }.padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Bookmark, null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(16.dp))
+                    Text("Page ${page + 1}", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                    TextButton(onClick = { onRemove(page) }) { Text("Remove") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun JumpDialog(pages: Int, onGo: (Int) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf("") }
+    val number = text.toIntOrNull()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Go to page") },
+        text = {
+            OutlinedTextField(
+                text, { text = it.filter(Char::isDigit).take(6) }, singleLine = true,
+                placeholder = { Text("1 to $pages") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+        },
+        confirmButton = { TextButton(onClick = { number?.let { onGo((it - 1).coerceIn(0, pages - 1)) } }, enabled = number != null) { Text("Go") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** The screen stays on while a book is open. */
+@Composable
+private fun KeepScreenOn() {
+    val view = LocalView.current
+    DisposableEffect(Unit) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
     }
 }

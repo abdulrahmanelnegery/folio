@@ -38,6 +38,8 @@ data class Book(
     val page: Int = 0,
     /** How far down that page (0..1). */
     val offset: Float = 0f,
+    /** Zero-based pages the reader marked. */
+    val bookmarks: List<Int> = emptyList(),
 ) {
     /** Reading progress 0..1; a finished book counts as complete. */
     val progress: Float

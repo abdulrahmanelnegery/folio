@@ -65,6 +65,10 @@ class LibraryRepository(context: Context, scope: CoroutineScope) {
         s.copy(lists = s.lists - name, books = s.books.map { it.copy(lists = it.lists - name) })
     }
 
+    fun toggleBookmark(id: String, page: Int) = updateBook(id) {
+        it.copy(bookmarks = if (page in it.bookmarks) it.bookmarks - page else (it.bookmarks + page).sorted())
+    }
+
     fun toggleList(id: String, list: String) = updateBook(id) {
         it.copy(lists = if (list in it.lists) it.lists - list else it.lists + list)
     }
