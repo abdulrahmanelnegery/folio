@@ -75,6 +75,9 @@ data class Book(
     val orientation: Orientation = Orientation.Normal,
     /** The screen brightness while reading this book (0.02..1); negative follows the system. */
     val brightness: Float = -1f,
+    /** Whether the blank page margins are cropped away, and the margins found (left, top, right, bottom as fractions). */
+    val cropMargins: Boolean = false,
+    val margins: List<Float> = emptyList(),
 ) {
     /** Reading progress 0..1; a finished book counts as complete. */
     val progress: Float

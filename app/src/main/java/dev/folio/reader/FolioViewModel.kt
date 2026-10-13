@@ -114,6 +114,9 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     val message: StateFlow<String?> = _message
     fun messageShown() { _message.value = null }
 
+    /** Shows a short message at the bottom of the screen. */
+    fun notify(text: String) { _message.value = text }
+
     /** The "All files access" setting may have changed; move to the .folio folder when it has. */
     fun refreshStorage() {
         viewModelScope.launch(Dispatchers.IO) {

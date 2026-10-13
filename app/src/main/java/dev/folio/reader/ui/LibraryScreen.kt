@@ -9,6 +9,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -237,6 +240,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     androidx.compose.runtime.CompositionLocalProvider(LocalSelection provides selected) {
     ModalNavigationDrawer(
         drawerState = drawer,
+        // The menu opens from the far left edge only (below), so flicking across the page never opens it.
+        gesturesEnabled = false,
         drawerContent = {
             ModalDrawerSheet {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -268,6 +273,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
             }
         },
     ) {
+      Box(Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
@@ -412,6 +418,18 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                 }
             }
         }
+        // A thin strip on the left edge: a swipe that starts here, going right, opens the side menu.
+        var pulled by remember { mutableStateOf(0f) }
+        Box(
+            Modifier.align(Alignment.CenterStart).fillMaxHeight().width(28.dp).pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { pulled = 0f },
+                    onDragEnd = { if (pulled > 60f) scope.launch { drawer.open() }; pulled = 0f },
+                    onDragCancel = { pulled = 0f },
+                ) { _, delta -> pulled += delta }
+            },
+        )
+      }
     }
 
     }
@@ -1281,20 +1299,10 @@ private fun HomeContent(
     onCustomize: () -> Unit,
 ) {
     val allSections = state.homeSections().filter { it.visible }
-    // Headers to switch between: one section at a time, or the whole overview.
-    var chosen by rememberSaveable { mutableStateOf<String?>(null) }
-    val picked = allSections.firstOrNull { it.section.name == chosen }?.section
-    val sections = if (picked == null) allSections else allSections.filter { it.section == picked }
     val recent = state.books.filter { it.lastOpened > 0 }.sortedByDescending { it.lastOpened }
-    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item(key = "headers") {
-            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { androidx.compose.material3.FilterChip(picked == null, { chosen = null }, { Text("Overview") }) }
-                items(allSections, key = { it.section.name }) { cfg ->
-                    androidx.compose.material3.FilterChip(picked == cfg.section, { chosen = cfg.section.name }, { Text(cfg.section.label) })
-                }
-            }
-        }
+    // One page of the home: [sections] stacked in a list.
+    val page: @Composable (List<HomeSectionConfig>) -> Unit = { sections ->
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (state.books.isEmpty()) item { EmptyShelf(Tab.Home, {}) }
         sections.forEach { cfg ->
             when (cfg.section) {
@@ -1369,6 +1377,35 @@ private fun HomeContent(
         }
         item(key = "customize") {
             androidx.compose.material3.TextButton(onClick = onCustomize, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Rounded.Tune, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Choose and reorder these sections") }
+        }
+    }
+    }
+
+    // The headers switch the page, and a flick sideways does the same, round and round without an end.
+    val pageSections: List<HomeSection?> = listOf<HomeSection?>(null) + allSections.map { it.section }
+    val n = pageSections.size
+    val start = Int.MAX_VALUE / 2 - (Int.MAX_VALUE / 2) % n
+    val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = start) { Int.MAX_VALUE }
+    val here = pager.currentPage % n
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    Column(Modifier.fillMaxSize()) {
+        androidx.compose.foundation.lazy.LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(n) { i ->
+                androidx.compose.material3.FilterChip(
+                    selected = i == here,
+                    onClick = {
+                        // Go to the nearest copy of that page, so the chip never spins the whole way round.
+                        val base = pager.currentPage - here
+                        val target = listOf(base + i - n, base + i, base + i + n).minBy { kotlin.math.abs(it - pager.currentPage) }
+                        scope.launch { pager.animateScrollToPage(target) }
+                    },
+                    label = { Text(pageSections[i]?.label ?: "Overview") },
+                )
+            }
+        }
+        androidx.compose.foundation.pager.HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 0) { index ->
+            val section = pageSections[index % n]
+            page(if (section == null) allSections else allSections.filter { it.section == section })
         }
     }
 }

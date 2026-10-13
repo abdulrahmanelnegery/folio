@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0
+
+- **Large books**: page drawing no longer runs on the main thread, which was the cause of the stalls and of Android closing a heavy book. Pages are drawn on a worker, within a fixed pixel budget (a zoomed page can no longer take tens of megabytes), page sizes are learned as pages are drawn instead of opening every page up front, work for pages you scrolled past is dropped, and the page cache is sized to the phone and cleared when Android asks for memory.
+- **Margins**: a crop button removes the blank margins around the text. It samples pages through the book and crops them all the same way, so the layout does not jump. Per book, on or off.
+- The reading controls (theme, margins, brightness, rotation) are icons on a second row under the title. Theme is a dropdown that shows the paper and ink of each choice; rotation is a dropdown with an icon for each kind (normal, portrait, landscape, dynamic, locked), and the button shows the current one.
+- On the home page, flick sideways to move between the headers, round and round with no end. The side menu opens only from a swipe that starts at the far left edge, so flicking across the page never opens it.
+
 ## 0.6.2
 
 - The same file opened by two routes (the system picker and the explorer) is now one book, not two. Existing doubles are merged on start, keeping progress, lists, ratings, notes, bookmarks and reading time.
