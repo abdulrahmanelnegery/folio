@@ -269,4 +269,21 @@ class ModelTest {
         assertEquals("Spice.", merged[0].description)
         assertEquals(560, merged[0].pages)
     }
+
+    @Test
+    fun `arabic words are folded and ranked by how many of them a title has`() {
+        assertEquals(listOf("هوس", "قراءه"), BookLookup.words("هَوَس القراءة"))
+        val a = BookMeta(title = "هوس الدوالي")
+        val b = BookMeta(title = "هوس القراءة")
+        assertEquals("هوس القراءة", BookLookup.rank(listOf(a, b), "هوس القراءة").first().title)
+    }
+
+    @Test
+    fun `internet archive results become entries with a cover`() {
+        val body = """{"response":{"docs":[{"identifier":"abc","title":"T","creator":["A","B"],"year":"2001","description":"<p>Hi  there</p>"}]}}"""
+        val r = BookLookup.parseArchive(body)
+        assertEquals("A, B", r[0].author)
+        assertEquals("Hi there", r[0].description)
+        assertTrue(r[0].coverUrl.endsWith("/abc"))
+    }
 }

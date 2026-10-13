@@ -61,8 +61,68 @@ object BookLookup {
                 add(gb + "inauthor:$enc" to ::parseGoogle)
             }
         }
-        val lists = calls.map { (url, read) -> async(Dispatchers.IO) { runCatching { read(get(url)) }.getOrDefault(emptyList()) } }.awaitAll()
-        merge(lists)
+        suspend fun run(list: List<Pair<String, (String) -> List<BookMeta>>>) =
+            list.map { (url, read) -> async(Dispatchers.IO) { runCatching { read(get(url)) }.getOrDefault(emptyList()) } }.awaitAll()
+        val first = merge(run(calls + (archiveUrl("title:($enc)") to ::parseArchive)))
+        // Nothing, or hardly anything: ask again word by word, with the Arabic "al-" and the marks left off, and keep
+        // what matches the most words. A long title that no catalogue has whole still turns up by its parts.
+        if (isIsbn || first.size >= 3) return@coroutineScope rank(first, q)
+        val words = words(q)
+        if (words.isEmpty()) return@coroutineScope first
+        val second = buildList<Pair<String, (String) -> List<BookMeta>>> {
+            words.forEach { w ->
+                val e = URLEncoder.encode(w, "UTF-8")
+                add("$ol" + "q=$e" to ::parse)
+                add("$ol" + "title=$e" to ::parse)
+                add(archiveUrl("title:($e)") to ::parseArchive)
+                add(gb + "intitle:$e" to ::parseGoogle)
+            }
+            if (words.size > 1) {
+                val all = URLEncoder.encode(words.joinToString(" AND "), "UTF-8")
+                add(archiveUrl("title:($all)") to ::parseArchive)
+                add(archiveUrl("($all)") to ::parseArchive)
+            }
+        }
+        rank(merge(listOf(first) + run(second.take(14))), q)
+    }
+
+    private fun archiveUrl(query: String) =
+        "https://archive.org/advancedsearch.php?q=${URLEncoder.encode(query, "UTF-8")}&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=creator&fl%5B%5D=year&fl%5B%5D=publisher&fl%5B%5D=description&rows=12&output=json"
+
+    /** Lower-case, without Arabic marks, with alef and ya forms folded and a leading "al-" dropped, so spellings meet. */
+    internal fun fold(text: String): String = text.lowercase()
+        .filter { it.code !in 0x064B..0x065F && it != '\u0640' }
+        .replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا').replace('ى', 'ي').replace('ة', 'ه')
+
+    internal fun words(q: String): List<String> =
+        fold(q).split(Regex("[^\\p{L}\\p{N}]+")).filter { it.length >= 2 }
+            .map { if (it.length > 3 && it.startsWith("ال")) it.drop(2) else it }.distinct().take(5)
+
+    /** Entries matching the most of the words you typed come first; ties keep the fuller entry ahead. */
+    internal fun rank(list: List<BookMeta>, q: String): List<BookMeta> {
+        val ws = words(q)
+        if (ws.isEmpty()) return list
+        fun hits(m: BookMeta) = fold(m.title + " " + m.author).let { t -> ws.count { it in t } }
+        return list.sortedByDescending { hits(it) }.take(24)
+    }
+
+    internal fun parseArchive(body: String): List<BookMeta> {
+        val docs = json.parseToJsonElement(body).jsonObject["response"]?.jsonObject?.get("docs")?.jsonArray ?: return emptyList()
+        fun JsonObject.text(key: String): String = when (val v = this[key]) {
+            is JsonPrimitive -> v.contentOrNull.orEmpty()
+            is JsonArray -> v.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.take(3).joinToString(", ")
+            else -> ""
+        }
+        return docs.mapNotNull { e ->
+            val o = e as? JsonObject ?: return@mapNotNull null
+            val id = o.text("identifier").ifEmpty { return@mapNotNull null }
+            val title = o.text("title").ifEmpty { return@mapNotNull null }
+            BookMeta(
+                title = title, author = o.text("creator"), publisher = o.text("publisher"), year = o.text("year").take(4),
+                description = o.text("description").replace(Regex("<[^>]*>"), " ").replace(Regex("\\s+"), " ").trim(),
+                coverUrl = "https://archive.org/services/img/$id", source = "Internet Archive",
+            )
+        }
     }
 
     /** The long description lives on the work record, so it is fetched only for the result you open. */
@@ -134,7 +194,7 @@ object BookLookup {
                 author = old.author.ifEmpty { m.author }, publisher = old.publisher.ifEmpty { m.publisher }, year = old.year.ifEmpty { m.year },
                 pages = if (old.pages > 0) old.pages else m.pages, isbn = old.isbn.ifEmpty { m.isbn },
                 description = old.description.ifEmpty { m.description }, coverUrl = old.coverUrl.ifEmpty { m.coverUrl },
-                workKey = old.workKey.ifEmpty { m.workKey }, source = if (old.source == m.source) old.source else "Open Library + Google Books",
+                workKey = old.workKey.ifEmpty { m.workKey }, source = if (old.source == m.source) old.source else "several catalogues",
             )
         }
         return out.values.sortedByDescending { listOf(it.author, it.publisher, it.year, it.coverUrl, it.description).count(String::isNotEmpty) + if (it.pages > 0) 1 else 0 }.take(24)
