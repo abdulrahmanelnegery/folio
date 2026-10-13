@@ -61,7 +61,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 drawLine(Color(0xFF8A8A92), p(150f, 150f), p(150f, 362f), w, StrokeCap.Round)
                 drawLine(Color(0xFF8A8A92), p(150f, 362f), p(362f, 362f), w, StrokeCap.Round)
                 val c = p(312f, 200f)
-                drawRoundRect(Color(0xFFFF5A1F), Offset(c.x - 50f * k, c.y - 50f * k), Size(100f * k, 100f * k), CornerRadius(22f * k))
+                zimamDot(c, 104f * k, Color(0xFFFF5A1F))
             }
             Text("Rukn", style = MaterialTheme.typography.headlineMedium)
             Text("ركن  ·  a corner, a pillar", color = MaterialTheme.colorScheme.onSurfaceVariant)
