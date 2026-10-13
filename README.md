@@ -30,7 +30,7 @@ For a signed release build set `FOLIO_KEYSTORE`, `FOLIO_KEYSTORE_PASSWORD` (and 
 
 ## How it works
 
-PDF pages are drawn by [PDFium](https://pdfium.googlesource.com/pdfium/) through the Apache-2.0 `pdfiumandroid` binding. The library is one small JSON file in the app's private storage, and your place in each book is saved a moment after you stop scrolling.
+PDF pages are drawn by Android's own `PdfRenderer` (the system's PDFium), so there is no native code to ship. The library is one small JSON file in the app's private storage, and your place in each book is saved a moment after you stop scrolling.
 
 ## Roadmap
 

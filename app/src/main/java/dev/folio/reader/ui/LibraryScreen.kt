@@ -32,6 +32,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.CollectionsBookmark
+import androidx.compose.material.icons.rounded.Done
+import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -59,6 +63,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -115,13 +128,32 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit) {
     var sortMenu by remember { mutableStateOf(false) }
     var menuFor by remember { mutableStateOf<String?>(null) }
     var newList by remember { mutableStateOf(false) }
-    val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val drawer = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     val shown = state.visible(tab, query)
     val heroFirst = tab == Tab.ReadingNow && query.isBlank() && shown.isNotEmpty()
     val hero = if (heroFirst) shown.first() else null
     val rest = if (heroFirst) shown.drop(1) else shown
-    val tabs = listOf(Tab.ReadingNow, Tab.ToRead, Tab.Finished, Tab.Favorites, Tab.All) + state.lists.map { Tab.List(it) }
+    val shelves = listOf(Tab.ReadingNow, Tab.ToRead, Tab.Finished, Tab.Favorites, Tab.All)
 
+    ModalNavigationDrawer(
+        drawerState = drawer,
+        drawerContent = {
+            ModalDrawerSheet {
+                Text("Folio", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp))
+                shelves.forEach { t ->
+                    DrawerEntry(t.icon(), t.title(), state.books.count { it.inTabInternal(t) }, tab == t) { tab = t; scope.launch { drawer.close() } }
+                }
+                HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
+                Text("Lists", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp))
+                state.lists.forEach { name ->
+                    val t = Tab.List(name)
+                    DrawerEntry(Icons.Rounded.Folder, name, state.books.count { it.inTabInternal(t) }, tab == t) { tab = t; scope.launch { drawer.close() } }
+                }
+                DrawerEntry(Icons.Rounded.CreateNewFolder, "New list", null, false) { scope.launch { drawer.close() }; newList = true }
+            }
+        },
+    ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -140,8 +172,11 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit) {
                             modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
-                        Text("Library", fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
+                        Text(tab.title(), fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
                     }
+                },
+                navigationIcon = {
+                    IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(Icons.Rounded.Menu, "Menu") }
                 },
                 actions = {
                     IconButton(onClick = { searching = !searching; if (!searching) query = "" }) {
@@ -163,7 +198,6 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-                scrollBehavior = null,
             )
         },
         floatingActionButton = {
@@ -177,22 +211,6 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit) {
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(tabs) { t ->
-                    val count = state.books.count { b -> b.inTabCount(t) }
-                    FilterChip(
-                        selected = tab == t,
-                        onClick = { tab = t },
-                        label = { Text("${t.title()}  $count") },
-                    )
-                }
-                item {
-                    IconButton(onClick = { newList = true }) { Icon(Icons.Rounded.CreateNewFolder, "New list") }
-                }
-            }
             Spacer(Modifier.height(8.dp))
             if (shown.isEmpty()) {
                 EmptyShelf(tab, onOpenPicker)
@@ -230,6 +248,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit) {
             }
         }
     }
+    }
 
     menuFor?.let { id ->
         val book = state.books.firstOrNull { it.id == id }
@@ -241,8 +260,6 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit) {
     }
     LaunchedEffect(tab) { if (tab is Tab.List && (tab as Tab.List).name !in state.lists) tab = Tab.All }
 }
-
-private fun Book.inTabCount(t: Tab): Boolean = with(dev.folio.reader.data.Status) { this@inTabCount.inTabInternal(t) }
 
 private fun Book.inTabInternal(t: Tab): Boolean = when (t) {
     Tab.ReadingNow -> status == Status.Reading
@@ -338,6 +355,8 @@ private fun GridBook(model: FolioViewModel, book: Book, onOpen: () -> Unit, onMe
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(Modifier.height(6.dp))
+        ReadingProgress(book)
     }
 }
 
@@ -357,6 +376,8 @@ private fun ListBook(model: FolioViewModel, book: Book, onOpen: () -> Unit, onMe
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(6.dp))
+            ReadingProgress(book)
         }
         IconButton(onClick = onMenu) { Icon(Icons.Rounded.MoreVert, "More") }
     }
@@ -429,4 +450,34 @@ private fun NewListDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
         confirmButton = { TextButton(onClick = { onCreate(name) }, enabled = name.isNotBlank()) { Text("Create") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+private fun Tab.icon(): androidx.compose.ui.graphics.vector.ImageVector = when (this) {
+    Tab.ReadingNow -> Icons.Rounded.AutoStories
+    Tab.ToRead -> Icons.Rounded.BookmarkAdd
+    Tab.Finished -> Icons.Rounded.Done
+    Tab.Favorites -> Icons.Rounded.Star
+    Tab.All -> Icons.Rounded.CollectionsBookmark
+    is Tab.List -> Icons.Rounded.Folder
+}
+
+@Composable
+private fun DrawerEntry(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, count: Int?, selected: Boolean, onClick: () -> Unit) {
+    NavigationDrawerItem(
+        icon = { Icon(icon, null) },
+        label = { Text(label) },
+        badge = { if (count != null) Text(count.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+        selected = selected,
+        onClick = onClick,
+        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+    )
+}
+
+/** A thin bar and the percentage read, on every book (empty until it is opened). */
+@Composable
+private fun ReadingProgress(book: Book, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        LinearProgressIndicator(progress = { book.progress }, modifier = Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp)))
+        Text("${(book.progress * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
