@@ -459,14 +459,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
         // The left edge opens the side menu: a swipe that starts in this strip, going right. Android's own back gesture
         // also lives on the edge, so the middle of the strip is excluded from it (the system allows about 200dp), and
         // a small grip shows where to start; tapping the grip opens the menu too.
-        Box(
-            Modifier.align(Alignment.CenterStart).width(72.dp).height(200.dp).systemGestureExclusion().clickable(
-                indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-            ) { scope.launch { drawer.open() } },
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Box(Modifier.padding(start = 2.dp).width(4.dp).height(52.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)))
-        }
+        // Invisible: keeps Android's own back gesture off the left edge so the menu swipe above can start there.
+        Box(Modifier.align(Alignment.CenterStart).width(72.dp).height(200.dp).systemGestureExclusion())
       }
     }
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0
+
+- **Paper books.** Add a book you read on paper ("+" then "Add a paper book"), then log sittings: the page you are on now, or the pages you read, and optionally the minutes. Progress, the Stats tab and your sessions update as you log.
+- **Edit details and cover** for any book: title, author, publisher, year, pages, ISBN and description are all editable, and the cover can be changed from your gallery or removed. Details live in your Folio library; PDF files are not changed.
+- **Find details online** searches Open Library, Google Books and the Internet Archive together, retries word by word for Arabic titles, shows each result against your values and lets you tick only the parts to use before anything is applied. An optional Google Books key is in Settings.
+- Press and hold a custom list (in the side menu or on Home) for rename, move and delete.
+- Back from a shelf returns to the Library tab, and back closes the side menu first.
+- The side menu opens with a rightward swipe from the left 80dp; the middle button is gone and nothing underneath is blocked any more, so the menu button works again.
+- One finger moves a zoomed page; the "+" menu folds back on an outside tap; a rating clears by tapping the same star or Clear.
+
 ## 0.7.5
 
 - Opening and closing a book has a short, soft transition: the book grows and fades in from just under full size, and eases out as the library appears beneath.
