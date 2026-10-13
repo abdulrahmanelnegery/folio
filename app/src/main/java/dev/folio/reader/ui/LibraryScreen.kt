@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -419,17 +420,27 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                 }
             }
         }
-        // A thin strip on the left edge: a swipe that starts here, going right, opens the side menu.
+        // The left edge opens the side menu: a swipe that starts in this strip, going right. Android's own back gesture
+        // also lives on the edge, so the middle of the strip is excluded from it (the system allows about 200dp), and
+        // a small grip shows where to start; tapping the grip opens the menu too.
         var pulled by remember { mutableStateOf(0f) }
         Box(
-            Modifier.align(Alignment.CenterStart).fillMaxHeight().width(28.dp).pointerInput(Unit) {
+            Modifier.align(Alignment.CenterStart).fillMaxHeight().width(44.dp).pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragStart = { pulled = 0f },
-                    onDragEnd = { if (pulled > 60f) scope.launch { drawer.open() }; pulled = 0f },
+                    onDragEnd = { if (pulled > 40f) scope.launch { drawer.open() }; pulled = 0f },
                     onDragCancel = { pulled = 0f },
                 ) { _, delta -> pulled += delta }
             },
         )
+        Box(
+            Modifier.align(Alignment.CenterStart).width(44.dp).height(200.dp).systemGestureExclusion().clickable(
+                indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+            ) { scope.launch { drawer.open() } },
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Box(Modifier.padding(start = 2.dp).width(4.dp).height(52.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)))
+        }
       }
     }
 

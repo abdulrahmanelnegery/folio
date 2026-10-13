@@ -33,6 +33,19 @@ Get the file for your phone from the [latest release](../../releases/latest). Ea
 
 Open the APK and allow installs from your file manager when Android asks.
 
+### Verify the download
+
+Every APK is signed with Folio's own key. Android installs it without a store because the signature is valid, and shows its usual "unknown source" notice for anything that did not come from Google Play. To check a file is really ours, compare its signing certificate with this fingerprint:
+
+```
+SHA-256: FA:CB:FE:BE:B3:27:A7:F7:AF:17:23:91:60:12:6D:57:59:E9:39:B4:B5:C4:D5:A7:64:42:05:92:47:18:2E:D4
+```
+
+```
+apksigner verify --print-certs Folio_<version>_Android_arm64-v8a.apk
+sha256sum -c Folio_<version>_Android_arm64-v8a.apk.sha256
+```
+
 ## Build
 
 You need JDK 17 or newer and the Android SDK (platform 36).

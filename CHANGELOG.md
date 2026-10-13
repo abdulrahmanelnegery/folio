@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.5
+
+- Opening and closing a book has a short, soft transition: the book grows and fades in from just under full size, and eases out as the library appears beneath.
+- The side menu's edge swipe is easier to hit: a wider strip, the middle 200dp of the left edge excluded from Android's own back gesture, a small grip to show where to start, and a tap on the grip opens it too.
+- Releases are signed with every APK signature scheme (v1 to v4), and the README says how to check the signing fingerprint.
+
 ## 0.7.4
 
 - Zoom is dynamic: pinch zooms around the point between your fingers and follows them as you pan, up to 5x; a double tap glides in on the spot you tapped and back out. Pages sharpen in steps as you zoom.

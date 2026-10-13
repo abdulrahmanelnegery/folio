@@ -72,8 +72,21 @@ fun FolioApp(model: FolioViewModel) {
     ) {
         AnimatedContent(
             targetState = reading ?: if (explorer != null) "explorer" else if (settings) "settings" else null,
-            // A short cross-fade: sliding two heavy screens at once is what made it stutter.
-            transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(110)) },
+            // Short and soft: a book opens by growing and fading in from just under full size while the library gives way, and
+            // closes by easing out a touch larger while the library appears beneath; other screens simply cross-fade.
+            transitionSpec = {
+                fun isBook(id: String?) = id != null && id != "settings" && id != "explorer"
+                when {
+                    !isBook(initialState) && isBook(targetState) ->
+                        (fadeIn(tween(190, easing = androidx.compose.animation.core.FastOutSlowInEasing)) +
+                            androidx.compose.animation.scaleIn(initialScale = 0.94f, animationSpec = tween(230, easing = androidx.compose.animation.core.FastOutSlowInEasing))) togetherWith
+                            fadeOut(tween(90))
+                    isBook(initialState) && !isBook(targetState) ->
+                        (fadeIn(tween(170)) togetherWith
+                            (fadeOut(tween(150)) + androidx.compose.animation.scaleOut(targetScale = 1.04f, animationSpec = tween(170, easing = androidx.compose.animation.core.FastOutSlowInEasing)))).apply { targetContentZIndex = -1f }
+                    else -> fadeIn(tween(150)) togetherWith fadeOut(tween(110))
+                }
+            },
             label = "screen",
         ) { id ->
             if (id == null) {
