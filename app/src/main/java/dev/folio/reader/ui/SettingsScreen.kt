@@ -62,7 +62,7 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
     val tick by model.backupTick.collectAsState()
     val backups: List<File> = remember(refresh, tick) { model.backups.files() }
     val context = LocalContext.current
-    // Coming back from the system's All files access screen, move to the Folio folder if it was allowed.
+    // Coming back from the system's All files access screen, move to the Rukn folder if it was allowed.
     val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) model.refreshStorage() }
@@ -105,20 +105,20 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Ask before closing Folio", style = MaterialTheme.typography.bodyLarge)
+                    Text("Ask before closing Rukn", style = MaterialTheme.typography.bodyLarge)
                     Text("When you press back on the home screen.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 androidx.compose.material3.Switch(library.confirmExit, { v -> model.repo.update { it.copy(confirmExit = v) } })
             }
 
-            Header("Folio folder")
+            Header("Rukn folder")
             Text(
-                if (model.storage.shared) "Folio keeps its library, backups and covers in ${model.storage.root.path}. It survives reinstalling the app."
-                else "Folio keeps its data inside the app. Allow access to all files to use a visible Folio folder on the phone instead, so your reading places and backups survive reinstalling the app, like other readers do.",
+                if (model.storage.shared) "Rukn keeps its library, backups and covers in ${model.storage.root.path}. It survives reinstalling the app."
+                else "Rukn keeps its data inside the app. Allow access to all files to use a visible Rukn folder on the phone instead, so your reading places and backups survive reinstalling the app, like other readers do.",
                 Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (!model.storage.shared && android.os.Build.VERSION.SDK_INT >= 30) {
-                Action(Icons.Rounded.FolderSpecial, "Use the Folio folder") {
+                Action(Icons.Rounded.FolderSpecial, "Use the Rukn folder") {
                     val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, android.net.Uri.parse("package:${context.packageName}"))
                     runCatching { context.startActivity(intent) }.onFailure { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)) }
                 }
@@ -167,7 +167,7 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
             Action(Icons.Rounded.CleaningServices, "Clear saved pages (they are drawn again as you read)") { model.pageCache.clear(); refresh++ }
 
             Header("About")
-            Text("Folio 0.8.0", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
+            Text("Rukn 0.8.1 by Zimam", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
             Text("A calm PDF reader. Everything stays on this phone.", Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

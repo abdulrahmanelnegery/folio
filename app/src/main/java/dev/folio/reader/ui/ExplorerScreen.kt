@@ -368,7 +368,7 @@ private fun NeedsAccess(onGrant: () -> Unit, onClose: () -> Unit) {
         Text("Browse the files on your phone", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Allow access to all files and Folio can show your folders, search them and open a book straight from where it is. Nothing is uploaded; it only reads the names and the files you open.",
+            "Allow access to all files and Rukn can show your folders, search them and open a book straight from where it is. Nothing is uploaded; it only reads the names and the files you open.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(20.dp))

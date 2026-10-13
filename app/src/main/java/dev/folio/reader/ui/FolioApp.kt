@@ -53,7 +53,7 @@ fun FolioApp(model: FolioViewModel) {
     // The text reader asks about unsaved edits itself; every other reader closes straight away.
     BackHandler(enabled = reading != null && kindOfReading != dev.folio.reader.data.Kind.Text) { model.closeBook() }
     BackHandler(enabled = reading == null && settings) { settings = false }
-    // Back walks out one screen at a time; on the home screen it can ask before closing Folio.
+    // Back walks out one screen at a time; on the home screen it can ask before closing Rukn.
     var askExit by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     val activity = androidx.activity.compose.LocalActivity.current
     BackHandler(enabled = reading == null && !settings && explorer == null && confirmExit) { askExit = true }
@@ -110,7 +110,7 @@ private fun ExitDialog(onStay: () -> Unit, onClose: (dontAskAgain: Boolean) -> U
     var dontAsk by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onStay,
-        title = { androidx.compose.material3.Text("Close Folio?") },
+        title = { androidx.compose.material3.Text("Close Rukn?") },
         text = {
             androidx.compose.foundation.layout.Column {
                 androidx.compose.material3.Text("You are on the home screen. Your reading places are saved.")

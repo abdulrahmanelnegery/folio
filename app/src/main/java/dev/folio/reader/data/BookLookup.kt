@@ -210,7 +210,7 @@ object BookLookup {
         (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 15_000
-            setRequestProperty("User-Agent", "Folio (github.com/abdulrahmanelnegery/folio)")
+            setRequestProperty("User-Agent", "Rukn (github.com/zimamlabs/rukn)")
         }
 
     private fun get(url: String): String = open(url).inputStream.bufferedReader().use { it.readText() }

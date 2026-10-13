@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1
+
+- **Folio is now Rukn** (ركن, a corner or a pillar), made by [Zimam](https://github.com/zimamlabs). The package id stays the same, so it updates in place.
+- The visible data folder is now `Rukn`. On first start the old `Folio` or `.folio` folder moves into it. New backups are named `rukn-...`; older `folio-...` backups are still listed and restorable.
+
 ## 0.8.0
 
 - **Paper books.** Add a book you read on paper ("+" then "Add a paper book"), then log sittings: the page you are on now, or the pages you read, and optionally the minutes. Progress, the Stats tab and your sessions update as you log.

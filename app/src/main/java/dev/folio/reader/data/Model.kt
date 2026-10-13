@@ -164,7 +164,7 @@ data class LibraryState(
     val theme: PageTheme = PageTheme.Normal,
     /** Screen brightness while reading, 0.02..1; negative follows the system. */
     val brightness: Float = -1f,
-    /** Ask before leaving Folio when back is pressed on the home screen. */
+    /** Ask before leaving Rukn when back is pressed on the home screen. */
     val confirmExit: Boolean = true,
     /** Optional free Google Books key; without it the shared quota is often used up for the day. */
     val googleBooksKey: String = "",

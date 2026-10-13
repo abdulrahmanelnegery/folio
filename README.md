@@ -1,8 +1,8 @@
-# Folio
+# Rukn
 
 A calm, fast reader for PDFs and text files on Android, built natively with Kotlin and Jetpack Compose.
 
-Folio is made for long reading: your books live in a library with covers, lists and shelves, every book remembers its place, and the pages follow the light with night and sepia themes.
+Rukn (by [Zimam](https://github.com/zimamlabs)) is made for long reading: your books live in a library with covers, lists and shelves, every book remembers its place, and the pages follow the light with night and sepia themes.
 
 ## What is in it
 
@@ -21,7 +21,7 @@ Folio is made for long reading: your books live in a library with covers, lists 
 
 ## Your data
 
-Folio keeps its library, backups, covers and your own cover images in one place. By default that is inside the app. If you allow *All files access* (Settings), it uses a visible `Folio` folder on the phone, which survives reinstalling the app. Earlier versions used a hidden `.folio` folder; it moves into `Folio` automatically.
+Rukn keeps its library, backups, covers and your own cover images in one place. By default that is inside the app. If you allow *All files access* (Settings), it uses a visible `Rukn` folder on the phone, which survives reinstalling the app. Earlier versions called the app Folio and used a hidden `.folio` folder, then a visible `Folio` folder; either one moves into `Rukn` automatically.
 
 ## Install
 
@@ -29,23 +29,23 @@ Get the file for your phone from the [latest release](../../releases/latest). Ea
 
 | System | File |
 |---|---|
-| Android phone (64-bit, almost every phone since 2016) | `Folio_<version>_Android_arm64-v8a.apk` |
-| Android, older 32-bit | `Folio_<version>_Android_armeabi-v7a.apk` |
-| Android emulator, Chromebook | `Folio_<version>_Android_x86_64.apk` |
+| Android phone (64-bit, almost every phone since 2016) | `Rukn_<version>_Android_arm64-v8a.apk` |
+| Android, older 32-bit | `Rukn_<version>_Android_armeabi-v7a.apk` |
+| Android emulator, Chromebook | `Rukn_<version>_Android_x86_64.apk` |
 
 Open the APK and allow installs from your file manager when Android asks.
 
 ### Verify the download
 
-Every APK is signed with Folio's own key. Android installs it without a store because the signature is valid, and shows its usual "unknown source" notice for anything that did not come from Google Play. To check a file is really ours, compare its signing certificate with this fingerprint:
+Every APK is signed with Rukn's own key. Android installs it without a store because the signature is valid, and shows its usual "unknown source" notice for anything that did not come from Google Play. To check a file is really ours, compare its signing certificate with this fingerprint:
 
 ```
 SHA-256: FA:CB:FE:BE:B3:27:A7:F7:AF:17:23:91:60:12:6D:57:59:E9:39:B4:B5:C4:D5:A7:64:42:05:92:47:18:2E:D4
 ```
 
 ```
-apksigner verify --print-certs Folio_<version>_Android_arm64-v8a.apk
-sha256sum -c Folio_<version>_Android_arm64-v8a.apk.sha256
+apksigner verify --print-certs Rukn_<version>_Android_arm64-v8a.apk
+sha256sum -c Rukn_<version>_Android_arm64-v8a.apk.sha256
 ```
 
 ## Build
