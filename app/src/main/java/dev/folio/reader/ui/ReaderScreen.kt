@@ -118,7 +118,9 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     val pdf by produceState<PdfFile?>(null, id) {
         value = withContext(Dispatchers.IO) { PdfFile.open(context, Uri.parse(book.uri)) }
     }
-    DisposableEffect(pdf) { onDispose { pdf?.close() } }
+    // Capture the file itself: the delegate would read the *new* value when the effect is disposed.
+    val opened = pdf
+    DisposableEffect(opened) { onDispose { opened?.close() } }
 
     var barsVisible by remember { mutableStateOf(true) }
     var zoom by remember { mutableFloatStateOf(1f) }
@@ -240,6 +242,9 @@ private fun PageView(file: PdfFile, index: Int, widthPx: Int, zoom: Float, cache
         file.render(index, target)?.also { cache.put("$index@$target", it); value = it }
     }
     Box(Modifier.fillMaxWidth().aspectRatio(1f / file.aspect(index)).background(Color.White)) {
+        if (bitmap == null) {
+            Text("${index + 1}", Modifier.align(Alignment.Center), color = Color(0xFFB8B2A4), style = MaterialTheme.typography.displaySmall)
+        }
         bitmap?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds, colorFilter = theme.filter()) }
     }
 }
