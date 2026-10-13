@@ -231,23 +231,27 @@ private fun OnlineFinder(draft: Draft, startQuery: String, onDismiss: () -> Unit
     }
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.fillMaxWidth(0.96f),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         title = { Text("Find details online") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("Title, author or ISBN") }, singleLine = true)
-                Button(onClick = ::run, enabled = query.isNotBlank() && !busy) { Text("Search Open Library") }
-                Text("Only what you type here is sent.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("Title, author, ISBN or any words") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { if (query.isNotBlank() && !busy) run() }))
+                Button(onClick = ::run, enabled = query.isNotBlank() && !busy) { Text("Search") }
+                Text("Searches Open Library and Google Books together. Only what you type here is sent.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (busy) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 results?.let { list ->
                     if (list.isEmpty() && !busy) Text("Nothing found.")
-                    Column(Modifier.height(260.dp).verticalScroll(rememberScrollState())) {
+                    Column(Modifier.height(340.dp).verticalScroll(rememberScrollState())) {
                         list.forEach { m ->
                             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable {
                                 scope.launch { busy = true; preview = BookLookup.describe(m); busy = false }
                             }.padding(vertical = 8.dp, horizontal = 4.dp)) {
                                 Text(m.title, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                Text(listOf(m.author, m.year, m.publisher).filter { it.isNotBlank() }.joinToString("  ·  "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(listOf(m.author, m.year, m.publisher, m.source).filter { it.isNotBlank() }.joinToString("  ·  "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -281,6 +285,8 @@ private fun MetaPreview(draft: Draft, meta: BookMeta, onBack: () -> Unit, onDone
     }
     AlertDialog(
         onDismissRequest = onBack,
+        modifier = Modifier.fillMaxWidth(0.96f),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         title = { Text("Choose what to use") },
         text = {
             Column(Modifier.height(380.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {

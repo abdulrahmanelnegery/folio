@@ -253,4 +253,20 @@ class ModelTest {
         assertTrue(r[0].coverUrl.endsWith("/99-L.jpg"))
         assertEquals("", r[1].coverUrl)
     }
+
+    @Test
+    fun `google results are read and the same book from two catalogues becomes one entry`() {
+        val google = """{"items":[{"volumeInfo":{"title":"Dune","authors":["Frank Herbert"],"publisher":"Ace","publishedDate":"1990-09-01",
+            "pageCount":560,"description":"Spice.","industryIdentifiers":[{"type":"ISBN_10","identifier":"0441172717"},{"type":"ISBN_13","identifier":"9780441172719"}],
+            "imageLinks":{"thumbnail":"http://books.google.com/x?id=1&zoom=1&edge=curl"}}}]}"""
+        val g = BookLookup.parseGoogle(google)
+        assertEquals("1990", g[0].year)
+        assertEquals("https://books.google.com/x?id=1&zoom=0", g[0].coverUrl)
+        val ol = BookMeta(title = "Dune", author = "Frank Herbert", isbn = "9780441172719", year = "1965", source = "Open Library")
+        val merged = BookLookup.merge(listOf(listOf(ol), g))
+        assertEquals(1, merged.size)
+        assertEquals("1965", merged[0].year)
+        assertEquals("Spice.", merged[0].description)
+        assertEquals(560, merged[0].pages)
+    }
 }
