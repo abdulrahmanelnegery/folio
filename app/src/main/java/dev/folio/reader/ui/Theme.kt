@@ -11,37 +11,43 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-private val Teal = Color(0xFF0F5E5B)
-private val Paper = Color(0xFFF7F2E8)
+private val Orange = Color(0xFFE5481A)
+private val Paper = Color(0xFFF5F1E8)
+private val Ink = Color(0xFF121214)
 
+/** Zimam's colours: warm paper and near-black with an orange accent. */
 private val Light: ColorScheme = lightColorScheme(
-    primary = Teal,
+    primary = Orange,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFCDE9E5),
-    onPrimaryContainer = Color(0xFF00201E),
-    secondary = Color(0xFF8A6A2F),
+    primaryContainer = Color(0xFFFFDDD0),
+    onPrimaryContainer = Color(0xFF3A0E00),
+    secondary = Color(0xFF6B5B4B),
+    secondaryContainer = Color(0xFFEBE2D3),
+    onSecondaryContainer = Ink,
     background = Paper,
     surface = Paper,
     surfaceContainer = Color(0xFFFFFBF3),
-    surfaceContainerHigh = Color(0xFFF0EADD),
-    onSurface = Color(0xFF1C1B17),
-    onSurfaceVariant = Color(0xFF5B574C),
-    outlineVariant = Color(0xFFD9D2C2),
+    surfaceContainerHigh = Color(0xFFEDE6D8),
+    onSurface = Ink,
+    onSurfaceVariant = Color(0xFF5E5A52),
+    outlineVariant = Color(0xFFD8D0C0),
 )
 
 private val Dark: ColorScheme = darkColorScheme(
-    primary = Color(0xFF6FD0C6),
-    onPrimary = Color(0xFF003733),
-    primaryContainer = Color(0xFF17504C),
-    onPrimaryContainer = Color(0xFFCDE9E5),
-    secondary = Color(0xFFE0C58A),
-    background = Color(0xFF14130F),
-    surface = Color(0xFF14130F),
-    surfaceContainer = Color(0xFF1E1D18),
-    surfaceContainerHigh = Color(0xFF292720),
-    onSurface = Color(0xFFE8E2D4),
-    onSurfaceVariant = Color(0xFFB4AE9F),
-    outlineVariant = Color(0xFF3C392F),
+    primary = Color(0xFFFF5A1F),
+    onPrimary = Color(0xFF1A0A02),
+    primaryContainer = Color(0xFF4A1D0B),
+    onPrimaryContainer = Color(0xFFFFDDD0),
+    secondary = Color(0xFFD9CDB8),
+    secondaryContainer = Color(0xFF2A2A2E),
+    onSecondaryContainer = Color(0xFFF5F1E8),
+    background = Ink,
+    surface = Ink,
+    surfaceContainer = Color(0xFF1B1B1E),
+    surfaceContainerHigh = Color(0xFF26262A),
+    onSurface = Color(0xFFF5F1E8),
+    onSurfaceVariant = Color(0xFFA9A59B),
+    outlineVariant = Color(0xFF3A3A40),
 )
 
 private val FolioShapes = Shapes(

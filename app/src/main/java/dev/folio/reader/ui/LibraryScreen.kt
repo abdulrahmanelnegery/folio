@@ -633,7 +633,7 @@ private fun GridBook(model: FolioViewModel, book: Book, ratio: Float, compact: B
     Column(Modifier.combinedClickable(onClick = onOpen, onLongClick = onDetails)) {
         Cover(model, book, Modifier.fillMaxWidth().aspectRatio(ratio))
         Spacer(Modifier.height(8.dp))
-        Text(book.name, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(book.name, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (!compact) {
             if (book.rating > 0) Stars(book.rating, 12)
             else Text(if (book.status == Status.Finished) "Finished" else book.countLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

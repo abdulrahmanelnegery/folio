@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.3
+
+- Rukn wears Zimam's colours: warm paper in the light theme, near-black in the dark theme, and an orange accent instead of teal.
+- The progress bars under the books on a shelf line up: every title takes two lines, so the bars sit on the same line.
+
 ## 0.8.2
 
 - The icon, splash and About page use the exact dot of the Arabic ز in the Zimam mark (a soft diamond with one corner cut off) instead of a rounded square.
