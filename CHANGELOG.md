@@ -2,6 +2,7 @@
 
 ## 0.12.0
 
+- **A better opening.** The name sits clearly apart from the mark (28 dp), slides up as it appears, the corner draws with an eased stroke and the dot settles with a small bounce. About a second and a half.
 - **One Zimam folder.** With *All files access* Rukn now keeps its data in `Zimam/Rukn`. Older folders (`Rukn`, `Folio`, `.folio`) are copied in, never overwritten onto existing files (a clash is kept beside it), checked by size and SHA-256, and left in place as a backup. If a check fails Rukn keeps using the old folder and tries again later. Settings has *Remove the old folder*, which asks first and re-checks every file.
 
 ## 0.11.2
