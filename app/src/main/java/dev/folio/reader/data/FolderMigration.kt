@@ -54,7 +54,7 @@ object FolderMigration {
     fun verify(source: File, target: File, label: String = source.name): List<String> =
         files(source).mapNotNull { f -> if (landing(source, f, target, label) == null) "missing or different: ${f.relativeTo(source).path}" else null }
 
-    fun copyAndVerify(source: File, target: File, label: String = source.name): Result {
+    fun copyAndVerify(source: File, target: File, label: String = source.name, cancelled: () -> Boolean = { false }): Result {
         if (!source.isDirectory || source.absolutePath == target.absolutePath) return Result(true, 0, 0, emptyList())
         var copied = 0; var kept = 0
         val problems = mutableListOf<String>()
@@ -62,6 +62,7 @@ object FolderMigration {
             target.mkdirs()
             source.walkTopDown().filter { it.isDirectory }.forEach { File(target, it.relativeTo(source).path).mkdirs() }
             for (f in files(source)) {
+                if (cancelled()) { problems += "copy cancelled"; break }
                 if (landing(source, f, target, label) != null) continue
                 var dest = File(target, f.relativeTo(source).path)
                 if (dest.exists()) { dest = clashName(dest, label); kept++ }

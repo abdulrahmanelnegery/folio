@@ -26,6 +26,7 @@ import dev.folio.reader.pdf.PdfFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -41,7 +42,7 @@ class TextSession(val original: String) {
 }
 
 class FolioViewModel(app: Application) : AndroidViewModel(app) {
-    val storage = Storage(app).also { it.refresh() }
+    val storage = Storage(app)
     val repo = LibraryRepository(storage, viewModelScope)
     val covers = Covers(app, storage)
     /** Set from Settings to show the first-run tour again. */
@@ -212,13 +213,19 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     val message: StateFlow<String?> = _message
     fun messageShown() { _message.value = null }
 
+    private val _migrating = MutableStateFlow(false)
+    /** True while the library is being copied into the Zimam folder in the background. */
+    val migrating: StateFlow<Boolean> = _migrating
+
     /** Shows a short message at the bottom of the screen. */
     fun notify(text: String) { _message.value = text }
 
     /** The "All files access" setting may have changed; move to the Rukn folder when it has. */
     fun refreshStorage() {
         viewModelScope.launch(Dispatchers.IO) {
-            val changed = storage.refresh()
+            // The banner only shows if the move takes a moment; a quick check never flashes it.
+            val banner = launch { delay(400); _migrating.value = true }
+            val changed = try { storage.refresh() } finally { banner.cancel(); _migrating.value = false }
             if (changed) {
                 repo.reload()
                 _backupTick.value++
@@ -480,7 +487,10 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    override fun onCleared() = repo.flush()
+    override fun onCleared() { storage.cancelled = true; repo.flush() }
+
+    // Last, so every property above exists before the background check starts.
+    init { refreshStorage() }
 
     private fun hash(text: String): String =
         MessageDigest.getInstance("SHA-1").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }.take(20)

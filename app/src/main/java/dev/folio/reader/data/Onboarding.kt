@@ -30,7 +30,7 @@ object Onboarding {
 /** Short notes per version, taken from the changelog; shown once after an update. */
 object ReleaseNotes {
     private val notes: Map<String, List<String>> = mapOf(
-        "0.12.0" to listOf(
+        "0.12.1" to listOf(
             "A first-run tour and these notes after each update.",
             "Your data now lives in one Zimam folder (Zimam/Rukn). Old folders are copied and checked, never deleted.",
             "A better opening screen, and a Home page with shortcuts.",
