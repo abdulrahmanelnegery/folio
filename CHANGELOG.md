@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0
+
+- **One Zimam folder.** With *All files access* Rukn now keeps its data in `Zimam/Rukn`. Older folders (`Rukn`, `Folio`, `.folio`) are copied in, never overwritten onto existing files (a clash is kept beside it), checked by size and SHA-256, and left in place as a backup. If a check fails Rukn keeps using the old folder and tries again later. Settings has *Remove the old folder*, which asks first and re-checks every file.
+
 ## 0.11.2
 
 - **Zoomed pages scroll like normal ones.** Up and down on a zoomed page is now the book's own scroll, so it moves and flings the same way as at fit size (it used to pan inside the zoomed view first, which felt sticky). Left and right still pan the page, and the end of the book can be scrolled into view.

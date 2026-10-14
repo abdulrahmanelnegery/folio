@@ -8,8 +8,8 @@ import java.io.File
 /**
  * Where Rukn keeps its own data: the library (reading places, lists, ratings, notes), backups
  * and cover thumbnails. With "All files access" it is a visible `Zimam/Rukn` folder on the phone, which
- * survives reinstalling the app; without it, the app's private folder. The old hidden `.folio` folder is
- * moved into it the first time.
+ * survives reinstalling the app; without it, the app's private folder. Older folders are copied into it, verified
+ * and left in place as a backup.
  */
 class Storage(private val context: Context) {
     @Volatile
@@ -20,7 +20,7 @@ class Storage(private val context: Context) {
 
     val sharedFolder: File get() = File(Environment.getExternalStorageDirectory(), "Zimam/Rukn")
 
-        /** Where earlier versions kept it: the hidden `.folio`, the visible `Folio` (the app was called Folio before Rukn), then the visible `Rukn` that sat beside the other apps' folders. */
+    /** Where earlier versions kept it: the hidden `.folio`, the visible `Folio` (the app was called Folio before Rukn), then the visible `Rukn` that sat beside the other apps' folders. */
     val legacyFolders: List<File> get() = listOf(".folio", "Folio", "Rukn").map { File(Environment.getExternalStorageDirectory(), it) }
 
     fun canUseShared(): Boolean = Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()
@@ -29,19 +29,54 @@ class Storage(private val context: Context) {
 
     fun dir(name: String) = File(root, name).apply { mkdirs() }
 
+    /** The old folders that still exist (kept as a backup after the copy). */
+    fun oldFolders(): List<File> = legacyFolders.filter { it.isDirectory }
+
+    /** Set when the last switch could not be verified, so the screen can say why the old folder is still in use. */
+    @Volatile
+    var migrationMessage: String? = null
+        private set
+
+    /** Old folders whose every file is verified in the Zimam folder right now, so removing them loses nothing. */
+    fun removableOldFolders(): List<File> = if (root == sharedFolder) oldFolders().filter { FolderMigration.safeToRemove(it, sharedFolder) } else emptyList()
+
+    /** Removes one old folder, only after checking again that everything in it is in the Zimam folder. */
+    fun removeOldFolder(folder: File): Boolean {
+        if (folder !in removableOldFolders() || !FolderMigration.safeToRemove(folder, sharedFolder)) return false
+        return folder.deleteRecursively()
+    }
+
     /**
-     * Picks the folder to use now (call again after the permission changes). Returns true when it
-     * changed, so callers reload. Data moves to the shared folder when it has nothing newer.
+     * Picks the folder to use now (call again after the permission changes). Returns true when it changed, so
+     * callers reload. Old folders are copied into the Zimam folder and verified; they are never deleted here. If any
+     * copy does not verify, the old location stays in use, [migrationMessage] says so, and the next call retries.
      */
     fun refresh(): Boolean {
-        if (canUseShared()) legacyFolders.forEach { migrateLegacyFolder(it, sharedFolder) }
-        val target = if (canUseShared()) sharedFolder.also { it.mkdirs() }.takeIf { it.isDirectory && it.canWrite() } ?: context.filesDir else context.filesDir
+        migrationMessage = null
+        var target = if (canUseShared()) sharedFolder.also { it.mkdirs() }.takeIf { it.isDirectory && it.canWrite() } ?: context.filesDir else context.filesDir
+        if (target == sharedFolder) {
+            for (old in oldFolders()) {
+                if (FolderMigration.upToDate(old, sharedFolder)) continue
+                val r = FolderMigration.copyAndVerify(old, sharedFolder)
+                if (!r.ok) {
+                    migrationMessage = "Rukn could not verify the copy of ${old.path} into ${sharedFolder.path}, so it keeps using the old folder and will try again later. Nothing was deleted."
+                    target = old
+                    break
+                }
+            }
+        }
         if (target == root) return false
+        FolderMigration.backupState(target)
         val sourceLibrary = File(root, LIBRARY)
         val targetLibrary = File(target, LIBRARY)
-        // A newer library already in the target (a reinstall) wins; otherwise bring ours across.
-        if (sourceLibrary.exists() && (!targetLibrary.exists() || sourceLibrary.lastModified() > targetLibrary.lastModified())) {
-            runCatching { sourceLibrary.copyTo(targetLibrary, overwrite = true) }
+        // Never overwrite the target's own library: bring ours across only when it has none, otherwise keep ours beside it.
+        if (sourceLibrary.exists() && sourceLibrary != targetLibrary) {
+            runCatching {
+                if (!targetLibrary.exists()) sourceLibrary.copyTo(targetLibrary)
+                else if (sourceLibrary.length() != targetLibrary.length() || FolderMigration.sha256(sourceLibrary) != FolderMigration.sha256(targetLibrary)) {
+                    File(target, "migration-backup").apply { mkdirs() }.let { sourceLibrary.copyTo(File(it, "library-from-previous-location-${System.currentTimeMillis()}.json")) }
+                }
+            }
         }
         runCatching {
             File(root, BACKUPS).listFiles()?.forEach { f ->
@@ -54,43 +89,6 @@ class Storage(private val context: Context) {
     }
 
     companion object {
-        /**
-         * Moves the old hidden folder into the visible one. On the same volume that is one rename; if the visible
-         * folder already exists (or the rename fails) whatever is missing or newer is copied over first. The old
-         * folder is deleted only after everything was copied, so a failure loses nothing. True when it moved.
-         */
-        fun migrateLegacyFolder(legacy: File, target: File): Boolean {
-            if (!legacy.isDirectory || legacy.absolutePath == target.absolutePath) return false
-            target.parentFile?.mkdirs()
-            if (!target.exists() && legacy.renameTo(target)) { markMigrated(target, legacy); return true }
-            return runCatching {
-                target.mkdirs()
-                legacy.walkTopDown().forEach { f ->
-                    val dest = File(target, f.relativeTo(legacy).path)
-                    if (f.isDirectory) dest.mkdirs()
-                    else if (!dest.exists() || f.lastModified() > dest.lastModified()) {
-                        dest.parentFile?.mkdirs()
-                        f.copyTo(dest, overwrite = true)
-                    }
-                }
-                // Only a folder whose every file now exists in the target, at the same size or newer, may go.
-                if (!isCovered(legacy, target)) return@runCatching false
-                markMigrated(target, legacy)
-                legacy.deleteRecursively()
-            }.getOrDefault(false)
-        }
-
-        /** True when every file under [source] has a counterpart in [target] that is at least as new, and not smaller than a same-age one. */
-        fun isCovered(source: File, target: File): Boolean = source.walkTopDown().filter { it.isFile }.all { f ->
-            val dest = File(target, f.relativeTo(source).path)
-            dest.isFile && (dest.lastModified() > f.lastModified() || dest.length() == f.length())
-        }
-
-        private fun markMigrated(target: File, from: File) {
-            runCatching { File(target, MIGRATED).appendText("moved from ${from.name}\n") }
-        }
-
-        const val MIGRATED = ".migrated"
         const val LIBRARY = "library.json"
         const val BACKUPS = "backups"
     }

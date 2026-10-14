@@ -2,8 +2,6 @@ package dev.folio.reader.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Rule
-import org.junit.rules.TemporaryFolder
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -200,37 +198,6 @@ class ModelTest {
         assertEquals("file:///storage/emulated/0/Download/هوس القراءة.pdf", b.uri)
         assertEquals("هوس القراءة.pdf", b.fileName)
         assertEquals("old", LibraryState(books = listOf(old)).findSameFile("هوس القراءة.pdf", 5000)?.id)
-    }
-
-    @get:Rule
-    val tmp = TemporaryFolder()
-
-    @Test
-    fun `the old hidden folder moves into the visible one with everything in it`() {
-        val legacy = tmp.newFolder(".folio").also { java.io.File(it, "library.json").writeText("{}"); java.io.File(it, "backups").mkdirs(); java.io.File(it, "backups/b.json").writeText("b") }
-        val target = java.io.File(tmp.root, "Rukn")
-        assertTrue(Storage.migrateLegacyFolder(legacy, target))
-        assertFalse(legacy.exists())
-        assertEquals("{}", java.io.File(target, "library.json").readText())
-        assertEquals("b", java.io.File(target, "backups/b.json").readText())
-    }
-
-    @Test
-    fun `when the visible folder already exists only what is missing or newer is brought over`() {
-        val legacy = tmp.newFolder(".folio")
-        java.io.File(legacy, "library.json").also { it.writeText("old"); it.setLastModified(1_000) }
-        java.io.File(legacy, "extra.txt").writeText("extra")
-        val target = tmp.newFolder("Rukn")
-        java.io.File(target, "library.json").also { it.writeText("new"); it.setLastModified(5_000) }
-        assertTrue(Storage.migrateLegacyFolder(legacy, target))
-        assertEquals("the newer file wins", "new", java.io.File(target, "library.json").readText())
-        assertEquals("extra", java.io.File(target, "extra.txt").readText())
-        assertFalse(legacy.exists())
-    }
-
-    @Test
-    fun `nothing to migrate when there is no old folder`() {
-        assertFalse(Storage.migrateLegacyFolder(java.io.File(tmp.root, ".folio"), java.io.File(tmp.root, "Rukn")))
     }
 
     @Test
