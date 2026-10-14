@@ -7,10 +7,14 @@ import androidx.annotation.StringRes
 object Strings {
     @Volatile var res: Resources? = null
     @Volatile var arabicDigits: Boolean = false
+
+    /** Lets plain unit tests (which have no Android resources) read the English strings; unused in the app. */
+    @Volatile var override: ((Int, Array<out Any?>) -> String)? = null
 }
 
 /** A string from the resources, with the Arabic-Indic digits when that choice is on. */
 fun s(@StringRes id: Int, vararg args: Any?): String {
+    Strings.override?.let { return it(id, args) }
     val r = Strings.res ?: return ""
     val text = if (args.isEmpty()) r.getString(id) else r.getString(id, *args)
     return if (Strings.arabicDigits) toArabicDigits(text) else text
@@ -24,6 +28,7 @@ fun toArabicDigits(text: String): String {
 
 /** A plural string; the count is the first format argument. */
 fun sp(@androidx.annotation.PluralsRes id: Int, count: Int, vararg args: Any?): String {
+    Strings.override?.let { return it(id, arrayOf(count, *args)) }
     val r = Strings.res ?: return ""
     val text = r.getQuantityString(id, count, count, *args)
     return if (Strings.arabicDigits) toArabicDigits(text) else text

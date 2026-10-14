@@ -7,6 +7,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ModelTest {
+    @org.junit.Before fun english() = dev.folio.reader.EnglishStrings.install()
+
     private fun book(id: String, vararg lists: String, status: Status = Status.Reading) =
         Book(id = id, uri = "u$id", name = "Book $id", lists = lists.toList(), status = status)
 

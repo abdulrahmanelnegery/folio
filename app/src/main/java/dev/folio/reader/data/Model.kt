@@ -3,6 +3,7 @@ package dev.folio.reader.data
 import androidx.annotation.StringRes
 import dev.folio.reader.R
 import dev.folio.reader.s
+import dev.folio.reader.sp
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -116,20 +117,16 @@ data class Book(
         get() = when {
             physical -> if (page > 0) s(R.string.page_of, page, pages) else countLabel
             kind == Kind.Text && offset > 0f && status != Status.Finished -> s(R.string.read, (offset * 100).toInt(), countLabel)
-            kind != Kind.Text && page > 0 && status != Status.Finished -> "${if (kind == Kind.Epub) "Chapter" else "Page"} ${page + 1} of $pages"
+            kind != Kind.Text && page > 0 && status != Status.Finished -> if (kind == Kind.Epub) s(R.string.chapter_of, page + 1, pages) else s(R.string.page_of, page + 1, pages)
             else -> countLabel
         }
 
     /** "12 pages", "340 lines": what [pages] counts for this kind. */
     val countLabel: String
-        get() {
-            val unit = when (kind) {
-                Kind.Pdf -> "page"
-                Kind.Epub -> "chapter"
-                Kind.Comic -> "page"
-                Kind.Text -> "line"
-            }
-            return "$pages $unit${if (pages == 1) "" else "s"}"
+        get() = when (kind) {
+            Kind.Pdf, Kind.Comic -> sp(R.plurals.pages_n, pages)
+            Kind.Epub -> sp(R.plurals.chapters_n, pages)
+            Kind.Text -> sp(R.plurals.lines_n, pages)
         }
 }
 

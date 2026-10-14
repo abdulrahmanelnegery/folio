@@ -1,7 +1,5 @@
 package dev.folio.reader.data
 
-import dev.folio.reader.R
-import dev.folio.reader.s
 import java.io.File
 import java.security.MessageDigest
 
@@ -34,7 +32,7 @@ object FolderMigration {
         val ext = dest.extension.let { if (it.isEmpty()) "" else ".$it" }
         var n = 1
         while (true) {
-            val candidate = File(dest.parentFile, s(R.string.from, stem, label, if (n > 1) " $n" else "", ext))
+            val candidate = File(dest.parentFile, "$stem (from $label${if (n > 1) " $n" else ""})$ext")
             if (!candidate.exists()) return candidate
             n++
         }
@@ -78,7 +76,7 @@ object FolderMigration {
             problems += "copy stopped: ${e.message ?: e.javaClass.simpleName}"
         }
         problems += verify(source, target, label)
-        if (problems.isEmpty()) runCatching { marker(target, label).appendText(s(R.string.copied_from_files_kept_beside, label, copied, kept)) }
+        if (problems.isEmpty()) runCatching { marker(target, label).appendText("copied from $label: $copied files, $kept kept beside existing ones\n") }
         return Result(problems.isEmpty(), copied, kept, problems)
     }
 

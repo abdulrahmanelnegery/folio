@@ -1,5 +1,6 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.sp
 import dev.folio.reader.data.label
 import dev.folio.reader.data.note
 import dev.folio.reader.R
@@ -454,7 +455,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                 DropdownMenu(menu, { menu = false }) {
                                     DropdownMenuItem(
                                         leadingIcon = { Icon(Icons.Rounded.PlayCircle, null) },
-                                        text = { Text(if (autoScroll) s(R.string.stop_auto_scroll) else "Auto-scroll") },
+                                        text = { Text(if (autoScroll) s(R.string.stop_auto_scroll) else s(R.string.auto_scroll)) },
                                         onClick = { menu = false; autoScroll = !autoScroll; tool = if (autoScroll) ReaderTool.AutoScroll else null; barsVisible = !autoScroll },
                                     )
                                     DropdownMenuItem(
@@ -651,7 +652,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     }
                 } else {
                     Column {
-                        Text(s(R.string.edit_on_this_pdf_the, session.marks.size, if (session.marks.size == 1) "" else "s"), style = MaterialTheme.typography.bodyMedium)
+                        Text(sp(R.plurals.edits_on_pdf, session.marks.size), style = MaterialTheme.typography.bodyMedium)
                         TextButton(onClick = { run(FolioViewModel.SaveMode.AsNew) }) { Text(s(R.string.save_as_a_new_file)) }
                         if (canOverwrite) TextButton(onClick = { confirm = SaveConfirm.Overwrite }) { Text(s(R.string.overwrite_the_original)) }
                         else Text(s(R.string.this_file_cannot_be_replaced_ddec), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -23,8 +23,6 @@
     <string name="the_backup_could_not_be_777b">The backup could not be saved.</string>
     <string name="that_is_not_a_rukn">That is not a Rukn backup.</string>
     <string name="library_restored_books">Library restored: %1$s books.</string>
-    <string name="from">%1$s (from %2$s%3$s)%4$s</string>
-    <string name="copied_from_files_kept_beside">"copied from %1$s: %2$s files, %3$s kept beside existing ones\n"</string>
     <string name="last_opened">Last opened</string>
     <string name="date_added">Date added</string>
     <string name="small_covers">Small covers</string>
@@ -507,4 +505,5 @@
     <string name="language_note">Applies at once. System follows your phone\'s language.</string>
     <string name="arabic_digits">Arabic-Indic digits (٠١٢٣)</string>
     <string name="arabic_digits_note">Show numbers in Arabic-Indic digits instead of 0123.</string>
+    <string name="chapter_of">Chapter %1$s of %2$s</string>
 </resources>

@@ -23,8 +23,6 @@
     <string name="the_backup_could_not_be_777b">تعذّر حفظ النسخة الاحتياطية.</string>
     <string name="that_is_not_a_rukn">هذه ليست نسخة احتياطية من ركن.</string>
     <string name="library_restored_books">تمت استعادة المكتبة: %1$s كتابًا.</string>
-    <string name="from">%1$s (من %2$s%3$s)%4$s</string>
-    <string name="copied_from_files_kept_beside">"نُسخ من %1$s: %2$s ملفًا، و%3$s أُبقيت بجانب الملفات الموجودة\n"</string>
     <string name="last_opened">آخر ما فُتح</string>
     <string name="date_added">تاريخ الإضافة</string>
     <string name="small_covers">أغلفة صغيرة</string>
@@ -507,4 +505,5 @@
     <string name="language_note">يُطبَّق فورًا. «النظام» يتبع لغة هاتفك.</string>
     <string name="arabic_digits">الأرقام الهندية (٠١٢٣)</string>
     <string name="arabic_digits_note">عرض الأرقام بالأرقام الهندية بدل 0123.</string>
+    <string name="chapter_of">الفصل %1$s من %2$s</string>
 </resources>
