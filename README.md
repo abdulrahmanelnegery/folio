@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/icon.svg" width="120" alt="Rukn"></p>
+<p align="center"><img src="docs/icon.png" width="120" alt="Rukn"></p>
 
 <h1 align="center">Rukn</h1>
 
