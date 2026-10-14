@@ -259,4 +259,11 @@ class ModelTest {
         val body = """{"search":[{"id":"Q1","label":"No Exit","description":"2022 novel by Taylor Adams"},{"id":"Q2","label":"No Exit","description":"2022 film directed by Damien Power"},{"id":"Q3","label":"وجدتك","description":"poem"},{"id":"Q4","label":"Dune","description":"1965 science fiction novel"}]}"""
         assertEquals(listOf("No Exit", "Dune"), BookLookup.parseWikidata(body))
     }
+
+    @Test fun sessionsAreCountedPerBook() {
+        val state = LibraryState(sessions = listOf(ReadSession("a", 1, 60, 2), ReadSession("b", 2, 30, 1), ReadSession("a", 3, 90, 4)))
+        assertEquals(2, state.sessionCount("a"))
+        assertEquals(1, state.sessionCount("b"))
+        assertEquals(0, state.sessionCount("none"))
+    }
 }

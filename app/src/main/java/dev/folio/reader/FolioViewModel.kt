@@ -349,6 +349,8 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         endSession()
         // The screen changes first; saving and the backup follow off the main thread.
         _reading.value = null
+        // The book you just read goes to the front of the Recent order.
+        closing?.let { id -> repo.updateBook(id) { it.copy(lastOpened = System.currentTimeMillis()) } }
         viewModelScope.launch(Dispatchers.IO) {
             commitReading()
             pagesSeen.removeAll { it.startsWith("$closing:") }

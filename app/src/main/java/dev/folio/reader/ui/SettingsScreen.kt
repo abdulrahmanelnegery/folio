@@ -21,6 +21,9 @@ import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,6 +57,7 @@ import java.util.Date
 @Composable
 fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
     var confirm by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var ask by remember { mutableStateOf<ConfirmRequest?>(null) }
     var refresh by remember { mutableStateOf(0) }
     var removeOld by remember { mutableStateOf<java.io.File?>(null) }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(model::exportBackup) }
@@ -175,14 +179,15 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
             )
 
             Header("Storage")
-            Action(Icons.Rounded.CleaningServices, "Clear saved covers") { model.covers.clear(); refresh++ }
-            Action(Icons.Rounded.CleaningServices, "Clear saved pages (they are drawn again as you read)") { model.pageCache.clear(); refresh++ }
+            Action(Icons.Rounded.CleaningServices, "Clear saved covers") { ask = ConfirmRequest("Clear saved covers?", "They are drawn again from your books when they are needed. Nothing in your library is removed.", "Clear") { model.covers.clear(); refresh++ } }
+            Action(Icons.Rounded.CleaningServices, "Clear saved pages (they are drawn again as you read)") { ask = ConfirmRequest("Clear saved pages?", "They are drawn again as you read, which can be slower for a while. Your books are not touched.", "Clear") { model.pageCache.clear(); refresh++ } }
 
             Header("About")
-            Text("Rukn 0.10.0  ·  by Zimam", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
+            Text("Rukn ${runCatching { androidx.compose.ui.platform.LocalContext.current.let { c -> c.packageManager.getPackageInfo(c.packageName, 0).versionName } }.getOrNull().orEmpty()}  ·  by Zimam", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
             Text("A calm PDF reader. Everything stays on this phone.", Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+    ConfirmDialog(ask) { ask = null }
     removeOld?.let { old ->
         AlertDialog(
             onDismissRequest = { removeOld = null },
@@ -209,7 +214,11 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
 
 @Composable
 private fun Header(text: String) {
-    Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 6.dp))
+    Row(Modifier.padding(start = 24.dp, end = 24.dp, top = 26.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Diamond(8.dp)
+        Spacer(Modifier.width(8.dp))
+        Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+    }
 }
 
 @Composable

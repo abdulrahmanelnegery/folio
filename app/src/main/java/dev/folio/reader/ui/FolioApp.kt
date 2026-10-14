@@ -88,8 +88,10 @@ fun FolioApp(model: FolioViewModel) {
                         (fadeIn(tween(190, easing = androidx.compose.animation.core.FastOutSlowInEasing)) +
                             androidx.compose.animation.scaleIn(initialScale = 0.94f, animationSpec = tween(230, easing = androidx.compose.animation.core.FastOutSlowInEasing))) togetherWith
                             fadeOut(tween(90))
-                    // Closing is only a short cross-fade: the library has to draw its covers again, and a bigger move would stutter.
-                    isBook(initialState) && !isBook(targetState) -> fadeIn(tween(180)) togetherWith fadeOut(tween(120))
+                    // Closing is a small, quick move: the book slips a little to the right and fades while the library settles in from just under full size.
+                    isBook(initialState) && !isBook(targetState) ->
+                        (fadeIn(tween(200, delayMillis = 30)) + androidx.compose.animation.scaleIn(initialScale = 0.985f, animationSpec = tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing))) togetherWith
+                            (fadeOut(tween(130)) + androidx.compose.animation.slideOutHorizontally(tween(180, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it / 16 })
                     else -> fadeIn(tween(150)) togetherWith fadeOut(tween(110))
                 }
             },
@@ -100,7 +102,7 @@ fun FolioApp(model: FolioViewModel) {
             } else if (id == "explorer") {
                 explorer?.let { ExplorerScreen(model, it, onClose = { explorer = null }) }
             } else if (id == "about") {
-                AboutScreen(onBack = { about = false })
+                AboutScreen(model, onBack = { about = false })
             } else if (id == "settings") {
                 SettingsScreen(model, onBack = { settings = false })
             } else {

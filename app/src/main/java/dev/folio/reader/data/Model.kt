@@ -295,6 +295,9 @@ fun LibraryState.homeTabs(): List<HomeTabConfig> {
     return listOf(HomeTabConfig(HomeTab.Home)) + others + HomeTab.entries.filter { t -> t != HomeTab.Home && others.none { it.tab == t } }.map { HomeTabConfig(it) }
 }
 
+/** How many sittings are logged for one book. */
+fun LibraryState.sessionCount(bookId: String): Int = sessions.count { it.bookId == bookId }
+
 fun LibraryState.sessionsSince(days: Int, now: Long = System.currentTimeMillis()): List<ReadSession> =
     sessions.filter { it.start >= now - days * DAY_MS }
 

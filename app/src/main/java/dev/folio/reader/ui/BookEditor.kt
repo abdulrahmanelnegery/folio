@@ -77,6 +77,25 @@ private class Draft(book: Book?) {
     /** A new cover picked or fetched, not saved yet. */
     var newCover by mutableStateOf<ByteArray?>(null)
     var dropCover by mutableStateOf(false)
+    /** Where you are: a page counted from 1 (for a paper book, the pages read so far). */
+    var readingPage by mutableStateOf(book?.let { if (it.physical) it.page else it.page + 1 }?.takeIf { it > 0 }?.toString().orEmpty())
+    var status by mutableStateOf(book?.status ?: Status.ToRead)
+    var minutes by mutableStateOf(book?.readSeconds?.let { (it / 60).toString() }.orEmpty())
+
+    /** The names of the details that differ from [book], for the question before saving. */
+    fun changes(book: Book): List<String> = buildList {
+        if (title != book.name) add("title")
+        if (author != book.author) add("author")
+        if (publisher != book.publisher) add("publisher")
+        if (year != book.year) add("year")
+        if (book.physical && pages != (book.pages.takeIf { it > 0 }?.toString().orEmpty())) add("pages")
+        if (isbn != book.isbn) add("ISBN")
+        if (description != book.description) add("description")
+        if (newCover != null || dropCover) add("cover")
+        if (readingPage != (if (book.physical) book.page else book.page + 1).takeIf { it > 0 }?.toString().orEmpty()) add("reading page")
+        if (status != book.status) add("status")
+        if (minutes != (book.readSeconds / 60).toString().takeIf { book.readSeconds > 0 }.orEmpty()) add("time read")
+    }
 }
 
 /**
@@ -99,13 +118,8 @@ fun BookEditor(model: FolioViewModel, book: Book?, onDismiss: () -> Unit) {
             } else model.notify("Rukn could not read that image.")
         }
     }
-    val changed = remember(draft.title, draft.author, draft.publisher, draft.year, draft.pages, draft.isbn, draft.description, draft.newCover, draft.dropCover) {
-        book == null && draft.title.isNotBlank() || book != null && (
-            draft.title != book.name || draft.author != book.author || draft.publisher != book.publisher || draft.year != book.year ||
-                draft.pages != (book.pages.takeIf { it > 0 }?.toString().orEmpty()) || draft.isbn != book.isbn || draft.description != book.description ||
-                draft.newCover != null || draft.dropCover
-            )
-    }
+    var confirmSave by remember { mutableStateOf(false) }
+    val changed = book == null && draft.title.isNotBlank() || book != null && draft.changes(book).isNotEmpty()
 
     Dialog(onDismissRequest = { if (changed) confirmDiscard = true else onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         androidx.compose.material3.Surface(Modifier.fillMaxSize()) {
@@ -117,7 +131,8 @@ fun BookEditor(model: FolioViewModel, book: Book?, onDismiss: () -> Unit) {
                         actions = {
                             TextButton(
                                 enabled = draft.title.isNotBlank() && (book != null || changed),
-                                onClick = { scope.launch { save(model, book, draft); onDismiss() } },
+                                // Changing a book that is already in the library asks first, and says what will change.
+                                onClick = { if (book == null) scope.launch { save(model, book, draft); onDismiss() } else confirmSave = true },
                             ) { Text("Save") }
                         },
                     )
@@ -143,6 +158,17 @@ fun BookEditor(model: FolioViewModel, book: Book?, onDismiss: () -> Unit) {
                     }
                     Field("ISBN", draft.isbn) { draft.isbn = it }
                     Field("Description", draft.description, minLines = 3) { draft.description = it }
+                    if (book != null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Field(if (book.kind == dev.folio.reader.data.Kind.Epub) "Reading chapter" else "Reading page", draft.readingPage, Modifier.weight(1f), number = true) { draft.readingPage = it.filter(Char::isDigit).take(5) }
+                            Field("Time read (minutes)", draft.minutes, Modifier.weight(1f), number = true) { draft.minutes = it.filter(Char::isDigit).take(6) }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(Status.New to "New", Status.ToRead to "To read", Status.Reading to "Reading", Status.Finished to "Finished").forEach { (st, label) ->
+                                androidx.compose.material3.FilterChip(draft.status == st, { draft.status = st }, { Text(label) })
+                            }
+                        }
+                    }
                     Text(
                         if (book == null || book.physical) "Details are kept in your Rukn library."
                         else "Details are kept in your Rukn library; the PDF file itself is not changed.",
@@ -153,6 +179,13 @@ fun BookEditor(model: FolioViewModel, book: Book?, onDismiss: () -> Unit) {
         }
     }
     if (finding) OnlineFinder(draft, model.repo.state.value.googleBooksKey, startQuery = listOf(draft.isbn.ifBlank { draft.title }, if (draft.isbn.isBlank()) draft.author else "").filter { it.isNotBlank() }.joinToString(" "), onDismiss = { finding = false })
+    if (confirmSave && book != null) AlertDialog(
+        onDismissRequest = { confirmSave = false },
+        title = { Text("Save these changes?") },
+        text = { Text("This will change: ${draft.changes(book).joinToString(", ")}. The book's file is not touched.") },
+        confirmButton = { TextButton(onClick = { confirmSave = false; scope.launch { save(model, book, draft); onDismiss() } }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = { confirmSave = false }) { Text("Keep editing") } },
+    )
     if (confirmDiscard) AlertDialog(
         onDismissRequest = { confirmDiscard = false },
         title = { Text("Discard your changes?") },
@@ -202,6 +235,10 @@ private suspend fun save(model: FolioViewModel, book: Book?, d: Draft) {
             it.copy(
                 name = d.title.trim(), author = d.author.trim(), publisher = d.publisher.trim(), year = d.year, isbn = d.isbn.trim(),
                 description = d.description.trim(), pages = if (it.physical) pages else it.pages, customCover = keepCustom,
+                page = d.readingPage.toIntOrNull()?.let { n -> if (it.physical) n else (n - 1).coerceAtLeast(0) }?.coerceIn(0, if (it.pages > 0) (if (it.physical) it.pages else it.pages - 1) else Int.MAX_VALUE) ?: 0,
+                offset = if (d.readingPage != (if (it.physical) it.page else it.page + 1).takeIf { n -> n > 0 }?.toString().orEmpty()) 0f else it.offset,
+                status = d.status,
+                readSeconds = if (d.minutes != (it.readSeconds / 60).toString().takeIf { _ -> it.readSeconds > 0 }.orEmpty()) (d.minutes.toLongOrNull() ?: 0L) * 60L else it.readSeconds,
                 coverRev = if (coverSet || d.dropCover) it.coverRev + 1 else it.coverRev,
             )
         }
