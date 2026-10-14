@@ -1,5 +1,9 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.data.label
+import dev.folio.reader.data.note
+import dev.folio.reader.R
+import dev.folio.reader.s
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -60,38 +64,38 @@ fun WelcomeHost(model: FolioViewModel) {
         val notes = ReleaseNotes.forVersion(version)
         if (notes.isEmpty()) LaunchedEffect(Unit) { seen(); notesClosed = true } else AlertDialog(
             onDismissRequest = { seen(); notesClosed = true },
-            title = { Text("What's new in Rukn $version") },
+            title = { Text(s(R.string.what_s_new_in_rukn, version)) },
             text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { notes.forEach { Text("•  $it", style = MaterialTheme.typography.bodyMedium) } } },
-            confirmButton = { TextButton(onClick = { seen(); notesClosed = true }) { Text("Close") } },
+            confirmButton = { TextButton(onClick = { seen(); notesClosed = true }) { Text(s(R.string.close)) } },
         )
     }
 }
 
 private data class TourPage(val title: String, val body: String)
 
-private val pages = listOf(
-    TourPage("Welcome to Rukn", "A calm reader for PDFs, EPUB books, comics, text files and the paper books on your shelf. Everything stays on your phone, with no account and no tracking."),
-    TourPage("Your books, your way", "Add books from the file explorer or share a file to Rukn. Keep them in shelves and lists (lists can hold lists), rate them, write notes and log paper-book sittings. Edit PDFs with a highlighter and pen."),
-    TourPage("Where your data lives", "By default inside the app. Allow All files access in Settings to keep it in a visible Zimam/Rukn folder that survives reinstalling the app. Older folders are copied in, checked, and left as a backup."),
-    TourPage("Pick a reading theme", "Choose how pages look. You can change it later, and each book can have its own."),
-    TourPage("You are ready", "Open the menu for shelves and files, tap + to add a book, and hold a book for more. You can see this tour again from Settings."),
+private fun pages() = listOf(
+    TourPage(s(R.string.welcome_to_rukn), s(R.string.a_calm_reader_for_pdfs_6d5a)),
+    TourPage(s(R.string.your_books_your_way), s(R.string.add_books_from_the_file)),
+    TourPage(s(R.string.where_your_data_lives), s(R.string.by_default_inside_the_app)),
+    TourPage(s(R.string.pick_a_reading_theme), s(R.string.choose_how_pages_look_you)),
+    TourPage(s(R.string.you_are_ready), s(R.string.open_the_menu_for_shelves)),
 )
 
 @Composable
 private fun Tour(model: FolioViewModel, onClose: () -> Unit) {
-    val state = rememberPagerState { pages.size }
+    val state = rememberPagerState { pages().size }
     val scope = rememberCoroutineScope()
     val library by model.repo.state.collectAsState()
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(24.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onClose) { Text("Skip") }
+                TextButton(onClick = onClose) { Text(s(R.string.skip)) }
             }
             HorizontalPager(state, Modifier.weight(1f).fillMaxWidth()) { i ->
                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-                    Text(pages[i].title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+                    Text(pages()[i].title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(16.dp))
-                    Text(pages[i].body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(pages()[i].body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (i == 3) {
                         Spacer(Modifier.height(24.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -104,12 +108,12 @@ private fun Tour(model: FolioViewModel, onClose: () -> Unit) {
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    repeat(pages.size) { i ->
+                    repeat(pages().size) { i ->
                         Box(Modifier.size(8.dp).background(if (i == state.currentPage) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape))
                     }
                 }
-                val last = state.currentPage == pages.lastIndex
-                Button(onClick = { if (last) onClose() else scope.launch { state.animateScrollToPage(state.currentPage + 1) } }) { Text(if (last) "Done" else "Next") }
+                val last = state.currentPage == pages().lastIndex
+                Button(onClick = { if (last) onClose() else scope.launch { state.animateScrollToPage(state.currentPage + 1) } }) { Text(if (last) s(R.string.done) else s(R.string.next)) }
             }
         }
     }

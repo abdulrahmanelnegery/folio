@@ -1,5 +1,7 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.R
+import dev.folio.reader.s
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -65,6 +67,6 @@ fun Splash(name: String, onDone: () -> Unit) {
         Spacer(Modifier.height(28.dp))
         Text(name, Modifier.alpha(title.value).graphicsLayer { translationY = (1f - title.value) * 24f }, color = ink, fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(6.dp))
-        Text("by Zimam", Modifier.alpha(byline.value), color = SplashOrange, fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
+        Text(s(R.string.by_zimam), Modifier.alpha(byline.value), color = SplashOrange, fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
     }
 }

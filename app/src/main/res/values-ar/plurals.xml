@@ -1,0 +1,18 @@
+<resources>
+    <plurals name="pages_n">
+        <item quantity="zero">%1$d صفحة</item><item quantity="one">صفحة</item><item quantity="two">صفحتان</item>
+        <item quantity="few">%1$d صفحات</item><item quantity="many">%1$d صفحة</item><item quantity="other">%1$d صفحة</item>
+    </plurals>
+    <plurals name="days_n">
+        <item quantity="zero">%1$d يوم</item><item quantity="one">يوم</item><item quantity="two">يومان</item>
+        <item quantity="few">%1$d أيام</item><item quantity="many">%1$d يومًا</item><item quantity="other">%1$d يوم</item>
+    </plurals>
+    <plurals name="days_now">
+        <item quantity="zero">%1$d يوم حتى الآن</item><item quantity="one">يوم حتى الآن</item><item quantity="two">يومان حتى الآن</item>
+        <item quantity="few">%1$d أيام حتى الآن</item><item quantity="many">%1$d يومًا حتى الآن</item><item quantity="other">%1$d يوم حتى الآن</item>
+    </plurals>
+    <plurals name="books_in_progress">
+        <item quantity="zero">لا كتب قيد القراءة</item><item quantity="one">كتاب واحد قيد القراءة</item><item quantity="two">كتابان قيد القراءة</item>
+        <item quantity="few">%1$d كتب قيد القراءة</item><item quantity="many">%1$d كتابًا قيد القراءة</item><item quantity="other">%1$d كتاب قيد القراءة</item>
+    </plurals>
+</resources>

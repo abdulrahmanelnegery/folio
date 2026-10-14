@@ -1,5 +1,7 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.R
+import dev.folio.reader.s
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -95,7 +97,7 @@ fun FolioApp(model: FolioViewModel) {
                     else -> fadeIn(tween(150)) togetherWith fadeOut(tween(110))
                 }
             },
-            label = "screen",
+            label = s(R.string.screen),
         ) { id ->
             if (id == null) {
                 LibraryScreen(model, onOpenPicker = { picker.launch(arrayOf("*/*")) }, onSettings = { settings = true }, onAbout = { about = true }, onBrowse = { list, dir -> explorer = ExplorerRequest(list, dir) })
@@ -134,7 +136,7 @@ fun FolioApp(model: FolioViewModel) {
                 androidx.compose.foundation.layout.Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     androidx.compose.material3.CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                     androidx.compose.foundation.layout.Spacer(Modifier.width(10.dp))
-                    androidx.compose.material3.Text("Moving your library to Zimam/Rukn", style = androidx.compose.material3.MaterialTheme.typography.labelLarge)
+                    androidx.compose.material3.Text(s(R.string.moving_your_library_to_zimam), style = androidx.compose.material3.MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -147,21 +149,21 @@ private fun ExitDialog(onStay: () -> Unit, onClose: (dontAskAgain: Boolean) -> U
     var dontAsk by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onStay,
-        title = { androidx.compose.material3.Text("Close Rukn?") },
+        title = { androidx.compose.material3.Text(s(R.string.close_rukn)) },
         text = {
             androidx.compose.foundation.layout.Column {
-                androidx.compose.material3.Text("You are on the home screen. Your reading places are saved.")
+                androidx.compose.material3.Text(s(R.string.you_are_on_the_home))
                 androidx.compose.foundation.layout.Row(
                     Modifier.padding(top = 12.dp).clickable { dontAsk = !dontAsk },
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 ) {
                     androidx.compose.material3.Checkbox(dontAsk, { dontAsk = it })
-                    androidx.compose.material3.Text("Do not ask again")
+                    androidx.compose.material3.Text(s(R.string.do_not_ask_again))
                 }
             }
         },
-        confirmButton = { androidx.compose.material3.TextButton(onClick = { onClose(dontAsk) }) { androidx.compose.material3.Text("Close") } },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = onStay) { androidx.compose.material3.Text("Stay") } },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { onClose(dontAsk) }) { androidx.compose.material3.Text(s(R.string.close)) } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onStay) { androidx.compose.material3.Text(s(R.string.stay)) } },
     )
 }
 

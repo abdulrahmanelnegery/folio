@@ -1,39 +1,48 @@
 package dev.folio.reader.data
 
+import androidx.annotation.StringRes
+import dev.folio.reader.R
+import dev.folio.reader.s
 import kotlinx.serialization.Serializable
 
 @Serializable
 enum class Status { New, Reading, ToRead, Finished }
 
 @Serializable
-enum class SortOrder(val label: String) {
-    Recent("Last opened"),
-    Added("Date added"),
-    Name("Name"),
-    Size("Size"),
-    Progress("Progress"),
-    Rating("Rating"),
+enum class SortOrder(@StringRes val labelRes: Int) {
+    Recent(R.string.last_opened),
+    Added(R.string.date_added),
+    Name(R.string.name),
+    Size(R.string.size),
+    Progress(R.string.progress),
+    Rating(R.string.rating),
 }
+
+val SortOrder.label: String get() = s(labelRes)
 
 /** How the books are laid out on a shelf. */
 @Serializable
-enum class ViewMode(val label: String) {
-    Grid("Grid"),
-    Compact("Small covers"),
-    Large("Large covers"),
-    List("List"),
-    Details("Details"),
+enum class ViewMode(@StringRes val labelRes: Int) {
+    Grid(R.string.grid),
+    Compact(R.string.small_covers),
+    Large(R.string.large_covers),
+    List(R.string.list),
+    Details(R.string.details),
 }
 
+val ViewMode.label: String get() = s(labelRes)
+
 @Serializable
-enum class PageTheme(val label: String) {
-    Normal("Normal"),
-    Night("Night"),
-    SoftNight("Soft night"),
-    Sepia("Sepia");
+enum class PageTheme(@StringRes val labelRes: Int) {
+    Normal(R.string.normal),
+    Night(R.string.night),
+    SoftNight(R.string.soft_night),
+    Sepia(R.string.sepia);
 
     fun next(): PageTheme = entries[(ordinal + 1) % entries.size]
 }
+
+val PageTheme.label: String get() = s(labelRes)
 
 /** What kind of document a library entry is; decides which reader opens it. */
 @Serializable
@@ -105,8 +114,8 @@ data class Book(
     /** Where the reader is: "Page 3 of 12", "Read 40%", or just the size of the book. */
     val placeLabel: String
         get() = when {
-            physical -> if (page > 0) "Page $page of $pages" else countLabel
-            kind == Kind.Text && offset > 0f && status != Status.Finished -> "Read ${(offset * 100).toInt()}%  ·  $countLabel"
+            physical -> if (page > 0) s(R.string.page_of, page, pages) else countLabel
+            kind == Kind.Text && offset > 0f && status != Status.Finished -> s(R.string.read, (offset * 100).toInt(), countLabel)
             kind != Kind.Text && page > 0 && status != Status.Finished -> "${if (kind == Kind.Epub) "Chapter" else "Page"} ${page + 1} of $pages"
             else -> countLabel
         }
@@ -133,24 +142,30 @@ data class DayStat(val seconds: Long = 0, val pages: Int = 0)
 data class ReadSession(val bookId: String, val start: Long, val seconds: Long, val pages: Int)
 
 @Serializable
-enum class HomeTab(val label: String, val note: String) {
-    Home("Home", "Continue reading and the latest three books"),
-    Stats("Stats", "Reading time, sittings and what you read most"),
-    Library("Library", "Your shelves, lists and favorites"),
+enum class HomeTab(@StringRes val labelRes: Int, @StringRes val noteRes: Int) {
+    Home(R.string.home, R.string.continue_reading_and_the_latest),
+    Stats(R.string.stats, R.string.reading_time_sittings_and_what),
+    Library(R.string.library, R.string.your_shelves_lists_and_favorites),
 }
+
+val HomeTab.label: String get() = s(labelRes)
+val HomeTab.note: String get() = s(noteRes)
 
 @Serializable
 data class HomeTabConfig(val tab: HomeTab, val visible: Boolean = true)
 
 /** How the screen rotates. */
 @Serializable
-enum class Orientation(val label: String, val note: String) {
-    Normal("Normal", "Follow the phone's rotation setting"),
-    Portrait("Portrait", "Always upright"),
-    Landscape("Landscape", "Always sideways"),
-    Dynamic("Dynamic", "Rotate with the sensor, even if the phone's rotation is locked"),
-    Locked("Locked", "Stay as it is now"),
+enum class Orientation(@StringRes val labelRes: Int, @StringRes val noteRes: Int) {
+    Normal(R.string.normal, R.string.follow_the_phone_s_rotation),
+    Portrait(R.string.portrait, R.string.always_upright),
+    Landscape(R.string.landscape, R.string.always_sideways),
+    Dynamic(R.string.dynamic, R.string.rotate_with_the_sensor_even),
+    Locked(R.string.locked, R.string.stay_as_it_is_now),
 }
+
+val Orientation.label: String get() = s(labelRes)
+val Orientation.note: String get() = s(noteRes)
 
 /** A comment on one page. */
 @Serializable

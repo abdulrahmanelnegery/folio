@@ -1,5 +1,7 @@
 package dev.folio.reader.data
 
+import dev.folio.reader.R
+import dev.folio.reader.s
 import android.content.Context
 import android.os.Build
 import android.os.Environment
@@ -75,7 +77,7 @@ class Storage(private val context: Context) {
                 if (FolderMigration.upToDate(old, sharedFolder)) continue
                 val r = FolderMigration.copyAndVerify(old, sharedFolder, cancelled = { cancelled })
                 if (!r.ok) {
-                    migrationMessage = "Rukn could not verify the copy of ${old.path} into ${sharedFolder.path}, so it keeps using the old folder and will try again later. Nothing was deleted."
+                    migrationMessage = s(R.string.rukn_could_not_verify_the, old.path, sharedFolder.path)
                     target = old
                     break
                 }

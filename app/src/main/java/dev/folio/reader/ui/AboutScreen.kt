@@ -1,5 +1,7 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.R
+import dev.folio.reader.s
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Image
@@ -57,8 +59,8 @@ fun AboutScreen(model: FolioViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("About") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+                title = { Text(s(R.string.about)) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, s(R.string.back)) } },
             )
         },
     ) { padding ->
@@ -71,45 +73,45 @@ fun AboutScreen(model: FolioViewModel, onBack: () -> Unit) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Image(painterResource(dev.folio.reader.R.drawable.zimam_mark), null, Modifier.size(132.dp))
                     Spacer(Modifier.height(10.dp))
-                    Text("Rukn", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-                    Text("A calm reader for PDFs, text and paper books", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                    Text("Version $version", style = MaterialTheme.typography.labelLarge, color = ZimamOrange)
+                    Text(s(R.string.rukn), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+                    Text(s(R.string.a_calm_reader_for_pdfs), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    Text(s(R.string.version, version), style = MaterialTheme.typography.labelLarge, color = ZimamOrange)
                 }
             }
             Text(
-                "Rukn keeps your library, your reading places, notes and bookmarks in one folder you own. The only network use is the book lookup you start yourself.",
+                s(R.string.rukn_keeps_your_library_your),
                 textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            AboutCard("Show the tour again", "A quick look at what Rukn does and where your data lives.") { model.tourRequested.value = true; onBack() }
-            AboutCard("What is new", "The changes in this version.") { news = true }
+            AboutCard(s(R.string.show_the_tour_again), s(R.string.a_quick_look_at_what)) { model.tourRequested.value = true; onBack() }
+            AboutCard(s(R.string.what_is_new), s(R.string.the_changes_in_this_version)) { news = true }
             ZimamCard {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) { Diamond(); Spacer(Modifier.width(8.dp)); Text("Private by design", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold) }
-                    Text("No account and no tracking. Your data stays in Zimam/Rukn on this phone.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) { Diamond(); Spacer(Modifier.width(8.dp)); Text(s(R.string.private_by_design), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold) }
+                    Text(s(R.string.no_account_and_no_tracking), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             ZimamCard {
                 Column {
-                    LinkRow("Source code", REPO) { open(it) }
-                    LinkRow("Releases", "$REPO/releases") { open(it) }
-                    LinkRow("Report an issue", "$REPO/issues") { open(it) }
-                    LinkRow("Licence (MIT)", "$REPO/blob/main/LICENSE") { open(it) }
-                    LinkRow("Zimam Labs", "https://github.com/zimamlabs") { open(it) }
+                    LinkRow(s(R.string.source_code), REPO) { open(it) }
+                    LinkRow(s(R.string.releases), "$REPO/releases") { open(it) }
+                    LinkRow(s(R.string.report_an_issue), "$REPO/issues") { open(it) }
+                    LinkRow(s(R.string.licence_mit), "$REPO/blob/main/LICENSE") { open(it) }
+                    LinkRow(s(R.string.zimam_labs), "https://github.com/zimamlabs") { open(it) }
                 }
             }
-            Text("by Zimam Labs", Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.titleMedium, color = ZimamOrange)
+            Text(s(R.string.by_zimam_labs), Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.titleMedium, color = ZimamOrange)
         }
     }
     if (news) AlertDialog(
         onDismissRequest = { news = false },
-        title = { Text("New in Rukn $version") },
+        title = { Text(s(R.string.new_in_rukn, version)) },
         text = {
             val notes = ReleaseNotes.forVersion(version)
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (notes.isEmpty()) Text("Nothing to list for this version.") else notes.forEach { Text("\u2022  $it") }
+                if (notes.isEmpty()) Text(s(R.string.nothing_to_list_for_this)) else notes.forEach { Text("\u2022  $it") }
             }
         },
-        confirmButton = { TextButton(onClick = { news = false }) { Text("Close") } },
+        confirmButton = { TextButton(onClick = { news = false }) { Text(s(R.string.close)) } },
     )
 }
 

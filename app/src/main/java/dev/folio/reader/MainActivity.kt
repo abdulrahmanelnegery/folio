@@ -15,6 +15,13 @@ import dev.folio.reader.ui.FolioTheme
 class MainActivity : ComponentActivity() {
     private val model: FolioViewModel by viewModels()
 
+    override fun attachBaseContext(base: android.content.Context) {
+        val wrapped = dev.folio.reader.data.AppLanguagePrefs.load(base).wrap(base)
+        Strings.res = wrapped.resources
+        Strings.arabicDigits = dev.folio.reader.data.AppLanguagePrefs.arabicDigits(base)
+        super.attachBaseContext(wrapped)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val startTheme = dev.folio.reader.data.AppThemePrefs.load(this)
         val systemDark = { (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES }

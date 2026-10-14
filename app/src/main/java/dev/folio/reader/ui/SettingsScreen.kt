@@ -1,5 +1,9 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.data.label
+import dev.folio.reader.data.note
+import dev.folio.reader.R
+import dev.folio.reader.s
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -93,16 +97,16 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Settings and backup") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+                title = { Text(s(R.string.settings_and_backup)) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, s(R.string.back)) } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
             val library by model.repo.state.collectAsState()
-            Header("Home page tabs")
-            Text("Home is always first. Hide the others or use the arrows to put them in the order you like.", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Header(s(R.string.home_page_tabs))
+            Text(s(R.string.home_is_always_first_hide), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             val tabs = library.homeTabs()
             tabs.forEachIndexed { i, cfg ->
                 Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -111,40 +115,69 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
                         Text(cfg.tab.note, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     if (cfg.tab != dev.folio.reader.data.HomeTab.Home) {
-                        IconButton(onClick = { model.repo.setHomeTabs(tabs.toMutableList().also { java.util.Collections.swap(it, i, i - 1) }) }, enabled = i > 1) { Icon(Icons.Rounded.ArrowUpward, "Move up") }
-                        IconButton(onClick = { model.repo.setHomeTabs(tabs.toMutableList().also { java.util.Collections.swap(it, i, i + 1) }) }, enabled = i < tabs.lastIndex) { Icon(Icons.Rounded.ArrowDownward, "Move down") }
+                        IconButton(onClick = { model.repo.setHomeTabs(tabs.toMutableList().also { java.util.Collections.swap(it, i, i - 1) }) }, enabled = i > 1) { Icon(Icons.Rounded.ArrowUpward, s(R.string.move_up)) }
+                        IconButton(onClick = { model.repo.setHomeTabs(tabs.toMutableList().also { java.util.Collections.swap(it, i, i + 1) }) }, enabled = i < tabs.lastIndex) { Icon(Icons.Rounded.ArrowDownward, s(R.string.move_down)) }
                         androidx.compose.material3.Switch(cfg.visible, { v -> model.repo.setHomeTabs(tabs.map { if (it.tab == cfg.tab) it.copy(visible = v) else it }) })
                     }
                 }
             }
 
-            Header("General")
+            Header(s(R.string.general))
             val appTheme by model.appTheme.collectAsState()
-            Text("App theme", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
+            Text(s(R.string.app_theme), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
             Row(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 dev.folio.reader.data.AppTheme.entries.forEach { t -> androidx.compose.material3.FilterChip(appTheme == t, { model.setAppTheme(t) }, { Text(t.label) }) }
             }
-            Text("The reading themes (Normal, Night, Soft night, Sepia) are set inside a book.", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Action(Icons.Rounded.FolderSpecial, "Show the tour again") { model.tourRequested.value = true }
+            Text(s(R.string.the_reading_themes_normal_night), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            run {
+                val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+                var language by remember { mutableStateOf(dev.folio.reader.data.AppLanguagePrefs.load(model.getApplication<android.app.Application>())) }
+                var digits by remember { mutableStateOf(dev.folio.reader.data.AppLanguagePrefs.arabicDigits(model.getApplication<android.app.Application>())) }
+                Text(s(R.string.language), Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp), style = MaterialTheme.typography.bodyLarge)
+                Row(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    dev.folio.reader.data.AppLanguage.entries.forEach { l ->
+                        val name = when (l) { dev.folio.reader.data.AppLanguage.System -> s(R.string.system); dev.folio.reader.data.AppLanguage.English -> "English"; dev.folio.reader.data.AppLanguage.Arabic -> "العربية" }
+                        androidx.compose.material3.FilterChip(language == l, {
+                            if (language != l) {
+                                language = l
+                                dev.folio.reader.data.AppLanguagePrefs.save(model.getApplication<android.app.Application>(), l)
+                                activity?.recreate()
+                            }
+                        }, { Text(name) })
+                    }
+                }
+                Text(s(R.string.language_note), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    Modifier.fillMaxWidth().clickable { digits = !digits; dev.folio.reader.data.AppLanguagePrefs.saveArabicDigits(model.getApplication<android.app.Application>(), digits); activity?.recreate() }.padding(horizontal = 24.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(s(R.string.arabic_digits), style = MaterialTheme.typography.bodyLarge)
+                        Text(s(R.string.arabic_digits_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Switch(digits, { digits = it; dev.folio.reader.data.AppLanguagePrefs.saveArabicDigits(model.getApplication<android.app.Application>(), it); activity?.recreate() })
+                }
+            }
+            Action(Icons.Rounded.FolderSpecial, s(R.string.show_the_tour_again)) { model.tourRequested.value = true }
             Row(
                 Modifier.fillMaxWidth().clickable { model.repo.update { it.copy(confirmExit = !it.confirmExit) } }.padding(horizontal = 24.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Ask before closing Rukn", style = MaterialTheme.typography.bodyLarge)
-                    Text("When you press back on the home screen.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(s(R.string.ask_before_closing_rukn), style = MaterialTheme.typography.bodyLarge)
+                    Text(s(R.string.when_you_press_back_on), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 androidx.compose.material3.Switch(library.confirmExit, { v -> model.repo.update { it.copy(confirmExit = v) } })
             }
 
-            Header("Zimam folder")
+            Header(s(R.string.zimam_folder))
             Text(
-                if (model.storage.shared) "Rukn keeps its library, backups and covers in ${model.storage.root.path}. It survives reinstalling the app."
-                else "Rukn keeps its data inside the app. Allow access to all files to use a visible Zimam/Rukn folder on the phone instead, so your reading places and backups survive reinstalling the app, like other readers do.",
+                if (model.storage.shared) s(R.string.rukn_keeps_its_library_backups, model.storage.root.path)
+                else s(R.string.rukn_keeps_its_data_inside),
                 Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (!model.storage.shared && android.os.Build.VERSION.SDK_INT >= 30) {
-                Action(Icons.Rounded.FolderSpecial, "Use the Zimam/Rukn folder") {
+                Action(Icons.Rounded.FolderSpecial, s(R.string.use_the_zimam_rukn_folder)) {
                     val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, android.net.Uri.parse("package:${context.packageName}"))
                     runCatching { context.startActivity(intent) }.onFailure { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)) }
                 }
@@ -156,23 +189,23 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
             // The old folders stay as a backup after the copy; removing one asks first and checks every file again.
             val oldFolders by produceState(emptyList<File>(), refresh, model.storage.root) { value = withContext(Dispatchers.IO) { model.storage.removableOldFolders() } }
             oldFolders.forEach { old ->
-                Text("Your earlier folder ${old.path} was copied into the Zimam folder and checked. It is still there as a backup.", Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Action(Icons.Rounded.FolderSpecial, "Remove the old folder ${old.name}") { removeOld = old }
+                Text(s(R.string.your_earlier_folder_was_copied, old.path), Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Action(Icons.Rounded.FolderSpecial, s(R.string.remove_the_old_folder, old.name)) { removeOld = old }
             }
 
-            Header("Backup")
+            Header(s(R.string.backup))
             Text(
-                "Reading places, lists, ratings, notes and bookmarks are copied automatically when you close a book (at most every few hours), and the last ${Backups.KEEP} copies are kept. " +
-                    "Save a copy to a file to keep it elsewhere or move to another phone.",
+                s(R.string.reading_places_lists_ratings_notes, Backups.KEEP) +
+                    s(R.string.save_a_copy_to_a),
                 Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Action(Icons.Rounded.Backup, "Back up now") { model.backupNow() }
-            Action(Icons.Rounded.FileUpload, "Save a backup file") { export.launch(Backups.exportName()) }
-            Action(Icons.Rounded.FileDownload, "Restore from a backup file") { import.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }
+            Action(Icons.Rounded.Backup, s(R.string.back_up_now)) { model.backupNow() }
+            Action(Icons.Rounded.FileUpload, s(R.string.save_a_backup_file)) { export.launch(Backups.exportName()) }
+            Action(Icons.Rounded.FileDownload, s(R.string.restore_from_a_backup_file)) { import.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) }
 
-            Header("Automatic backups on this phone")
+            Header(s(R.string.automatic_backups_on_this_phone))
             if (backups.isEmpty()) {
-                Text("None yet. The first one is made when the library has a book in it.", Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(s(R.string.none_yet_the_first_one), Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             backups.forEach { file ->
                 val books = backupBooks[file]
@@ -181,56 +214,56 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
                     Column(Modifier.weight(1f).padding(start = 20.dp)) {
                         Text(Backups.label(file), style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            books?.let { "$it books  ·  ${formatSize(file.length())}" } ?: formatSize(file.length()),
+                            books?.let { s(R.string.n_books_size, it, formatSize(file.length())) } ?: formatSize(file.length()),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    if (books != null) Text("Restore", color = MaterialTheme.colorScheme.primary)
+                    if (books != null) Text(s(R.string.restore), color = MaterialTheme.colorScheme.primary)
                 }
             }
 
-            Header("Online lookup")
+            Header(s(R.string.online_lookup))
             var key by remember { mutableStateOf(library.googleBooksKey) }
             androidx.compose.material3.OutlinedTextField(
                 key, { key = it; model.repo.update { s -> s.copy(googleBooksKey = it.trim()) } },
                 Modifier.fillMaxWidth().padding(horizontal = 24.dp), singleLine = true,
-                label = { Text("Google Books key (optional)") },
-                supportingText = { Text("Free from Google. Without it the shared quota is often used up, and Arabic books are found less.") },
+                label = { Text(s(R.string.google_books_key_optional)) },
+                supportingText = { Text(s(R.string.free_from_google_without_it)) },
             )
 
-            Header("Storage")
-            Action(Icons.Rounded.CleaningServices, "Clear saved covers") { ask = ConfirmRequest("Clear saved covers?", "They are drawn again from your books when they are needed. Nothing in your library is removed.", "Clear") { settingsScope.launch { withContext(Dispatchers.IO) { model.covers.clear() }; refresh++ } } }
-            Action(Icons.Rounded.CleaningServices, "Clear saved pages (they are drawn again as you read)") { ask = ConfirmRequest("Clear saved pages?", "They are drawn again as you read, which can be slower for a while. Your books are not touched.", "Clear") { settingsScope.launch { withContext(Dispatchers.IO) { model.pageCache.clear() }; refresh++ } } }
+            Header(s(R.string.storage))
+            Action(Icons.Rounded.CleaningServices, s(R.string.clear_saved_covers)) { ask = ConfirmRequest(s(R.string.clear_saved_covers_d613), s(R.string.they_are_drawn_again_from), s(R.string.clear)) { settingsScope.launch { withContext(Dispatchers.IO) { model.covers.clear() }; refresh++ } } }
+            Action(Icons.Rounded.CleaningServices, s(R.string.clear_saved_pages_they_are)) { ask = ConfirmRequest(s(R.string.clear_saved_pages), s(R.string.they_are_drawn_again_as), s(R.string.clear)) { settingsScope.launch { withContext(Dispatchers.IO) { model.pageCache.clear() }; refresh++ } } }
 
-            Header("About")
-            Text("Rukn ${runCatching { androidx.compose.ui.platform.LocalContext.current.let { c -> c.packageManager.getPackageInfo(c.packageName, 0).versionName } }.getOrNull().orEmpty()}  ·  by Zimam", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
-            Text("A calm PDF reader. Everything stays on this phone.", Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Header(s(R.string.about))
+            Text(s(R.string.rukn_by_zimam, runCatching { androidx.compose.ui.platform.LocalContext.current.let { c -> c.packageManager.getPackageInfo(c.packageName, 0).versionName } }.getOrNull().orEmpty()), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
+            Text(s(R.string.a_calm_pdf_reader_everything), Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     ConfirmDialog(ask) { ask = null }
     removeOld?.let { old ->
         AlertDialog(
             onDismissRequest = { removeOld = null },
-            title = { Text("Remove ${old.name}?") },
-            text = { Text("Rukn checks once more that every file in ${old.path} is in the Zimam folder, then deletes it. If anything differs, nothing is deleted.") },
+            title = { Text(s(R.string.remove_b274, old.name)) },
+            text = { Text(s(R.string.rukn_checks_once_more_that, old.path)) },
             confirmButton = { TextButton(onClick = {
                 removeOld = null
                 settingsScope.launch {
                     val ok = withContext(Dispatchers.IO) { model.storage.removeOldFolder(old) }
-                    model.notify(if (ok) "Removed ${old.name}" else "Not removed: a file did not match, so the old folder was kept")
+                    model.notify(if (ok) s(R.string.removed_x, old.name) else s(R.string.not_removed_a_file_did))
                     refresh++
                 }
-            }) { Text("Remove") } },
-            dismissButton = { TextButton(onClick = { removeOld = null }) { Text("Keep it") } },
+            }) { Text(s(R.string.remove)) } },
+            dismissButton = { TextButton(onClick = { removeOld = null }) { Text(s(R.string.keep_it)) } },
         )
     }
     confirm?.let { action ->
         AlertDialog(
             onDismissRequest = { confirm = null },
-            title = { Text("Restore this backup?") },
-            text = { Text("It replaces your current library, reading places, lists and notes. Books are found again by their files, so the PDFs must still be on the phone.") },
-            confirmButton = { TextButton(onClick = { action(); confirm = null }) { Text("Restore") } },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } },
+            title = { Text(s(R.string.restore_this_backup)) },
+            text = { Text(s(R.string.it_replaces_your_current_library)) },
+            confirmButton = { TextButton(onClick = { action(); confirm = null }) { Text(s(R.string.restore)) } },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text(s(R.string.cancel)) } },
         )
     }
 }

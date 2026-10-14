@@ -1,5 +1,7 @@
 package dev.folio.reader.pdf
 
+import dev.folio.reader.R
+import dev.folio.reader.s
 import android.content.Context
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
@@ -57,7 +59,7 @@ fun applyDraft(doc: PDDocument, draft: Draft) {
 private class PdfMarkPainter(private val doc: PDDocument) {
     fun apply(draft: Draft) {
         if (doc.isEncrypted && !doc.currentAccessPermission.canModify() && !doc.currentAccessPermission.canModifyAnnotations()) {
-            throw IllegalStateException("This PDF is protected against changes, so it cannot be edited.")
+            throw IllegalStateException(s(R.string.this_pdf_is_protected_against))
         }
         for ((index, marks) in draft.marks.groupBy { it.page }) {
             if (index !in 0 until doc.numberOfPages) continue

@@ -1,0 +1,6 @@
+<resources>
+    <plurals name="pages_n"><item quantity="one">%1$d page</item><item quantity="other">%1$d pages</item></plurals>
+    <plurals name="days_n"><item quantity="one">%1$d day</item><item quantity="other">%1$d days</item></plurals>
+    <plurals name="days_now"><item quantity="one">%1$d day now</item><item quantity="other">%1$d days now</item></plurals>
+    <plurals name="books_in_progress"><item quantity="one">%1$d book in progress</item><item quantity="other">%1$d books in progress</item></plurals>
+</resources>
