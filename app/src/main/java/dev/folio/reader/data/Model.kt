@@ -174,6 +174,8 @@ data class LibraryState(
     val googleBooksKey: String = "",
     /** The version whose what's-new notes were closed last; empty when never. */
     val lastSeenVersion: String = "",
+    /** The version whose card on Home was hidden. */
+    val hiddenNews: String = "",
     /** The first-run tour was finished or skipped. */
     val tourDone: Boolean = false,
     /** The folder the file explorer was last in. */
