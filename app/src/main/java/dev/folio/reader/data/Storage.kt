@@ -7,7 +7,7 @@ import java.io.File
 
 /**
  * Where Rukn keeps its own data: the library (reading places, lists, ratings, notes), backups
- * and cover thumbnails. With "All files access" it is a visible `Rukn` folder on the phone, which
+ * and cover thumbnails. With "All files access" it is a visible `Zimam/Rukn` folder on the phone, which
  * survives reinstalling the app; without it, the app's private folder. The old hidden `.folio` folder is
  * moved into it the first time.
  */
@@ -18,11 +18,10 @@ class Storage(private val context: Context) {
 
     val shared: Boolean get() = root != context.filesDir
 
-    val sharedFolder: File get() = File(Environment.getExternalStorageDirectory(), "Rukn")
+    val sharedFolder: File get() = File(Environment.getExternalStorageDirectory(), "Zimam/Rukn")
 
-    /** Where earlier versions kept it, hidden. */
-    /** Where earlier versions kept it: the hidden `.folio`, then the visible `Folio` (the app was called Folio before Rukn). */
-    val legacyFolders: List<File> get() = listOf(".folio", "Folio").map { File(Environment.getExternalStorageDirectory(), it) }
+        /** Where earlier versions kept it: the hidden `.folio`, the visible `Folio` (the app was called Folio before Rukn), then the visible `Rukn` that sat beside the other apps' folders. */
+    val legacyFolders: List<File> get() = listOf(".folio", "Folio", "Rukn").map { File(Environment.getExternalStorageDirectory(), it) }
 
     fun canUseShared(): Boolean = Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()
 
@@ -62,7 +61,8 @@ class Storage(private val context: Context) {
          */
         fun migrateLegacyFolder(legacy: File, target: File): Boolean {
             if (!legacy.isDirectory || legacy.absolutePath == target.absolutePath) return false
-            if (!target.exists() && legacy.renameTo(target)) return true
+            target.parentFile?.mkdirs()
+            if (!target.exists() && legacy.renameTo(target)) { markMigrated(target, legacy); return true }
             return runCatching {
                 target.mkdirs()
                 legacy.walkTopDown().forEach { f ->
@@ -73,10 +73,24 @@ class Storage(private val context: Context) {
                         f.copyTo(dest, overwrite = true)
                     }
                 }
+                // Only a folder whose every file now exists in the target, at the same size or newer, may go.
+                if (!isCovered(legacy, target)) return@runCatching false
+                markMigrated(target, legacy)
                 legacy.deleteRecursively()
             }.getOrDefault(false)
         }
 
+        /** True when every file under [source] has a counterpart in [target] that is at least as new, and not smaller than a same-age one. */
+        fun isCovered(source: File, target: File): Boolean = source.walkTopDown().filter { it.isFile }.all { f ->
+            val dest = File(target, f.relativeTo(source).path)
+            dest.isFile && (dest.lastModified() > f.lastModified() || dest.length() == f.length())
+        }
+
+        private fun markMigrated(target: File, from: File) {
+            runCatching { File(target, MIGRATED).appendText("moved from ${from.name}\n") }
+        }
+
+        const val MIGRATED = ".migrated"
         const val LIBRARY = "library.json"
         const val BACKUPS = "backups"
     }

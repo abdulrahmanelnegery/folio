@@ -28,7 +28,7 @@ Rukn is made for long reading: your books live in a library with covers, lists a
 
 ## Your data
 
-Rukn keeps its library, backups, covers and your own cover images in one place. By default that is inside the app. If you allow *All files access* (Settings), it uses a visible `Rukn` folder on the phone, which survives reinstalling the app. Earlier versions called the app Folio and used a hidden `.folio` folder, then a visible `Folio` folder; either one moves into `Rukn` automatically.
+Rukn keeps its library, backups, covers and your own cover images in one place. By default that is inside the app. If you allow *All files access* (Settings), it uses a visible `Zimam/Rukn` folder on the phone (one `Zimam` folder holds every Zimam app, each in its own folder), which survives reinstalling the app. Earlier versions used a hidden `.folio` folder, a visible `Folio` folder, then a visible `Rukn` folder beside the others; any of them moves into `Zimam/Rukn` automatically, and the old folder is removed only after every file is verified in the new one.
 
 ## Install
 
