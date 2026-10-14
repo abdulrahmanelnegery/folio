@@ -118,4 +118,17 @@ class FolderMigrationTest {
         assertTrue(FolderMigration.copyAndVerify(File(root, "none"), target()).ok)
         val o = old(); assertTrue(FolderMigration.copyAndVerify(o, o).ok)
     }
+
+    @Test fun aCancelledCopyStopsWithoutAMarkerAndTheNextRunFinishesIt() {
+        val old = old(); val new = target()
+        repeat(4) { old.put("f$it.txt", "data $it") }
+        var seen = 0
+        val first = FolderMigration.copyAndVerify(old, new, "Rukn", cancelled = { seen++ >= 2 })
+        assertFalse(first.ok)
+        assertFalse(FolderMigration.marker(new, "Rukn").exists())
+        val second = FolderMigration.copyAndVerify(old, new, "Rukn")
+        assertTrue(second.ok)
+        assertTrue(FolderMigration.marker(new, "Rukn").exists())
+        assertEquals(4, new.listFiles { f -> f.name.startsWith("f") }!!.size)
+    }
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.1
+
+- **No more stall on the first launch after updating.** Moving the library into the Zimam/Rukn folder (scan, copy and checking every file) now runs in the background. Rukn opens at once from the old folder, shows a small "Moving your library to Zimam/Rukn" note while it works, and switches only after every file is verified. If the app is closed in the middle, the next launch carries on. Nothing is deleted or overwritten.
+- **The new Rukn icon.** An open book under the Zimam semi-square, on the launcher, the Android 12 opening screen, the in-app splash and the About page.
+
 ## 0.12.0
 
 - **A Home with sections.** Home opens with a greeting, how today is going (minutes read and your streak), a card for what is new (with Hide), and shortcuts to Reading now, To read, Finished, Favourites, All books, Stats and Files, above Continue and the latest books.

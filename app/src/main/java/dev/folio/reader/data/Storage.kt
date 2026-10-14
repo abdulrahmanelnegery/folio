@@ -13,8 +13,19 @@ import java.io.File
  */
 class Storage(private val context: Context) {
     @Volatile
-    var root: File = context.filesDir
+    var root: File = initialRoot()
         private set
+
+    /**
+     * The folder to start from, without touching any file contents: the Zimam folder only once every old folder has a
+     * verified-copy marker, otherwise the old folder that holds the library, so the app opens at once and the real check runs in the background.
+     */
+    private fun initialRoot(): File {
+        if (!canUseShared()) return context.filesDir
+        val olds = oldFolders()
+        if (olds.all { FolderMigration.marker(sharedFolder, it.name).isFile }) return sharedFolder.takeIf { it.isDirectory && it.canWrite() } ?: context.filesDir
+        return olds.firstOrNull { File(it, LIBRARY).isFile } ?: context.filesDir
+    }
 
     val shared: Boolean get() = root != context.filesDir
 
@@ -31,6 +42,10 @@ class Storage(private val context: Context) {
 
     /** The old folders that still exist (kept as a backup after the copy). */
     fun oldFolders(): List<File> = legacyFolders.filter { it.isDirectory }
+
+    /** Set to stop a copy between files (the next refresh resumes it); a half-written file is only ever a `.part` file. */
+    @Volatile
+    var cancelled: Boolean = false
 
     /** Set when the last switch could not be verified, so the screen can say why the old folder is still in use. */
     @Volatile
@@ -51,13 +66,14 @@ class Storage(private val context: Context) {
      * callers reload. Old folders are copied into the Zimam folder and verified; they are never deleted here. If any
      * copy does not verify, the old location stays in use, [migrationMessage] says so, and the next call retries.
      */
+    @Synchronized
     fun refresh(): Boolean {
         migrationMessage = null
         var target = if (canUseShared()) sharedFolder.also { it.mkdirs() }.takeIf { it.isDirectory && it.canWrite() } ?: context.filesDir else context.filesDir
         if (target == sharedFolder) {
             for (old in oldFolders()) {
                 if (FolderMigration.upToDate(old, sharedFolder)) continue
-                val r = FolderMigration.copyAndVerify(old, sharedFolder)
+                val r = FolderMigration.copyAndVerify(old, sharedFolder, cancelled = { cancelled })
                 if (!r.ok) {
                     migrationMessage = "Rukn could not verify the copy of ${old.path} into ${sharedFolder.path}, so it keeps using the old folder and will try again later. Nothing was deleted."
                     target = old

@@ -19,6 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +40,7 @@ fun FolioApp(model: FolioViewModel) {
     val reading by model.reading.collectAsState()
     val message by model.message.collectAsState()
     val snackbar = remember { SnackbarHostState() }
+    val migrating by model.migrating.collectAsState()
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) model.importUris(uris, Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
@@ -115,6 +119,20 @@ fun FolioApp(model: FolioViewModel) {
                             else -> ReaderScreen(model, id)
                         }
                     }
+                }
+            }
+        }
+        if (migrating) {
+            androidx.compose.material3.Surface(
+                Modifier.align(androidx.compose.ui.Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant,
+                shadowElevation = 4.dp,
+            ) {
+                androidx.compose.foundation.layout.Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    androidx.compose.foundation.layout.Spacer(Modifier.width(10.dp))
+                    androidx.compose.material3.Text("Moving your library to Zimam/Rukn", style = androidx.compose.material3.MaterialTheme.typography.labelLarge)
                 }
             }
         }

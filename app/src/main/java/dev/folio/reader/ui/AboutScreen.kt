@@ -54,15 +54,7 @@ fun AboutScreen(onBack: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Canvas(Modifier.size(104.dp)) {
-                val k = size.width / 268f
-                fun p(x: Float, y: Float) = Offset((x - 122f) * k, (y - 122f) * k)
-                val w = 56f * k
-                drawLine(Color(0xFF8A8A92), p(150f, 150f), p(150f, 362f), w, StrokeCap.Round)
-                drawLine(Color(0xFF8A8A92), p(150f, 362f), p(362f, 362f), w, StrokeCap.Round)
-                val c = p(312f, 200f)
-                zimamDot(c, 104f * k, Color(0xFFFF5A1F))
-            }
+            androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(dev.folio.reader.R.drawable.zimam_mark), null, Modifier.size(104.dp))
             Text("Rukn", style = MaterialTheme.typography.headlineMedium)
             Text("ركن  ·  a corner, a pillar", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Version $version", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

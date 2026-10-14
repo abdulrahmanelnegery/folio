@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
-private val SplashInk = Color(0xFF121214)
+private val SplashInk = Color(0xFF231006)
 private val SplashCream = Color(0xFFF5F1E8)
 private val SplashOrange = Color(0xFFFF5A1F)
 
@@ -55,21 +55,10 @@ fun Splash(name: String, onDone: () -> Unit) {
         onDone()
     }
     Column(Modifier.fillMaxSize().background(SplashInk), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Canvas(Modifier.size(132.dp)) {
-            val k = size.width / 268f
-            val o = Offset(-122f * k, -122f * k)
-            fun p(x: Float, y: Float) = Offset(x * k + o.x, y * k + o.y)
-            // 424 units of line: the downstroke (212) then the base (212).
-            val len = 424f * draw.value
-            val down = minOf(len, 212f)
-            val across = (len - 212f).coerceAtLeast(0f)
-            val stroke = Stroke(width = 56f * k, cap = StrokeCap.Round)
-            drawLine(SplashCream, p(150f, 150f), p(150f, 150f + down), stroke.width, StrokeCap.Round)
-            if (across > 0f) drawLine(SplashCream, p(150f, 362f), p(150f + across, 362f), stroke.width, StrokeCap.Round)
-            val s = 100f * k * pop.value
-            val c = p(312f, 200f)
-            zimamDot(c, s * 1.04f, SplashOrange)
-        }
+        androidx.compose.foundation.Image(
+            androidx.compose.ui.res.painterResource(dev.folio.reader.R.drawable.zimam_mark), null,
+            Modifier.size(132.dp).alpha(draw.value).graphicsLayer { val k = 0.82f + 0.18f * pop.value; scaleX = k; scaleY = k },
+        )
         Spacer(Modifier.height(28.dp))
         Text(name, Modifier.alpha(title.value).graphicsLayer { translationY = (1f - title.value) * 24f }, color = SplashCream, fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(6.dp))
