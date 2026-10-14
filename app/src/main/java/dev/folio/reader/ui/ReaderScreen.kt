@@ -190,6 +190,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var bookmarkSheet by remember { mutableStateOf(false) }
     var jumpDialog by remember { mutableStateOf(false) }
     var editNote by remember { mutableStateOf<NoteEdit?>(null) }
+    var ask by remember { mutableStateOf<ConfirmRequest?>(null) }
     var menu by remember { mutableStateOf(false) }
     var scrub by remember { mutableStateOf<Int?>(null) }
     // Where you were before a jump, so one tap can take you back.
@@ -230,16 +231,10 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     Box(Modifier.fillMaxSize().background(theme.background())) {
         val file = pdf
         if (file == null) {
-            // The cover is already in memory: show it at once, so opening feels instant while the file loads.
-            val cover by produceState<androidx.compose.ui.graphics.ImageBitmap?>(model.covers.peek(book)?.asImageBitmap(), book.id) {
-                value = value ?: model.covers.get(book)?.asImageBitmap()
-            }
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                cover?.let { Image(it, null, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth, colorFilter = theme.filter(), alignment = Alignment.TopCenter) }
-                androidx.compose.material3.CircularProgressIndicator(Modifier.align(Alignment.Center).size(32.dp), strokeWidth = 3.dp)
-            }
+            LoadingPane(book.name)
         } else {
             val list = rememberLazyListState()
+            var ready by remember(file) { mutableStateOf(false) }
             // A page counts as read once the reader stays on it for a moment.
             LaunchedEffect(file) {
                 snapshotFlow { list.firstVisibleItemIndex }.debounce(1500).collect { model.pageSeen(id, it) }
@@ -287,6 +282,9 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 LaunchedEffect(file) {
                     val firstPx = (widthPx * file.aspect(book.page)).roundToInt()
                     list.scrollToItem(book.page.coerceIn(0, file.pageCount - 1), (book.offset * firstPx).roundToInt())
+                    // Two frames so the page you were on is laid out before the loading screen goes: no page 1 followed by a jump.
+                    withFrameNanos { }; withFrameNanos { }
+                    ready = true
                 }
                 LaunchedEffect(jumpTo.value) {
                     jumpTo.value?.let { target ->
@@ -411,6 +409,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 }
                 }
             }
+            if (!ready) LoadingPane(book.name)
             val current = (list.firstVisibleItemIndex + 1).coerceIn(1, file.pageCount)
 
             // Auto-scroll: a steady glide down the book at the chosen speed (points per second).
@@ -443,7 +442,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                             IconButton(onClick = { requestClose() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
                             Text(book.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             val marked = (current - 1) in book.bookmarks
-                            IconButton(onClick = { model.repo.toggleBookmark(id, current - 1) }) {
+                            IconButton(onClick = { if (marked) ask = ConfirmRequest("Remove this bookmark?", "The bookmark on page $current will be removed.") { model.repo.toggleBookmark(id, current - 1) } else model.repo.toggleBookmark(id, current - 1) }) {
                                 Icon(if (marked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (marked) "Remove bookmark" else "Add bookmark", tint = if (marked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                             }
                             Box {
@@ -612,10 +611,11 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     val pages = pdf?.pageCount ?: 0
     KeepScreenOn(book.brightness)
     ReadingOrientation(book.orientation)
+    ConfirmDialog(ask) { ask = null }
     if (bookmarkSheet) NotesSheet(
         book,
         onGo = { page -> jumpTo.value = page; bookmarkSheet = false },
-        onRemoveBookmark = { page -> model.repo.toggleBookmark(id, page) },
+        onRemoveBookmark = { page -> ask = ConfirmRequest("Remove this bookmark?", "The bookmark on page ${page + 1} will be removed.") { model.repo.toggleBookmark(id, page) } },
         onEdit = { note -> bookmarkSheet = false; editNote = NoteEdit(note.id, note.page, note.text) },
         onDismiss = { bookmarkSheet = false },
     )
@@ -623,7 +623,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
         NoteDialog(
             edit,
             onSave = { text -> model.repo.saveComment(id, edit.page, text, edit.id); editNote = null },
-            onDelete = { edit.id?.let { model.repo.deleteComment(id, it) }; editNote = null },
+            onDelete = { val note = edit; editNote = null; ask = ConfirmRequest("Delete this comment?", "The comment on page ${note.page + 1} will be deleted.", "Delete") { note.id?.let { model.repo.deleteComment(id, it) } } },
             onDismiss = { editNote = null },
         )
     }
@@ -1001,6 +1001,17 @@ private fun KeepScreenOn(brightness: Float) {
         if (window != null) window.attributes = window.attributes.also { it.screenBrightness = if (brightness < 0f) -1f else brightness }
         onDispose {
             if (window != null) window.attributes = window.attributes.also { it.screenBrightness = -1f }
+        }
+    }
+}
+
+/** Shown while a document opens, until it is ready on the page you were reading: the title and a spinner, nothing else. */
+@Composable
+internal fun LoadingPane(title: String) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(horizontal = 32.dp)) {
+            androidx.compose.material3.CircularProgressIndicator(Modifier.size(32.dp), strokeWidth = 3.dp)
+            Text(title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
 }

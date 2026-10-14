@@ -1,12 +1,23 @@
-<p align="center"><img src="docs/icon.png" width="120" alt="Rukn"></p>
+<p align="center"><img src="branding/boards/Rukn Reading App Brand Board.png" alt="Rukn brand board" width="860"></p>
+
+<p align="center"><img src="docs/icon.png" width="96" alt="Rukn"></p>
 
 <h1 align="center">Rukn</h1>
 
-<p align="center">A calm reader for PDFs, text and paper books, by <a href="https://github.com/zimamlabs">Zimam</a>. Formerly Folio.</p>
+<p align="center">A calm reader for PDFs, EPUB books, comics, text and paper books, by <a href="https://github.com/zimamlabs">Zimam Labs</a>.<br>Formerly Folio. Android.</p>
 
-A calm, fast reader for PDFs and text files on Android, built natively with Kotlin and Jetpack Compose.
+<p align="center">
+  <a href="../../releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/zimamlabs/rukn?color=FF5A1F&label=release"></a>
+  <a href="../../releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/zimamlabs/rukn/total?color=FF5A1F"></a>
+  <a href="LICENSE"><img alt="Licence" src="https://img.shields.io/github/license/zimamlabs/rukn?color=FF5A1F"></a>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Android-FF5A1F">
+</p>
 
-Rukn is made for long reading: your books live in a library with covers, lists and shelves, every book remembers its place, and the pages follow the light with night and sepia themes.
+Rukn (ركن, a corner, a pillar) keeps your reading in one calm place: a library with real covers, lists inside lists, a reader that remembers where you were, PDF markup that never touches the original until you say so, and a record of your reading time. No account, no telemetry.
+
+## Screenshots
+
+Real screenshots will be added here after the first round of phone testing. Until then, see the brand board above.
 
 ## What is in it
 
@@ -24,10 +35,12 @@ Rukn is made for long reading: your books live in a library with covers, lists a
 - **Ratings, notes and details**: stars, a note for each book, and a details sheet (file name, page size, producer, dates, where it is stored). Long files are read in the background and big books are drawn within a fixed memory budget.
 - **Paper books**: add a book you read on paper and log sittings (the page you are on, or the pages you read, and the minutes). Progress, the Stats tab and your sessions follow along.
 - **Details and covers**: every book has editable title, author, publisher, year, pages, ISBN and description, and a cover you can change from your gallery. *Find details online* searches Open Library, Google Books and the Internet Archive, and asks Wikidata for the original title of translated books (Arabic titles included), shows each result next to your values and applies only the parts you tick. An optional Google Books key in Settings avoids the shared daily limit.
+- **Home and the Zimam look**: a Home page with a greeting, today's reading, what is new and shortcuts; warm dark and ivory surfaces with the Zimam orange; a first-run tour and a one-time what's new note after each update.
+- **Careful by default**: every clear, delete or remove asks first, saving changes to a book's details says what will change, and opening a book shows a loading screen until it is on the page you were reading.
 - **Backups**: reading places, lists, ratings, notes and bookmarks are copied automatically and can be restored, or saved to a file from Settings.
 - **Private**: everything stays on the device. No account and no telemetry. The only network use is the lookup you start yourself, and only the words you type are sent.
 
-## Your data
+## Folder and privacy
 
 Rukn keeps its library, backups, covers and your own cover images in one place. By default that is inside the app. If you allow *All files access* (Settings), it uses a visible `Zimam/Rukn` folder on the phone (one `Zimam` folder holds every Zimam app, each in its own folder), which survives reinstalling the app. Earlier versions used a hidden `.folio` folder, a visible `Folio` folder, then a visible `Rukn` folder beside the others. Nothing is ever lost in the move: Rukn copies the old folder into `Zimam/Rukn` through temporary files, never overwrites a file already there (a clash is kept beside it as `name (from Rukn).ext`), checks every file by size and SHA-256, saves the library once before it writes, and leaves the old folder untouched as a backup. If anything does not verify it keeps using the old folder, says so in Settings and tries again later. Settings offers *Remove the old folder*, which asks first and checks every file again before it deletes anything.
 

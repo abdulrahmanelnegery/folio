@@ -11,9 +11,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-private val Orange = Color(0xFFE5481A)
-private val Paper = Color(0xFFF5F1E8)
-private val Ink = Color(0xFF121214)
+private val Orange = Color(0xFFFF5A1F)
+private val Paper = Color(0xFFFFF8F0)
+private val Ink = Color(0xFF0F0F0F)
 
 /** Zimam's colours: warm paper and near-black with an orange accent. */
 private val Light: ColorScheme = lightColorScheme(
@@ -26,11 +26,11 @@ private val Light: ColorScheme = lightColorScheme(
     onSecondaryContainer = Ink,
     background = Paper,
     surface = Paper,
-    surfaceContainer = Color(0xFFFFFBF3),
-    surfaceContainerHigh = Color(0xFFEDE6D8),
+    surfaceContainer = Color(0xFFFFFDF9),
+    surfaceContainerHigh = Color(0xFFF6E9DB),
     onSurface = Ink,
     onSurfaceVariant = Color(0xFF5E5A52),
-    outlineVariant = Color(0xFFD8D0C0),
+    outlineVariant = Color(0xFFE8DBC9),
 )
 
 private val Dark: ColorScheme = darkColorScheme(
@@ -43,17 +43,17 @@ private val Dark: ColorScheme = darkColorScheme(
     onSecondaryContainer = Color(0xFFF5F1E8),
     background = Ink,
     surface = Ink,
-    surfaceContainer = Color(0xFF1B1B1E),
-    surfaceContainerHigh = Color(0xFF26262A),
+    surfaceContainer = Color(0xFF1A1613),
+    surfaceContainerHigh = Color(0xFF241E1A),
     onSurface = Color(0xFFF5F1E8),
     onSurfaceVariant = Color(0xFFA9A59B),
-    outlineVariant = Color(0xFF3A3A40),
+    outlineVariant = Color(0xFF2E2823),
 )
 
 private val FolioShapes = Shapes(
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(24.dp),
+    small = RoundedCornerShape(14.dp),
+    medium = RoundedCornerShape(22.dp),
+    large = RoundedCornerShape(28.dp),
 )
 
 @Composable

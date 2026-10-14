@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.0
+
+- **A loading screen while a book opens.** A spinner and the title until the page you were on is laid out; no cover glimpse followed by a jump.
+- **A softer way back.** Going back to the library is a short slide and fade, and the book you just read goes to the front of the Recent order.
+- **Book details, reading first.** The details start with the reading page, total time read and number of sittings. Every detail can be edited (reading page, time read, status and the rest), and saving says what will change before it does.
+- **Every clear, delete or remove asks first**: bookmarks, page comments, your rating, taking a book out of a list, clearing saved covers and pages. (Removing from the library, deleting a list, restoring a backup and removing the old folder already asked.)
+- **The Zimam look.** Warm near-black and ivory surfaces, the orange accent with a soft glow, larger rounded cards with a hairline border and the small orange diamond on cards and headings.
+- **A new About page** with the mark, the tagline and version, the tour and what's new, the privacy promise, links and Zimam Labs. The README has a new header, badges and sections.
+
 ## 0.12.1
 
 - **No more stall on the first launch after updating.** Moving the library into the Zimam/Rukn folder (scan, copy and checking every file) now runs in the background. Rukn opens at once from the old folder, shows a small "Moving your library to Zimam/Rukn" note while it works, and switches only after every file is verified. If the app is closed in the middle, the next launch carries on. Nothing is deleted or overwritten.

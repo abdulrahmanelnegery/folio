@@ -115,6 +115,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import dev.folio.reader.data.sessionCount
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -220,6 +221,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     var logFor by remember { mutableStateOf<String?>(null) }
     var homeIndex by rememberSaveable { mutableStateOf(0) }
     var confirmBulkRemove by remember { mutableStateOf(false) }
+    var ask by remember { mutableStateOf<ConfirmRequest?>(null) }
+    ConfirmDialog(ask) { ask = null }
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val shown = state.visible(tab, query)
@@ -329,7 +332,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                                         DropdownMenuItem(
                                             text = { Text("Remove from “${nameOf(open.path)}”") },
                                             leadingIcon = { Icon(Icons.Rounded.FolderOff, null) },
-                                            onClick = { more = false; model.repo.setInList(selected, open.path, false); selected = emptySet(); selecting = false },
+                                            onClick = { more = false; ask = ConfirmRequest("Remove ${selected.size} books from “${nameOf(open.path)}”?", "They stay in your library; only their place in this list is removed.") { model.repo.setInList(selected, open.path, false); selected = emptySet(); selecting = false } },
                                         )
                                     }
                                     DropdownMenuItem(text = { Text("Add to favorites") }, leadingIcon = { Icon(Icons.Rounded.Star, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(favorite = true) } })
@@ -742,6 +745,7 @@ private enum class SheetSection(val label: String) { Actions("Actions"), Details
 private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>, openList: String?, onOpenBook: () -> Unit, onEdit: () -> Unit, onNewList: () -> Unit, onDismiss: () -> Unit) {
     var section by remember { mutableStateOf(SheetSection.Actions) }
     var confirmRemove by remember { mutableStateOf(false) }
+    val sessionsN = model.repo.state.collectAsState().value.sessionCount(book.id)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
             Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -766,7 +770,7 @@ private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>,
             Box(Modifier.fillMaxWidth().height(380.dp)) {
                 when (section) {
                     SheetSection.Actions -> ActionsSection(model, book, lists, openList, onOpenBook, onEdit, onNewList, onDismiss) { confirmRemove = true }
-                    SheetSection.Details -> DetailsSection(book)
+                    SheetSection.Details -> DetailsSection(book, sessionsN, onEdit)
                     SheetSection.Notes -> NotesSection(model, book)
                 }
             }
@@ -785,13 +789,15 @@ private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>,
 private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String>, openList: String?, onOpenBook: () -> Unit, onEdit: () -> Unit, onNewList: () -> Unit, onDismiss: () -> Unit, onRemove: () -> Unit) {
     // 0 closed, 1 add to another list, 2 move to another list
     var picker by remember { mutableStateOf(0) }
+    var ask by remember { mutableStateOf<ConfirmRequest?>(null) }
+    ConfirmDialog(ask) { ask = null }
     val here = openList?.takeIf { it in book.lists }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         SheetRow(Icons.Rounded.AutoStories, if (book.physical) "Log a reading session" else "Open", onClick = onOpenBook)
         SheetRow(Icons.Rounded.Edit, "Edit details and cover…", onClick = onEdit)
         // Inside a list: take the book out of it, or carry it to another list (it stays in the library).
         if (here != null) {
-            SheetRow(Icons.Rounded.FolderOff, "Remove from “${nameOf(here)}”") { model.repo.toggleList(book.id, here); onDismiss() }
+            SheetRow(Icons.Rounded.FolderOff, "Remove from “${nameOf(here)}”") { ask = ConfirmRequest("Remove from “${nameOf(here)}”?", "The book stays in your library; only its place in this list is removed.") { model.repo.toggleList(book.id, here); onDismiss() } }
             SheetRow(Icons.Rounded.DriveFileMove, if (picker == 2) "Move to… (tap to close)" else "Move to another list…") { picker = if (picker == 2) 0 else 2 }
         }
         SheetRow(Icons.Rounded.Folder, if (picker == 1) "Lists (tap to close)" else if (here != null) "Also add to another list…" else "Add to a list…") { picker = if (picker == 1) 0 else 1 }
@@ -823,7 +829,7 @@ private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String
 
 /** The facts, one line each; tap a row to read all of a long value. */
 @Composable
-private fun DetailsSection(book: Book) {
+private fun DetailsSection(book: Book, sessions: Int, onEdit: () -> Unit) {
     val context = LocalContext.current
     val facts by produceState<List<Pair<String, String>>?>(null, book.id) {
         value = withContext(Dispatchers.IO) {
@@ -836,6 +842,10 @@ private fun DetailsSection(book: Book) {
         }
     }
     val rows = buildList {
+        // Where you are in the book comes first: the page, the time you have given it and the sittings.
+        add((if (book.kind == dev.folio.reader.data.Kind.Epub) "Reading chapter" else "Reading page") to if (book.progress > 0f || book.page > 0) book.placeLabel else "Not started")
+        add("Total time read" to if (book.readSeconds > 0) minutesLabel(book.readSeconds) else "None yet")
+        add("Sessions" to sessions.toString())
         if (book.author.isNotBlank()) add("Author" to book.author)
         if (book.publisher.isNotBlank()) add("Publisher" to book.publisher)
         if (book.year.isNotBlank()) add("Year" to book.year)
@@ -848,13 +858,13 @@ private fun DetailsSection(book: Book) {
         addAll(facts.orEmpty())
         if (book.added > 0) add("Added" to formatDate(book.added))
         add("Last opened" to if (book.lastOpened > 0) formatDate(book.lastOpened) else "Never")
-        add("Reading place" to if (book.progress > 0f) book.placeLabel else "Start")
         add("Status" to when (book.status) { Status.New -> "New"; Status.Reading -> "Reading"; Status.ToRead -> "To read"; Status.Finished -> "Finished" })
         if (book.lists.isNotEmpty()) add("Lists" to book.lists.joinToString(", ") { it.replace("/", " › ") })
         if (!book.physical) add("Location" to friendlyLocation(book.uri))
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
         rows.forEach { (k, v) -> FactRow(k, v) }
+        TextButton(onClick = onEdit, Modifier.padding(horizontal = 16.dp)) { Text("Edit these details") }
         if (facts == null) Text("Reading the file…", Modifier.padding(horizontal = 24.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -862,11 +872,13 @@ private fun DetailsSection(book: Book) {
 @Composable
 private fun NotesSection(model: FolioViewModel, book: Book) {
     var editing by remember { mutableStateOf<dev.folio.reader.data.PageNote?>(null) }
+    var ask by remember { mutableStateOf<ConfirmRequest?>(null) }
+    ConfirmDialog(ask) { ask = null }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Your rating", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Stars(book.rating, 34) { model.repo.setRating(book.id, it) }
-            if (book.rating > 0) TextButton(onClick = { model.repo.setRating(book.id, 0) }) { Text("Clear") }
+            if (book.rating > 0) TextButton(onClick = { ask = ConfirmRequest("Clear your rating?", "The stars on this book will be cleared.", "Clear") { model.repo.setRating(book.id, 0) } }) { Text("Clear") }
         }
         Text("Note about this book", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp))
         var note by remember(book.id) { mutableStateOf(book.note) }
@@ -879,7 +891,7 @@ private fun NotesSection(model: FolioViewModel, book: Book) {
                     Text("Page ${c.page + 1}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Text(c.text, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
-                IconButton(onClick = { model.repo.deleteComment(book.id, c.id) }) { Icon(Icons.Rounded.Delete, "Delete comment") }
+                IconButton(onClick = { ask = ConfirmRequest("Delete this comment?", "The comment on page ${c.page + 1} will be deleted.", "Delete") { model.repo.deleteComment(book.id, c.id) } }) { Icon(Icons.Rounded.Delete, "Delete comment") }
             }
         }
     }
@@ -1517,9 +1529,9 @@ private fun HomeTitle(title: String, action: String?, onAction: () -> Unit) {
 
 @Composable
 private fun Panel2(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
+    ZimamCard {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) { Diamond(); Spacer(Modifier.width(8.dp)); Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold) }
             content()
         }
     }
@@ -1537,8 +1549,9 @@ private fun HomeGreeting(model: FolioViewModel, state: dev.folio.reader.data.Lib
     val streak = state.streak()
     val reading = state.books.count { it.status == Status.Reading }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column {
-            Text(greeting, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        GlowBox(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(vertical = 18.dp)) {
+            Text(greeting, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
             Text(
                 when {
                     today.seconds > 0 -> "${minutesLabel(today.seconds)} read today" + if (streak > 1) ", a $streak day streak" else ""
@@ -1547,6 +1560,7 @@ private fun HomeGreeting(model: FolioViewModel, state: dev.folio.reader.data.Lib
                 },
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
         }
         val notes = remember(version) { dev.folio.reader.data.ReleaseNotes.forVersion(version) }
         if (notes.isNotEmpty() && state.hiddenNews != version) {
