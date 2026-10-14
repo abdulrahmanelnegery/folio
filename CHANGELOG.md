@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1
+
+- **Double tap zooms back out.** On a zoomed page the first finger no longer swallows the tap, so a second double tap returns to the fit view.
+- **Zoomed pages move freely.** Dragging a zoomed page now keeps going after you let go (a fling), and it only starts moving after a small distance, so it no longer feels sticky.
+
 ## 0.11.0
 
 - **Edit PDFs.** Open the reader menu and choose *Edit this PDF*: highlighter (four colours), pen (four colours, three widths), underline, sticky notes with text, an eraser, undo and redo. Marks are fractions of the page, so they stay put when you zoom or crop margins, and they are saved to a draft file at once, so closing or killing the app loses nothing. Books with a draft show a "draft" tag in the library.

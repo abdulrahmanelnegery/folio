@@ -101,6 +101,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.animation.core.animateDecay
+import kotlinx.coroutines.Job
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -193,6 +196,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var returnTo by remember { mutableStateOf<ReturnPoint?>(null) }
     var detecting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    var flingJob by remember { mutableStateOf<Job?>(null) }
     var sizesVersion by remember { mutableStateOf(0) }
     var autoScroll by remember { mutableStateOf(false) }
     var autoSpeed by remember { mutableFloatStateOf(70f) }
@@ -337,12 +341,28 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                             )
                         }
                         .pointerInput(Unit) {
-                            // Two fingers pinch and pan; one finger on a zoomed page pans it, and on a fit page is left to the list so it scrolls.
+                            // Two fingers pinch and pan. One finger on a zoomed page pans it, with a fling when you let go;
+                            // a plain tap is left alone so a double tap can zoom back out, and on a fit page the list scrolls itself.
+                            val slop = viewConfiguration.touchSlop
+                            // Moves the zoomed page; what runs past its edge scrolls the book.
+                            fun panBy(dx: Float, dy: Float) {
+                                offX = (offX + dx).coerceIn(size.width * (1f - zoom), 0f)
+                                val wantY = offY + dy
+                                offY = wantY.coerceIn(size.height * (1f - zoom), 0f)
+                                val spill = wantY - offY
+                                if (spill != 0f) list.dispatchRawDelta(-spill / zoom)
+                            }
                             awaitEachGesture {
                                 awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                                flingJob?.cancel()
+                                val tracker = VelocityTracker()
+                                var moved = androidx.compose.ui.geometry.Offset.Zero
+                                var panning = false
+                                var pinched = false
                                 do {
                                     val event = awaitPointerEvent(PointerEventPass.Initial)
                                     if (event.changes.size >= 2) {
+                                        pinched = true
                                         val nz = (zoom * event.calculateZoom()).coerceIn(1f, MAX_ZOOM)
                                         val c = event.calculateCentroid()
                                         val pan = event.calculatePan()
@@ -350,17 +370,28 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                         offY = (c.y * zoom + offY + pan.y - c.y * nz).coerceIn(size.height * (1f - nz), 0f)
                                         zoom = nz
                                         event.changes.forEach { it.consume() }
-                                    } else if (zoom > 1.01f && event.changes.size == 1 && !(editing && editTool != EditTool.Hand)) {
-                                        // One finger on a zoomed page moves the page around; once its edge is reached the rest scrolls the book.
+                                    } else if (!pinched && zoom > 1.01f && event.changes.size == 1 && !(editing && editTool != EditTool.Hand)) {
+                                        val change = event.changes[0]
+                                        tracker.addPosition(change.uptimeMillis, change.position)
                                         val pan = event.calculatePan()
-                                        offX = (offX + pan.x).coerceIn(size.width * (1f - zoom), 0f)
-                                        val wantY = offY + pan.y
-                                        offY = wantY.coerceIn(size.height * (1f - zoom), 0f)
-                                        val spill = wantY - offY
-                                        if (spill != 0f) list.dispatchRawDelta(-spill / zoom)
-                                        event.changes.forEach { it.consume() }
+                                        moved += pan
+                                        if (!panning && moved.getDistance() > slop) {
+                                            panning = true
+                                            panBy(moved.x, moved.y)
+                                            change.consume()
+                                        } else if (panning) {
+                                            panBy(pan.x, pan.y)
+                                            change.consume()
+                                        }
                                     }
                                 } while (event.changes.any { it.pressed })
+                                if (panning && !pinched && zoom > 1.01f) {
+                                    val v = tracker.calculateVelocity().y
+                                    if (kotlin.math.abs(v) > 200f) flingJob = scope.launch {
+                                        var last = 0f
+                                        animateDecay(0f, v, androidx.compose.animation.core.FloatExponentialDecaySpec()) { value, _ -> panBy(0f, value - last); last = value }
+                                    }
+                                }
                             }
                         },
                     verticalArrangement = Arrangement.spacedBy(8.dp),
