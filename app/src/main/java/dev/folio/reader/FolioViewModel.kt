@@ -216,11 +216,13 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     /** The "All files access" setting may have changed; move to the Rukn folder when it has. */
     fun refreshStorage() {
         viewModelScope.launch(Dispatchers.IO) {
-            if (storage.refresh()) {
+            val changed = storage.refresh()
+            if (changed) {
                 repo.reload()
                 _backupTick.value++
                 _message.value = "Rukn now keeps its data in ${storage.root.path}"
             }
+            storage.migrationMessage?.let { _message.value = it }
         }
     }
 

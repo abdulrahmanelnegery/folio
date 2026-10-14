@@ -55,6 +55,7 @@ import java.util.Date
 fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
     var confirm by remember { mutableStateOf<(() -> Unit)?>(null) }
     var refresh by remember { mutableStateOf(0) }
+    var removeOld by remember { mutableStateOf<java.io.File?>(null) }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(model::exportBackup) }
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { confirm = { model.restoreFrom(it) } }
@@ -124,6 +125,16 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
                 }
             }
 
+            model.storage.migrationMessage?.let {
+                Text(it, Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
+            // The old folders stay as a backup after the copy; removing one asks first and checks every file again.
+            val oldFolders = remember(refresh, model.storage.root) { model.storage.removableOldFolders() }
+            oldFolders.forEach { old ->
+                Text("Your earlier folder ${old.path} was copied into the Zimam folder and checked. It is still there as a backup.", Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Action(Icons.Rounded.FolderSpecial, "Remove the old folder ${old.name}") { removeOld = old }
+            }
+
             Header("Backup")
             Text(
                 "Reading places, lists, ratings, notes and bookmarks are copied automatically when you close a book (at most every few hours), and the last ${Backups.KEEP} copies are kept. " +
@@ -170,6 +181,19 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
             Text("Rukn 0.10.0  ·  by Zimam", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
             Text("A calm PDF reader. Everything stays on this phone.", Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+    removeOld?.let { old ->
+        AlertDialog(
+            onDismissRequest = { removeOld = null },
+            title = { Text("Remove ${old.name}?") },
+            text = { Text("Rukn checks once more that every file in ${old.path} is in the Zimam folder, then deletes it. If anything differs, nothing is deleted.") },
+            confirmButton = { TextButton(onClick = {
+                val ok = model.storage.removeOldFolder(old)
+                model.notify(if (ok) "Removed ${old.name}" else "Not removed: a file did not match, so the old folder was kept")
+                removeOld = null; refresh++
+            }) { Text("Remove") } },
+            dismissButton = { TextButton(onClick = { removeOld = null }) { Text("Keep it") } },
+        )
     }
     confirm?.let { action ->
         AlertDialog(
