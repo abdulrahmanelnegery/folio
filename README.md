@@ -5,19 +5,17 @@
 <p align="center">A calm reader for PDFs, EPUB books, comics, text and paper books, by <a href="https://github.com/zimamlabs">Zimam Labs</a>.<br>Formerly Folio. Android.</p>
 
 <p align="center">
-  <a href="../../releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/zimamlabs/rukn?color=FF5A1F&label=release"></a>
-  <a href="../../releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/zimamlabs/rukn/total?color=FF5A1F"></a>
-  <a href="LICENSE"><img alt="Licence" src="https://img.shields.io/github/license/zimamlabs/rukn?color=FF5A1F"></a>
-  <img alt="Platform" src="https://img.shields.io/badge/platform-Android-FF5A1F">
+  <a href="../../releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/zimamlabs/rukn?color=FF5A1F&labelColor=1A1613"></a>
+  <a href="../../releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/zimamlabs/rukn/total?color=FF5A1F&labelColor=1A1613"></a>
+  <a href="LICENSE"><img alt="Licence: MIT" src="https://img.shields.io/badge/licence-MIT-FF5A1F?labelColor=1A1613"></a>
+  <img alt="Android" src="https://img.shields.io/badge/Android-8.0%2B-FF5A1F?labelColor=1A1613">
 </p>
+
+## What it is
 
 Rukn (ركن, a corner, a pillar) keeps your reading in one calm place: a library with real covers, lists inside lists, a reader that remembers where you were, PDF markup that never touches the original until you say so, and a record of your reading time. No account, no telemetry.
 
-## Screenshots
-
-Real screenshots will be added here after the first round of phone testing.
-
-## What is in it
+## Features
 
 - **Tour and what's new**: a short first-run tour (shown again from Settings) and a one-time note after each update.
 - **Home**: a greeting, today's reading and shortcuts to every section, then three sticky tabs you can flick between, round and round. **Home** has Continue reading and the latest three books; **Stats** has your reading time, sittings, the books you read most and recent sittings; **Library** has your shelves, lists and favorites. Order the tabs or hide any but Home in Settings.
@@ -33,16 +31,18 @@ Real screenshots will be added here after the first round of phone testing.
 - **Ratings, notes and details**: stars, a note for each book, and a details sheet (file name, page size, producer, dates, where it is stored). Long files are read in the background and big books are drawn within a fixed memory budget.
 - **Paper books**: add a book you read on paper and log sittings (the page you are on, or the pages you read, and the minutes). Progress, the Stats tab and your sessions follow along.
 - **Details and covers**: every book has editable title, author, publisher, year, pages, ISBN and description, and a cover you can change from your gallery. *Find details online* searches Open Library, Google Books and the Internet Archive, and asks Wikidata for the original title of translated books (Arabic titles included), shows each result next to your values and applies only the parts you tick. An optional Google Books key in Settings avoids the shared daily limit.
-- **Home and the Zimam look**: a Home page with a greeting, today's reading, what is new and shortcuts; warm dark and ivory surfaces with the Zimam orange; a first-run tour and a one-time what's new note after each update.
 - **Careful by default**: every clear, delete or remove asks first, saving changes to a book's details says what will change, and opening a book shows a loading screen until it is on the page you were reading.
 - **Backups**: reading places, lists, ratings, notes and bookmarks are copied automatically and can be restored, or saved to a file from Settings.
-- **Private**: everything stays on the device. No account and no telemetry. The only network use is the lookup you start yourself, and only the words you type are sent.
 
-## Folder and privacy
+## Languages
 
-Rukn keeps its library, backups, covers and your own cover images in one place. By default that is inside the app. If you allow *All files access* (Settings), it uses a visible `Zimam/Rukn` folder on the phone (one `Zimam` folder holds every Zimam app, each in its own folder), which survives reinstalling the app. Earlier versions used a hidden `.folio` folder, a visible `Folio` folder, then a visible `Rukn` folder beside the others. Nothing is ever lost in the move: Rukn copies the old folder into `Zimam/Rukn` through temporary files, never overwrites a file already there (a clash is kept beside it as `name (from Rukn).ext`), checks every file by size and SHA-256, saves the library once before it writes, and leaves the old folder untouched as a backup. If anything does not verify it keeps using the old folder, says so in Settings and tries again later. Settings offers *Remove the old folder*, which asks first and checks every file again before it deletes anything.
+English today. Arabic and right-to-left screens are being added; this line will say when they are in.
 
-## Install
+## Screenshots
+
+Screenshots: coming with the next release.
+
+## Download
 
 Get the file for your phone from the [latest release](../../releases/latest). Each file has a matching `.sha256` checksum.
 
@@ -54,7 +54,7 @@ Get the file for your phone from the [latest release](../../releases/latest). Ea
 
 Open the APK and allow installs from your file manager when Android asks.
 
-### Verify the download
+## Verify
 
 Every APK is signed with Rukn's own key. Android installs it without a store because the signature is valid, and shows its usual "unknown source" notice for anything that did not come from Google Play. To check a file is really ours, compare its signing certificate with this fingerprint:
 
@@ -66,6 +66,14 @@ SHA-256: FA:CB:FE:BE:B3:27:A7:F7:AF:17:23:91:60:12:6D:57:59:E9:39:B4:B5:C4:D5:A7
 apksigner verify --print-certs Rukn_<version>_Android_arm64-v8a.apk
 sha256sum -c Rukn_<version>_Android_arm64-v8a.apk.sha256
 ```
+
+## Where your data lives
+
+Rukn keeps its library, backups, covers and your own cover images in one place. By default that is inside the app. If you allow *All files access* (Settings), it uses a visible `Zimam/Rukn` folder on the phone (one `Zimam` folder holds every Zimam app, each in its own folder), which survives reinstalling the app. Earlier versions used a hidden `.folio` folder, a visible `Folio` folder, then a visible `Rukn` folder beside the others. Nothing is ever lost in the move: Rukn copies the old folder into `Zimam/Rukn` through temporary files, never overwrites a file already there (a clash is kept beside it as `name (from Rukn).ext`), checks every file by size and SHA-256, saves the library once before it writes, and leaves the old folder untouched as a backup. If anything does not verify it keeps using the old folder, says so in Settings and tries again later. Settings offers *Remove the old folder*, which asks first and checks every file again before it deletes anything.
+
+## Privacy
+
+No account, no ads, no telemetry. Rukn keeps your library on your phone. The only network use is the book lookup you start yourself, and only the words you type are sent.
 
 ## Build
 
