@@ -101,6 +101,7 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
             }
 
             Header("General")
+            Action(Icons.Rounded.FolderSpecial, "Show the tour again") { model.tourRequested.value = true }
             Row(
                 Modifier.fillMaxWidth().clickable { model.repo.update { it.copy(confirmExit = !it.confirmExit) } }.padding(horizontal = 24.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
