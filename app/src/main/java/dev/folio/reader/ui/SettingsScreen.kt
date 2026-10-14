@@ -111,14 +111,14 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
                 androidx.compose.material3.Switch(library.confirmExit, { v -> model.repo.update { it.copy(confirmExit = v) } })
             }
 
-            Header("Rukn folder")
+            Header("Zimam folder")
             Text(
                 if (model.storage.shared) "Rukn keeps its library, backups and covers in ${model.storage.root.path}. It survives reinstalling the app."
-                else "Rukn keeps its data inside the app. Allow access to all files to use a visible Rukn folder on the phone instead, so your reading places and backups survive reinstalling the app, like other readers do.",
+                else "Rukn keeps its data inside the app. Allow access to all files to use a visible Zimam/Rukn folder on the phone instead, so your reading places and backups survive reinstalling the app, like other readers do.",
                 Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (!model.storage.shared && android.os.Build.VERSION.SDK_INT >= 30) {
-                Action(Icons.Rounded.FolderSpecial, "Use the Rukn folder") {
+                Action(Icons.Rounded.FolderSpecial, "Use the Zimam/Rukn folder") {
                     val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, android.net.Uri.parse("package:${context.packageName}"))
                     runCatching { context.startActivity(intent) }.onFailure { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)) }
                 }
