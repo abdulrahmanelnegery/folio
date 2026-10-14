@@ -67,6 +67,85 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         dev.folio.reader.edits.EditSession(File(storage.dir("edits"), "$id.json"), viewModelScope) { n -> repo.updateBook(id) { it.copy(draftMarks = n) } }
     }
 
+    /** Bumped after a PDF file is replaced, so an open reader loads the new file. */
+    private val _pdfReload = MutableStateFlow(0)
+    val pdfReload: StateFlow<Int> = _pdfReload
+
+    enum class SaveMode { AsNew, Overwrite }
+
+    /** The book's file as a plain path when it is one (not a provider's content link). */
+    private fun realFile(book: Book): File? =
+        Uri.parse(book.uri).takeIf { it.scheme == "file" }?.path?.let(::File)?.takeIf { it.isFile }
+
+    /** Whether the PDF itself may be replaced: only a real file in a folder Rukn can write to. */
+    fun canOverwrite(id: String): Boolean {
+        val f = repo.book(id)?.let(::realFile) ?: return false
+        return f.canWrite() && f.parentFile?.canWrite() == true
+    }
+
+    /** Where the original is kept when it is replaced. */
+    val originalsFolder: File get() = storage.dir("originals")
+
+    /**
+     * Writes the draft into a copy ([SaveMode.AsNew]) or over the file ([SaveMode.Overwrite], after keeping the
+     * original). [done] gets whether it worked; either way a message is shown. The draft is cleared only on success.
+     */
+    fun saveEdits(id: String, mode: SaveMode, done: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val session = editSession(id)
+            val result = withContext(Dispatchers.IO) { runSave(id, mode, session.draft()) }
+            if (result.first != null) {
+                session.discard()
+                when (mode) {
+                    SaveMode.AsNew -> importUris(listOf(Uri.fromFile(result.first)), open = false)
+                    SaveMode.Overwrite -> {
+                        pageCache.forget(id); covers.forget(id)
+                        _pdfReload.value++
+                    }
+                }
+            }
+            _message.value = result.second
+            done(result.first != null)
+        }
+    }
+
+    private fun runSave(id: String, mode: SaveMode, draft: dev.folio.reader.edits.Draft): Pair<File?, String> {
+        val book = repo.book(id) ?: return null to "That book is gone."
+        if (draft.isEmpty) return null to "There is nothing to save."
+        val app = getApplication<Application>()
+        val real = realFile(book)
+        // A file only reachable through a provider is copied aside first; it can be saved as new but never replaced.
+        val temp = if (real == null) File(app.cacheDir, "edit-${book.id}.pdf") else null
+        try {
+            val source = real ?: temp!!.also { t ->
+                val ok = runCatching { app.contentResolver.openInputStream(Uri.parse(book.uri))?.use { i -> t.outputStream().use { i.copyTo(it) } } }.isSuccess
+                if (!ok || t.length() == 0L) return null to "The PDF could not be read."
+            }
+            val work = dev.folio.reader.pdf.PdfEditWriter(app, draft)
+            val fileName = book.fileName.ifEmpty { "${book.name}.pdf" }
+            return when (mode) {
+                SaveMode.AsNew -> {
+                    val dir = real?.parentFile?.takeIf { it.canWrite() } ?: storage.dir("edited")
+                    val target = File(dir, dev.folio.reader.edits.SafeWrite.editedName(File(dir, fileName)))
+                    when (val r = dev.folio.reader.edits.SafeWrite.saveAsNew(source, target, work)) {
+                        is dev.folio.reader.edits.SaveResult.Saved -> target to "Saved as “${target.name}”. The original is untouched."
+                        is dev.folio.reader.edits.SaveResult.Failed -> null to r.reason
+                    }
+                }
+                SaveMode.Overwrite -> {
+                    if (real == null || !canOverwrite(id)) return null to "This file cannot be replaced. Save it as a new file instead."
+                    val backup = File(originalsFolder, "${book.id}-${System.currentTimeMillis()}.pdf")
+                    when (val r = dev.folio.reader.edits.SafeWrite.overwrite(real, backup, work)) {
+                        is dev.folio.reader.edits.SaveResult.Saved -> real to "Saved over the original. A copy of the original is in ${backup.parentFile?.name}/${backup.name}."
+                        is dev.folio.reader.edits.SaveResult.Failed -> null to r.reason
+                    }
+                }
+            }
+        } finally {
+            temp?.delete()
+        }
+    }
+
     // ---- reading time ----------------------------------------------------------------------
 
     private var lastTouch = android.os.SystemClock.elapsedRealtime()

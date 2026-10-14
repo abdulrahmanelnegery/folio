@@ -169,7 +169,8 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     val state by model.repo.state.collectAsState()
     val book = state.books.firstOrNull { it.id == id } ?: return
     val context = LocalView.current.context
-    val pdf by produceState<PdfFile?>(null, id) {
+    val reloadTick by model.pdfReload.collectAsState()
+    val pdf by produceState<PdfFile?>(null, id, reloadTick) {
         value = withContext(Dispatchers.IO) { PdfFile.open(context, Uri.parse(book.uri)) }
     }
     // Capture the file itself: the delegate would read the *new* value when the effect is disposed.
@@ -204,6 +205,22 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var markColor by remember { mutableStateOf(HighlightColors[0]) }
     var penWidth by remember { mutableFloatStateOf(PenWidths[1]) }
     var markNote by remember { mutableStateOf<MarkNoteEdit?>(null) }
+    var saveAsk by remember { mutableStateOf<SaveAsk?>(null) }
+    var confirm by remember { mutableStateOf<SaveConfirm?>(null) }
+    var saving by remember { mutableStateOf(false) }
+    // Closing or finishing with unsaved edits asks first; without any, it just closes.
+    val requestClose = {
+        when {
+            saving -> {}
+            !session.isEmpty -> saveAsk = SaveAsk(close = true)
+            editing -> { editing = false; editTool = EditTool.Hand }
+            else -> model.closeBook()
+        }
+    }
+    val finishEditing = {
+        if (session.isEmpty) { editing = false; editTool = EditTool.Hand } else saveAsk = SaveAsk(close = false)
+    }
+    androidx.activity.compose.BackHandler(enabled = editing || !session.isEmpty) { requestClose() }
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     val jumpTo = remember { mutableStateOf<Int?>(null) }
 
@@ -386,7 +403,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.97f), tonalElevation = 3.dp, shadowElevation = 4.dp) {
                     Column(Modifier.statusBarsPadding().padding(horizontal = 4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { model.closeBook() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+                            IconButton(onClick = { requestClose() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
                             Text(book.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             val marked = (current - 1) in book.bookmarks
                             IconButton(onClick = { model.repo.toggleBookmark(id, current - 1) }) {
@@ -403,7 +420,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                     DropdownMenuItem(
                                         leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                                         text = { Text(if (editing) "Finish editing" else "Edit this PDF") },
-                                        onClick = { menu = false; editing = !editing; editTool = EditTool.Hand; if (editing) { autoScroll = false; tool = null; barsVisible = true } },
+                                        onClick = { menu = false; if (editing) finishEditing() else { editing = true; editTool = EditTool.Hand; autoScroll = false; tool = null; barsVisible = true } },
                                     )
                                     DropdownMenuItem(
                                         leadingIcon = { Icon(Icons.Rounded.AddComment, null) },
@@ -482,7 +499,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     onColor = { if (editTool == EditTool.Highlight) markColor = it else penColor = it },
                     width = penWidth, onWidth = { penWidth = it },
                     canUndo = session.canUndo, canRedo = session.canRedo, onUndo = { session.undo() }, onRedo = { session.redo() },
-                    onDone = { editing = false; editTool = EditTool.Hand },
+                    onDone = { finishEditing() },
                 )
             }
 
@@ -573,6 +590,61 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
             onDismiss = { editNote = null },
         )
     }
+    saveAsk?.let { ask ->
+        fun run(mode: FolioViewModel.SaveMode) {
+            saving = true
+            model.saveEdits(id, mode) { ok ->
+                saving = false
+                if (ok) { saveAsk = null; if (ask.close) model.closeBook() else { editing = false; editTool = EditTool.Hand } }
+            }
+        }
+        val canOverwrite = remember(id, ask) { model.canOverwrite(id) }
+        AlertDialog(
+            onDismissRequest = { if (!saving) saveAsk = null },
+            title = { Text(if (saving) "Saving…" else "Save your edits?") },
+            text = {
+                if (saving) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        androidx.compose.material3.CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+                        Text("Writing the new file and checking it.")
+                    }
+                } else {
+                    Column {
+                        Text("${session.marks.size} edit${if (session.marks.size == 1) "" else "s"} on this PDF. The original is not changed unless you choose Overwrite.", style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { run(FolioViewModel.SaveMode.AsNew) }) { Text("Save as a new file") }
+                        if (canOverwrite) TextButton(onClick = { confirm = SaveConfirm.Overwrite }) { Text("Overwrite the original…") }
+                        else Text("This file cannot be replaced from here; save it as a new file.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = { confirm = SaveConfirm.Discard }) { Text("Discard the edits…", color = MaterialTheme.colorScheme.error) }
+                        TextButton(onClick = { saveAsk = null; if (ask.close) model.closeBook() else { editing = false; editTool = EditTool.Hand } }) { Text(if (ask.close) "Keep the draft and close" else "Keep the draft") }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { if (!saving) TextButton(onClick = { saveAsk = null }) { Text("Cancel") } },
+        )
+        when (confirm) {
+            SaveConfirm.Overwrite -> AlertDialog(
+                onDismissRequest = { confirm = null },
+                title = { Text("Replace the original?") },
+                text = { Text("The PDF itself is replaced with the edited one. Rukn first keeps a copy of the original in its “originals” folder, and only replaces the file once the new one has been written and checked.") },
+                confirmButton = { TextButton(onClick = { confirm = null; run(FolioViewModel.SaveMode.Overwrite) }) { Text("Replace") } },
+                dismissButton = { TextButton(onClick = { confirm = null }) { Text("Back") } },
+            )
+            SaveConfirm.Discard -> AlertDialog(
+                onDismissRequest = { confirm = null },
+                title = { Text("Discard the edits?") },
+                text = { Text("All ${session.marks.size} edits are deleted. This cannot be undone. The PDF is not changed.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirm = null; session.discard(); saveAsk = null
+                        if (ask.close) model.closeBook() else { editing = false; editTool = EditTool.Hand }
+                    }) { Text("Discard", color = MaterialTheme.colorScheme.error) }
+                },
+                dismissButton = { TextButton(onClick = { confirm = null }) { Text("Back") } },
+            )
+            null -> {}
+        }
+    }
     markNote?.let { m ->
         NoteDialog(
             NoteEdit(m.existing?.id, m.page, m.existing?.text.orEmpty()),
@@ -592,6 +664,11 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
 private data class ReturnPoint(val page: Int, val offset: Int)
 
 private data class NoteEdit(val id: Long?, val page: Int, val text: String)
+
+/** Asking what to do with the edits; [close] when the book is being closed (not only edit mode left). */
+private data class SaveAsk(val close: Boolean)
+
+private enum class SaveConfirm { Overwrite, Discard }
 
 /** A sticky note being placed or changed in an edit draft. */
 private data class MarkNoteEdit(val page: Int, val at: dev.folio.reader.edits.Pt, val existing: dev.folio.reader.edits.Note?)

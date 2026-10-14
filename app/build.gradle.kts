@@ -13,8 +13,8 @@ android {
         applicationId = "dev.folio.reader"
         minSdk = 26
         targetSdk = 35
-        versionCode = 26
-        versionName = "0.10.0"
+        versionCode = 27
+        versionName = "0.11.0"
     }
 
     signingConfigs {
@@ -58,7 +58,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
-    packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    packaging { resources.excludes += listOf("/META-INF/{AL2.0,LGPL2.1}", "org/bouncycastle/pqc/**") }
 }
 
 dependencies {
@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.icons)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.pdfbox.android)
     debugImplementation(libs.compose.tooling)
     testImplementation(libs.junit)
 }

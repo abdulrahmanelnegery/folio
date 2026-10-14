@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.0
+
+- **Edit PDFs.** Open the reader menu and choose *Edit this PDF*: highlighter (four colours), pen (four colours, three widths), underline, sticky notes with text, an eraser, undo and redo. Marks are fractions of the page, so they stay put when you zoom or crop margins, and they are saved to a draft file at once, so closing or killing the app loses nothing. Books with a draft show a "draft" tag in the library.
+- **Save, overwrite or discard.** When you finish editing or close the book you are asked: *Save as a new file* (never replaces anything), *Overwrite the original* (a second confirmation; the original is copied to an `originals` folder, the new file is written beside it and checked to open with the same page count, then swapped in with one rename; on any failure the original stays as it was) or *Discard* (also confirmed). Or keep the draft for later.
+- Highlights, underlines and drawings are painted into the page; notes are real PDF comments that keep their text (Arabic too). Rotated pages and pages with a crop box are handled. Files that come only through another app's provider can be saved as new but not replaced, and PDFs that forbid changes are refused with a message.
+- The app is about 1.8 MB larger because it now carries Apache PDFBox for writing the edits.
+- Not yet: selecting real text to highlight (a highlight is a box you drag), and editing marks after they are saved into a file.
+
 ## 0.10.0
 
 - **Comic books.** Add a `.cbz` (a zip of page images). It opens one page at a time: swipe sideways, tap to show or hide the bar, drag the slider to jump. Pages are ordered by number (page 2 before page 10), the cover is the first page, and Rukn remembers the page and marks the book finished on the last one. Other comic formats (`.cbr` and so on) are refused with a message to convert them to `.cbz`.
