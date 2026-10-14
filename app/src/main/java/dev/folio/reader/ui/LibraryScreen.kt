@@ -403,7 +403,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
                 if (tab == Tab.Home && query.isBlank()) {
-                    HomeContent(model, state, lists, onOpen = open, onDetails = details, onOpenList = { tab = Tab.List(it) }, onListMenu = { folderMenu = it }, onShelf = { tab = it }, onStats = { statsSheet = true }, startIndex = homeIndex, onIndex = { homeIndex = it })
+                    HomeContent(model, state, lists, onOpen = open, onDetails = details, onOpenList = { tab = Tab.List(it) }, onListMenu = { folderMenu = it }, onShelf = { tab = it }, onStats = { statsSheet = true }, onFiles = { onBrowse(null, null) }, startIndex = homeIndex, onIndex = { homeIndex = it })
                 } else if (shown.isEmpty() && children.isEmpty()) {
                     EmptyShelf(tab, onOpenPicker)
                 } else if (state.view == ViewMode.List || state.view == ViewMode.Details) {
@@ -1369,6 +1369,7 @@ private fun HomeContent(
     onListMenu: (String) -> Unit,
     onShelf: (Tab) -> Unit,
     onStats: () -> Unit,
+    onFiles: () -> Unit,
     startIndex: Int,
     onIndex: (Int) -> Unit,
 ) {
@@ -1400,6 +1401,7 @@ private fun HomeContent(
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 when (tabs[index % n]) {
                     HomeTab.Home -> {
+                        item(key = "greeting") { HomeGreeting(model, state, onShelf, onStats, onFiles) }
                         if (state.books.isEmpty()) item { EmptyShelf(Tab.Home, {}) }
                         recent.firstOrNull { it.status != Status.Finished }?.let { b -> item(key = "continue") { HeroCard(model, b, onOpen = { onOpen(b) }, onDetails = { onDetails(b) }) } }
                         if (recent.isNotEmpty()) item(key = "latest") {
@@ -1519,6 +1521,44 @@ private fun Panel2(title: String, content: @Composable ColumnScope.() -> Unit) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             content()
+        }
+    }
+}
+
+/** The top of Home: a greeting, how today is going, what is new, and shortcuts to the sections. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun HomeGreeting(model: FolioViewModel, state: dev.folio.reader.data.LibraryState, onShelf: (Tab) -> Unit, onStats: () -> Unit, onFiles: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty() }
+    val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
+    val greeting = when { hour < 5 -> "Still up?"; hour < 12 -> "Good morning"; hour < 18 -> "Good afternoon"; else -> "Good evening" }
+    val today = state.day(0)
+    val streak = state.streak()
+    val reading = state.books.count { it.status == Status.Reading }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column {
+            Text(greeting, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+                when {
+                    today.seconds > 0 -> "${minutesLabel(today.seconds)} read today" + if (streak > 1) ", a $streak day streak" else ""
+                    reading > 0 -> "$reading ${if (reading == 1) "book" else "books"} in progress"
+                    else -> "Pick a book to start"
+                },
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        val notes = remember(version) { dev.folio.reader.data.ReleaseNotes.forVersion(version) }
+        if (notes.isNotEmpty() && state.hiddenNews != version) {
+            Panel2("New in Rukn $version") {
+                notes.forEach { Text("\u2022  $it", style = MaterialTheme.typography.bodySmall) }
+                androidx.compose.material3.TextButton(onClick = { model.repo.update { it.copy(hiddenNews = version) } }) { Text("Hide") }
+            }
+        }
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Reading now" to { onShelf(Tab.ReadingNow) }, "To read" to { onShelf(Tab.ToRead) }, "Finished" to { onShelf(Tab.Finished) }, "Favourites" to { onShelf(Tab.Favorites) }, "All books" to { onShelf(Tab.All) }, "Stats" to onStats, "Files" to onFiles).forEach { (label, go) ->
+                androidx.compose.material3.AssistChip(onClick = go, label = { Text(label) })
+            }
         }
     }
 }

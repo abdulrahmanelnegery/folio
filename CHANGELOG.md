@@ -2,6 +2,8 @@
 
 ## 0.12.0
 
+- **A Home with sections.** Home opens with a greeting, how today is going (minutes read and your streak), a card for what is new (with Hide), and shortcuts to Reading now, To read, Finished, Favourites, All books, Stats and Files, above Continue and the latest books.
+- **Zoomed pages scroll and fling exactly like normal ones** (zoom is now real layout; pinch and double tap settle into it).
 - **A first-run tour** (five pages, with Skip, Next and Done): what Rukn does, your books, where your data lives, a reading theme and a start. Show it again from Settings.
 - **What's new** after an update: a short note with a Close button, shown once on the first open of a new version.
 - **A better opening.** The name sits clearly apart from the mark (28 dp), slides up as it appears, the corner draws with an eased stroke and the dot settles with a small bounce. About a second and a half.
