@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import dev.folio.reader.ui.FolioApp
@@ -15,11 +16,26 @@ class MainActivity : ComponentActivity() {
     private val model: FolioViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        val startTheme = dev.folio.reader.data.AppThemePrefs.load(this)
+        val systemDark = { (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES }
+        enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { startTheme.isDark(systemDark()) },
+            navigationBarStyle = androidx.activity.SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { startTheme.isDark(systemDark()) },
+        )
         super.onCreate(savedInstanceState)
+        // The window is painted in the chosen theme before Compose draws, so there is no flash of the other one.
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(if (startTheme.isDark(systemDark())) 0xFF0F0F0F.toInt() else 0xFFFFF8F0.toInt()))
         if (savedInstanceState == null) handle(intent)
         setContent {
-            FolioTheme {
+            val mode by model.appTheme.collectAsState()
+            androidx.compose.runtime.SideEffect {
+                val dark = { mode.isDark(systemDark()) }
+                enableEdgeToEdge(
+                    statusBarStyle = androidx.activity.SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { dark() },
+                    navigationBarStyle = androidx.activity.SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { dark() },
+                )
+            }
+            FolioTheme(mode) {
                 var splash by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(true) }
                 androidx.compose.foundation.layout.Box {
                     FolioApp(model)

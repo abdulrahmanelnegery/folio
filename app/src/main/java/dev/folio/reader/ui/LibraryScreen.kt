@@ -56,7 +56,7 @@ import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.DriveFileMove
+import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
 import androidx.compose.material.icons.rounded.FolderOff
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Remove
@@ -79,7 +79,7 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.ViewAgenda
-import androidx.compose.material.icons.rounded.ViewList
+import androidx.compose.material.icons.automirrored.rounded.ViewList
 import androidx.compose.material.icons.rounded.ViewModule
 import androidx.compose.material.icons.rounded.ViewStream
 import androidx.compose.material3.AlertDialog
@@ -193,7 +193,7 @@ private fun ViewMode.icon(): ImageVector = when (this) {
     ViewMode.Grid -> Icons.Rounded.GridView
     ViewMode.Compact -> Icons.Rounded.ViewModule
     ViewMode.Large -> Icons.Rounded.ViewAgenda
-    ViewMode.List -> Icons.Rounded.ViewList
+    ViewMode.List -> Icons.AutoMirrored.Rounded.ViewList
     ViewMode.Details -> Icons.Rounded.ViewStream
 }
 
@@ -798,7 +798,7 @@ private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String
         // Inside a list: take the book out of it, or carry it to another list (it stays in the library).
         if (here != null) {
             SheetRow(Icons.Rounded.FolderOff, "Remove from “${nameOf(here)}”") { ask = ConfirmRequest("Remove from “${nameOf(here)}”?", "The book stays in your library; only its place in this list is removed.") { model.repo.toggleList(book.id, here); onDismiss() } }
-            SheetRow(Icons.Rounded.DriveFileMove, if (picker == 2) "Move to… (tap to close)" else "Move to another list…") { picker = if (picker == 2) 0 else 2 }
+            SheetRow(Icons.AutoMirrored.Rounded.DriveFileMove, if (picker == 2) "Move to… (tap to close)" else "Move to another list…") { picker = if (picker == 2) 0 else 2 }
         }
         SheetRow(Icons.Rounded.Folder, if (picker == 1) "Lists (tap to close)" else if (here != null) "Also add to another list…" else "Add to a list…") { picker = if (picker == 1) 0 else 1 }
         if (picker != 0) {
@@ -963,7 +963,7 @@ private fun ManageListsSheet(model: FolioViewModel, lists: List<String>, onNewIn
                         IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
                         DropdownMenu(menu, { menu = false }) {
                             DropdownMenuItem(text = { Text("Rename") }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; renaming = path })
-                            DropdownMenuItem(text = { Text("Move to…") }, leadingIcon = { Icon(Icons.Rounded.DriveFileMove, null) }, onClick = { menu = false; movingList = path })
+                            DropdownMenuItem(text = { Text("Move to…") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.DriveFileMove, null) }, onClick = { menu = false; movingList = path })
                             DropdownMenuItem(text = { Text("New list inside") }, leadingIcon = { Icon(Icons.Rounded.CreateNewFolder, null) }, onClick = { menu = false; onNewIn(path) })
                             DropdownMenuItem(text = { Text("Delete") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; deleting = path })
                         }
@@ -1246,7 +1246,7 @@ private fun FolderSheet(model: FolioViewModel, state: dev.folio.reader.data.Libr
             }
             SheetRow(Icons.Rounded.AutoStories, "Open", onClick = onOpen)
             SheetRow(Icons.Rounded.Edit, "Rename") { renaming = true }
-            SheetRow(Icons.Rounded.DriveFileMove, "Move to another list…") { moving = true }
+            SheetRow(Icons.AutoMirrored.Rounded.DriveFileMove, "Move to another list…") { moving = true }
             SheetRow(Icons.Rounded.CreateNewFolder, "New list inside", onClick = onNewInside)
             SheetRow(Icons.Rounded.Delete, "Delete this list") { deleting = true }
         }

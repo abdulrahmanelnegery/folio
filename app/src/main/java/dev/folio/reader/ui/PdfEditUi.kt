@@ -22,7 +22,7 @@ import androidx.compose.material.icons.rounded.Create
 import androidx.compose.material.icons.rounded.FormatUnderlined
 import androidx.compose.material.icons.rounded.Highlight
 import androidx.compose.material.icons.rounded.PanTool
-import androidx.compose.material.icons.rounded.StickyNote2
+import androidx.compose.material.icons.automirrored.rounded.StickyNote2
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -218,7 +218,7 @@ fun EditToolbar(
                 ToolButton(EditTool.Highlight, tool, onTool, Icons.Rounded.Highlight, "Highlight")
                 ToolButton(EditTool.Pen, tool, onTool, Icons.Rounded.Create, "Pen")
                 ToolButton(EditTool.Underline, tool, onTool, Icons.Rounded.FormatUnderlined, "Underline")
-                ToolButton(EditTool.Note, tool, onTool, Icons.Rounded.StickyNote2, "Note")
+                ToolButton(EditTool.Note, tool, onTool, Icons.AutoMirrored.Rounded.StickyNote2, "Note")
                 ToolButton(EditTool.Eraser, tool, onTool, Icons.Rounded.AutoFixNormal, "Eraser")
                 IconButton(onClick = onUndo, enabled = canUndo) { Icon(Icons.AutoMirrored.Rounded.Undo, "Undo") }
                 IconButton(onClick = onRedo, enabled = canRedo) { Icon(Icons.AutoMirrored.Rounded.Redo, "Redo") }

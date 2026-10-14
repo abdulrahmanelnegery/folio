@@ -57,6 +57,6 @@ private val FolioShapes = Shapes(
 )
 
 @Composable
-fun FolioTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) Dark else Light, shapes = FolioShapes, content = content)
+fun FolioTheme(mode: dev.folio.reader.data.AppTheme = dev.folio.reader.data.AppTheme.System, content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = if (mode.isDark(isSystemInDarkTheme())) Dark else Light, shapes = FolioShapes, content = content)
 }

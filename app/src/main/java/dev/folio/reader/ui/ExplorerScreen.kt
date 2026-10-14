@@ -39,7 +39,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material.icons.rounded.Search
@@ -116,8 +116,8 @@ private fun volumes(): List<Triple<String, ImageVector, File>> {
 private fun iconFor(e: Entry): Pair<ImageVector, Color> = when {
     e.isDir -> Icons.Rounded.Folder to Color(0xFFE0A93B)
     e.kind == Kind.Pdf -> Icons.Rounded.PictureAsPdf to Color(0xFFD64545)
-    e.kind == Kind.Epub -> Icons.Rounded.MenuBook to Color(0xFF3F8F6B)
-    e.kind == Kind.Comic -> Icons.Rounded.MenuBook to Color(0xFF8A5BC4)
+    e.kind == Kind.Epub -> Icons.AutoMirrored.Rounded.MenuBook to Color(0xFF3F8F6B)
+    e.kind == Kind.Comic -> Icons.AutoMirrored.Rounded.MenuBook to Color(0xFF8A5BC4)
     e.kind == Kind.Text -> Icons.Rounded.Description to Color(0xFF4A7FB5)
     else -> Icons.AutoMirrored.Rounded.InsertDriveFile to Color(0xFF8A8F98)
 }

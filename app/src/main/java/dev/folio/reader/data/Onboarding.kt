@@ -30,6 +30,10 @@ object Onboarding {
 /** Short notes per version, taken from the changelog; shown once after an update. */
 object ReleaseNotes {
     private val notes: Map<String, List<String>> = mapOf(
+        "0.13.1" to listOf(
+            "A theme setting: System, Light or Dark for the whole app.",
+            "Settings opens at once; backups and folder checks load in the background.",
+        ),
         "0.13.0" to listOf(
             "A loading screen while a book opens, then straight to the page you were on.",
             "Book details start with your reading page, time read and sessions, and every detail can be edited (with a question before saving).",

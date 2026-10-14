@@ -26,7 +26,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material3.AlertDialog
@@ -145,7 +145,7 @@ fun TextScreen(model: FolioViewModel, id: String) {
                 actions = {
                     if (session != null) {
                         IconButton(onClick = { session.editing = !session.editing }) {
-                            Icon(if (session.editing) Icons.Rounded.MenuBook else Icons.Rounded.Edit, if (session.editing) "Read" else "Edit")
+                            Icon(if (session.editing) Icons.AutoMirrored.Rounded.MenuBook else Icons.Rounded.Edit, if (session.editing) "Read" else "Edit")
                         }
                         IconButton(onClick = { model.saveText(id) }, enabled = session.dirty) { Icon(Icons.Rounded.Save, "Save") }
                     }

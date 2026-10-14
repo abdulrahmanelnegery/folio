@@ -21,6 +21,13 @@ import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.Arrangement
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
@@ -65,7 +72,14 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
         uri?.let { confirm = { model.restoreFrom(it) } }
     }
     val tick by model.backupTick.collectAsState()
-    val backups: List<File> = remember(refresh, tick) { model.backups.files() }
+    // Everything slow is done off the main thread and filled in as it arrives, so the page opens at once:
+    // the backup list (and each backup's book count, one at a time) and the check of the old folders (which reads every file).
+    val backups: List<File> by produceState(emptyList<File>(), refresh, tick) { value = withContext(Dispatchers.IO) { model.backups.files() } }
+    val backupBooks = remember { androidx.compose.runtime.mutableStateMapOf<File, Int>() }
+    LaunchedEffect(backups) {
+        for (f in backups) if (f !in backupBooks) withContext(Dispatchers.IO) { model.backups.read(f)?.books?.size }?.let { backupBooks[f] = it }
+    }
+    val settingsScope = rememberCoroutineScope()
     val context = LocalContext.current
     // Coming back from the system's All files access screen, move to the Rukn folder if it was allowed.
     val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
@@ -105,6 +119,12 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
             }
 
             Header("General")
+            val appTheme by model.appTheme.collectAsState()
+            Text("App theme", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
+            Row(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                dev.folio.reader.data.AppTheme.entries.forEach { t -> androidx.compose.material3.FilterChip(appTheme == t, { model.setAppTheme(t) }, { Text(t.label) }) }
+            }
+            Text("The reading themes (Normal, Night, Soft night, Sepia) are set inside a book.", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Action(Icons.Rounded.FolderSpecial, "Show the tour again") { model.tourRequested.value = true }
             Row(
                 Modifier.fillMaxWidth().clickable { model.repo.update { it.copy(confirmExit = !it.confirmExit) } }.padding(horizontal = 24.dp, vertical = 8.dp),
@@ -134,7 +154,7 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
                 Text(it, Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
             }
             // The old folders stay as a backup after the copy; removing one asks first and checks every file again.
-            val oldFolders = remember(refresh, model.storage.root) { model.storage.removableOldFolders() }
+            val oldFolders by produceState(emptyList<File>(), refresh, model.storage.root) { value = withContext(Dispatchers.IO) { model.storage.removableOldFolders() } }
             oldFolders.forEach { old ->
                 Text("Your earlier folder ${old.path} was copied into the Zimam folder and checked. It is still there as a backup.", Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Action(Icons.Rounded.FolderSpecial, "Remove the old folder ${old.name}") { removeOld = old }
@@ -155,17 +175,17 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
                 Text("None yet. The first one is made when the library has a book in it.", Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             backups.forEach { file ->
-                val state = remember(file) { model.backups.read(file) }
-                Row(Modifier.fillMaxWidth().clickable(enabled = state != null) { confirm = { model.restoreFile(file) } }.padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                val books = backupBooks[file]
+                Row(Modifier.fillMaxWidth().clickable(enabled = books != null) { confirm = { model.restoreFile(file) } }.padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.History, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Column(Modifier.weight(1f).padding(start = 20.dp)) {
                         Text(Backups.label(file), style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            state?.let { "${it.books.size} books  ·  ${formatSize(file.length())}" } ?: "Unreadable",
+                            books?.let { "$it books  ·  ${formatSize(file.length())}" } ?: formatSize(file.length()),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    if (state != null) Text("Restore", color = MaterialTheme.colorScheme.primary)
+                    if (books != null) Text("Restore", color = MaterialTheme.colorScheme.primary)
                 }
             }
 
@@ -179,8 +199,8 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
             )
 
             Header("Storage")
-            Action(Icons.Rounded.CleaningServices, "Clear saved covers") { ask = ConfirmRequest("Clear saved covers?", "They are drawn again from your books when they are needed. Nothing in your library is removed.", "Clear") { model.covers.clear(); refresh++ } }
-            Action(Icons.Rounded.CleaningServices, "Clear saved pages (they are drawn again as you read)") { ask = ConfirmRequest("Clear saved pages?", "They are drawn again as you read, which can be slower for a while. Your books are not touched.", "Clear") { model.pageCache.clear(); refresh++ } }
+            Action(Icons.Rounded.CleaningServices, "Clear saved covers") { ask = ConfirmRequest("Clear saved covers?", "They are drawn again from your books when they are needed. Nothing in your library is removed.", "Clear") { settingsScope.launch { withContext(Dispatchers.IO) { model.covers.clear() }; refresh++ } } }
+            Action(Icons.Rounded.CleaningServices, "Clear saved pages (they are drawn again as you read)") { ask = ConfirmRequest("Clear saved pages?", "They are drawn again as you read, which can be slower for a while. Your books are not touched.", "Clear") { settingsScope.launch { withContext(Dispatchers.IO) { model.pageCache.clear() }; refresh++ } } }
 
             Header("About")
             Text("Rukn ${runCatching { androidx.compose.ui.platform.LocalContext.current.let { c -> c.packageManager.getPackageInfo(c.packageName, 0).versionName } }.getOrNull().orEmpty()}  ·  by Zimam", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
@@ -194,9 +214,12 @@ fun SettingsScreen(model: FolioViewModel, onBack: () -> Unit) {
             title = { Text("Remove ${old.name}?") },
             text = { Text("Rukn checks once more that every file in ${old.path} is in the Zimam folder, then deletes it. If anything differs, nothing is deleted.") },
             confirmButton = { TextButton(onClick = {
-                val ok = model.storage.removeOldFolder(old)
-                model.notify(if (ok) "Removed ${old.name}" else "Not removed: a file did not match, so the old folder was kept")
-                removeOld = null; refresh++
+                removeOld = null
+                settingsScope.launch {
+                    val ok = withContext(Dispatchers.IO) { model.storage.removeOldFolder(old) }
+                    model.notify(if (ok) "Removed ${old.name}" else "Not removed: a file did not match, so the old folder was kept")
+                    refresh++
+                }
             }) { Text("Remove") } },
             dismissButton = { TextButton(onClick = { removeOld = null }) { Text("Keep it") } },
         )
