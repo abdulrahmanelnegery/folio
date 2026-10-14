@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.14.0
+
+- **Rukn is now Manhal (منهل).** New name, new icon and look. The Android app id and the signing key are unchanged, so it updates your installed copy. Your data is copied to `Zimam/Manhal` (checked file by file, never overwritten, the old folders kept as a backup); files you used to keep in `Zimam/Rukn` are copied too.
 
 - **Arabic and right-to-left.** The whole interface is also in Arabic, with a Language setting (System, English, العربية) and a choice of Arabic-Indic digits. The layout mirrors for right-to-left; comics keep their page order. A check in CI fails when an English text has no Arabic one.
 

@@ -8,8 +8,8 @@ import android.os.Environment
 import java.io.File
 
 /**
- * Where Rukn keeps its own data: the library (reading places, lists, ratings, notes), backups
- * and cover thumbnails. With "All files access" it is a visible `Zimam/Rukn` folder on the phone, which
+ * Where Manhal keeps its own data: the library (reading places, lists, ratings, notes), backups
+ * and cover thumbnails. With "All files access" it is a visible `Zimam/Manhal` folder on the phone, which
  * survives reinstalling the app; without it, the app's private folder. Older folders are copied into it, verified
  * and left in place as a backup.
  */
@@ -25,16 +25,16 @@ class Storage(private val context: Context) {
     private fun initialRoot(): File {
         if (!canUseShared()) return context.filesDir
         val olds = oldFolders()
-        if (olds.all { FolderMigration.marker(sharedFolder, it.name).isFile }) return sharedFolder.takeIf { it.isDirectory && it.canWrite() } ?: context.filesDir
+        if (olds.all { FolderMigration.marker(sharedFolder, labelOf(it)).isFile }) return sharedFolder.takeIf { it.isDirectory && it.canWrite() } ?: context.filesDir
         return olds.firstOrNull { File(it, LIBRARY).isFile } ?: context.filesDir
     }
 
     val shared: Boolean get() = root != context.filesDir
 
-    val sharedFolder: File get() = File(Environment.getExternalStorageDirectory(), "Zimam/Rukn")
+    val sharedFolder: File get() = File(Environment.getExternalStorageDirectory(), "Zimam/Manhal")
 
-    /** Where earlier versions kept it: the hidden `.folio`, the visible `Folio` (the app was called Folio before Rukn), then the visible `Rukn` that sat beside the other apps' folders. */
-    val legacyFolders: List<File> get() = listOf(".folio", "Folio", "Rukn").map { File(Environment.getExternalStorageDirectory(), it) }
+    /** Where earlier versions kept it: the hidden `.folio`, the visible `Folio` (the app was called Folio before Rukn), then the visible `Rukn` and `Zimam/Rukn` of the app's earlier name, which sat beside the other apps' folders. */
+    val legacyFolders: List<File> get() = listOf(".folio", "Folio", "Rukn", "Zimam/Rukn").map { File(Environment.getExternalStorageDirectory(), it) }
 
     fun canUseShared(): Boolean = Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()
 
@@ -55,11 +55,11 @@ class Storage(private val context: Context) {
         private set
 
     /** Old folders whose every file is verified in the Zimam folder right now, so removing them loses nothing. */
-    fun removableOldFolders(): List<File> = if (root == sharedFolder) oldFolders().filter { FolderMigration.safeToRemove(it, sharedFolder) } else emptyList()
+    fun removableOldFolders(): List<File> = if (root == sharedFolder) oldFolders().filter { FolderMigration.safeToRemove(it, sharedFolder, labelOf(it)) } else emptyList()
 
     /** Removes one old folder, only after checking again that everything in it is in the Zimam folder. */
     fun removeOldFolder(folder: File): Boolean {
-        if (folder !in removableOldFolders() || !FolderMigration.safeToRemove(folder, sharedFolder)) return false
+        if (folder !in removableOldFolders() || !FolderMigration.safeToRemove(folder, sharedFolder, labelOf(folder))) return false
         return folder.deleteRecursively()
     }
 
@@ -74,8 +74,8 @@ class Storage(private val context: Context) {
         var target = if (canUseShared()) sharedFolder.also { it.mkdirs() }.takeIf { it.isDirectory && it.canWrite() } ?: context.filesDir else context.filesDir
         if (target == sharedFolder) {
             for (old in oldFolders()) {
-                if (FolderMigration.upToDate(old, sharedFolder)) continue
-                val r = FolderMigration.copyAndVerify(old, sharedFolder, cancelled = { cancelled })
+                if (FolderMigration.upToDate(old, sharedFolder, labelOf(old))) continue
+                val r = FolderMigration.copyAndVerify(old, sharedFolder, labelOf(old), cancelled = { cancelled })
                 if (!r.ok) {
                     migrationMessage = s(R.string.rukn_could_not_verify_the, old.path, sharedFolder.path)
                     target = old
@@ -107,6 +107,9 @@ class Storage(private val context: Context) {
     }
 
     companion object {
+        /** The name that marks a copied old folder; the old `Zimam/Rukn` and the old `Rukn` beside it must not share one. */
+        fun labelOf(folder: File): String = if (folder.parentFile?.name == "Zimam") "Zimam-${folder.name}" else folder.name
+
         const val LIBRARY = "library.json"
         const val BACKUPS = "backups"
     }

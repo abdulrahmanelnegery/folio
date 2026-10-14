@@ -86,10 +86,10 @@ class PdfFile private constructor(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: OutOfMemoryError) {
-            Log.w("Rukn", "out of memory drawing page $page", e)
+            Log.w("Manhal", "out of memory drawing page $page", e)
             null
         } catch (e: Exception) {
-            Log.w("Rukn", "page $page did not render", e)
+            Log.w("Manhal", "page $page did not render", e)
             null
         }
     }
@@ -173,7 +173,7 @@ class PdfFile private constructor(
                 val first = renderer.openPage(0).use { it.width.toFloat() to it.height.toFloat() }
                 PdfFile(descriptor, renderer, Array(renderer.pageCount) { first })
             } catch (e: Exception) {
-                Log.w("Rukn", "could not open $uri", e)
+                Log.w("Manhal", "could not open $uri", e)
                 runCatching { descriptor.close() }
                 null
             }

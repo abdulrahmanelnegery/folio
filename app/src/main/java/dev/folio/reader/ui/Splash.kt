@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
-private val SplashInk = Color(0xFF231006)
+private val SplashInk = Color(0xFF1E1B18)
 private val SplashCream = Color(0xFFF5F1E8)
 private val SplashOrange = Color(0xFFFF5A1F)
 

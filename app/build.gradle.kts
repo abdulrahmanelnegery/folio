@@ -13,8 +13,8 @@ android {
         applicationId = "dev.folio.reader"
         minSdk = 26
         targetSdk = 35
-        versionCode = 33
-        versionName = "0.13.1"
+        versionCode = 34
+        versionName = "0.14.0"
     }
 
     signingConfigs {
@@ -24,12 +24,12 @@ android {
             enableV2Signing = true
             enableV3Signing = true
             enableV4Signing = true
-            val store = System.getenv("FOLIO_KEYSTORE")
+            val store = System.getenv("MANHAL_KEYSTORE") ?: System.getenv("FOLIO_KEYSTORE")
             if (store != null) {
                 storeFile = file(store)
-                storePassword = System.getenv("FOLIO_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("FOLIO_KEY_ALIAS") ?: "folio"
-                keyPassword = System.getenv("FOLIO_KEYSTORE_PASSWORD")
+                storePassword = (System.getenv("MANHAL_KEYSTORE_PASSWORD") ?: System.getenv("FOLIO_KEYSTORE_PASSWORD"))
+                keyAlias = System.getenv("MANHAL_KEY_ALIAS") ?: System.getenv("FOLIO_KEY_ALIAS") ?: "folio"
+                keyPassword = (System.getenv("MANHAL_KEYSTORE_PASSWORD") ?: System.getenv("FOLIO_KEYSTORE_PASSWORD"))
             }
         }
     }
@@ -39,7 +39,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            if (System.getenv("FOLIO_KEYSTORE") != null) signingConfig = signingConfigs.getByName("release")
+            if ((System.getenv("MANHAL_KEYSTORE") ?: System.getenv("FOLIO_KEYSTORE")) != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 

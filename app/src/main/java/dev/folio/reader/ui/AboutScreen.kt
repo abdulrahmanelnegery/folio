@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import dev.folio.reader.FolioViewModel
 import dev.folio.reader.data.ReleaseNotes
 
-private const val REPO = "https://github.com/zimamlabs/rukn"
+private const val REPO = "https://github.com/zimamlabs/manhal"
 
 /** The About page: the mark on a glow, what Rukn is, the tour and what's new, the privacy promise, the links and who makes it. */
 @OptIn(ExperimentalMaterial3Api::class)
