@@ -2,7 +2,7 @@
 
 <h1 align="center">Manhal <sub>منهل</sub></h1>
 
-<p align="center">A calm reader for PDFs, EPUB books, comics, text and paper books, by <a href="https://github.com/zimamlabs">Zimam Labs</a>.<br>Formerly Folio. Android.</p>
+<p align="center">A calm reader for PDFs, EPUB books, comics, text and paper books, by <a href="https://github.com/zimamlabs">Zimam Labs</a>.<br>Formerly Rukn and Folio. Android.</p>
 
 <p align="center">
   <a href="../../releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/zimamlabs/manhal?color=FF5A1F&labelColor=1A1613"></a>
