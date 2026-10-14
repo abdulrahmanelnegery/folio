@@ -101,12 +101,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.ui.input.pointer.util.VelocityTracker
-import androidx.compose.animation.core.animateDecay
-import kotlinx.coroutines.Job
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -186,7 +184,6 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var barsVisible by remember { mutableStateOf(true) }
     var zoom by remember { mutableFloatStateOf(1f) }
     var offX by remember { mutableFloatStateOf(0f) }
-    var viewH by remember { mutableIntStateOf(0) }
     val theme = state.theme
     ImmersiveBars(barsVisible)
     ReadingClock(model, id)
@@ -199,7 +196,6 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var returnTo by remember { mutableStateOf<ReturnPoint?>(null) }
     var detecting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    var flingJob by remember { mutableStateOf<Job?>(null) }
     var sizesVersion by remember { mutableStateOf(0) }
     var autoScroll by remember { mutableStateOf(false) }
     var autoSpeed by remember { mutableFloatStateOf(70f) }
@@ -305,7 +301,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     snapshotFlow { list.firstVisibleItemIndex to list.firstVisibleItemScrollOffset }
                         .debounce(600)
                         .collect { (page, px) ->
-                            val height = (widthPx * file.aspect(page)).coerceAtLeast(1f)
+                            val height = (widthPx * zoom * file.aspect(page)).coerceAtLeast(1f)
                             val atEnd = page >= file.pageCount - 1 && px / height > 0.3f
                             model.repo.updateBook(id) {
                                 it.copy(
@@ -318,87 +314,90 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                         }
                 }
 
-                LazyColumn(
-                    state = list,
-                    // Room below the last page so the end of the book can be scrolled into the zoomed window.
-                    contentPadding = PaddingValues(bottom = with(androidx.compose.ui.platform.LocalDensity.current) { (viewH * (1f - 1f / zoom)).toDp() }),
-                    modifier = Modifier
+                // Zoom is real layout: the pages are drawn wider than the screen and the list scrolls them natively, so a zoomed page
+                // scrolls and flings exactly like a normal one. Pinching and the double tap scale the view for the moment and then settle into the layout.
+                val viewW = widthPx.toFloat()
+                val viewHpx = with(androidx.compose.ui.platform.LocalDensity.current) { maxHeight.toPx() }
+                var live by remember { mutableFloatStateOf(1f) }
+                var liveOx by remember { mutableFloatStateOf(0f) }
+                var liveOy by remember { mutableFloatStateOf(0f) }
+                var liveTx by remember { mutableFloatStateOf(0f) }
+                var liveTy by remember { mutableFloatStateOf(0f) }
+                // Settles the moment's scale into the layout, keeping the point at (ox, oy) under (cx, cy).
+                suspend fun settle(scale: Float, ox: Float, oy: Float, cx: Float, cy: Float) {
+                    val newZoom = (zoom * scale).coerceIn(1f, MAX_ZOOM)
+                    val r = newZoom / zoom
+                    val index = list.firstVisibleItemIndex
+                    val inside = list.firstVisibleItemScrollOffset
+                    val newOff = (cx - (ox - offX) * r).coerceIn(viewW * (1f - newZoom), 0f)
+                    zoom = newZoom
+                    offX = newOff
+                    live = 1f; liveTx = 0f; liveTy = 0f
+                    if (r != 1f) {
+                        androidx.compose.runtime.withFrameNanos { }
+                        list.scrollToItem(index, 0)
+                        list.scrollBy((inside + oy) * r - cy)
+                    }
+                }
+                Box(
+                    Modifier
                         .fillMaxSize()
-                        .onSizeChanged { viewH = it.height }
-                        .graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = offX; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f) }
+                        .graphicsLayer {
+                            scaleX = live; scaleY = live
+                            translationX = liveTx; translationY = liveTy
+                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(liveOx / viewW.coerceAtLeast(1f), liveOy / viewHpx.coerceAtLeast(1f))
+                        }
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onTap = { barsVisible = !barsVisible },
                                 // A double tap zooms in on the spot you tapped, or back out, with a short glide.
                                 onDoubleTap = { p ->
-                                    val z0 = zoom; val x0 = offX; var prevZ = z0
-                                    val z1 = if (z0 > 1.05f) 1f else DOUBLE_TAP_ZOOM
-                                    val w = size.width.toFloat(); val h = size.height.toFloat()
+                                    val target = if (zoom > 1.05f) 1f else DOUBLE_TAP_ZOOM
+                                    val scale = target / zoom
                                     scope.launch {
-                                        androidx.compose.animation.core.animate(0f, 1f, animationSpec = androidx.compose.animation.core.tween(240)) { t, _ ->
-                                            val z = z0 + (z1 - z0) * t
-                                            // The point under your finger stays where it is while the page grows around it.
-                                            offX = (p.x * z0 + x0 - p.x * z).coerceIn(w * (1f - z), 0f)
-                                            // Up and down is the book's own scroll, so the page under your finger stays put by moving the list.
-                                            list.dispatchRawDelta(p.y / prevZ - p.y / z)
-                                            prevZ = z
-                                            zoom = z
-                                        }
+                                        liveOx = p.x; liveOy = p.y
+                                        androidx.compose.animation.core.animate(1f, scale, animationSpec = androidx.compose.animation.core.tween(240)) { v, _ -> live = v }
+                                        settle(scale, p.x, p.y, p.x, p.y)
                                     }
                                 },
                             )
                         }
                         .pointerInput(Unit) {
-                            // Two fingers pinch and pan. One finger on a zoomed page pans it, with a fling when you let go;
-                            // a plain tap is left alone so a double tap can zoom back out, and on a fit page the list scrolls itself.
+                            // Two fingers pinch and pan. One finger on a zoomed page only slides it sideways; up and down is left to the list,
+                            // which scrolls and flings as it does at normal size.
                             val slop = viewConfiguration.touchSlop
-                            // Moves the zoomed page; what runs past its edge scrolls the book.
-                            fun panBy(dx: Float, dy: Float) {
-                                offX = (offX + dx).coerceIn(size.width * (1f - zoom), 0f)
-                                // Up and down is the list scrolling, the same as at normal size.
-                                if (dy != 0f) list.dispatchRawDelta(-dy / zoom)
-                            }
                             awaitEachGesture {
                                 awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                                flingJob?.cancel()
-                                val tracker = VelocityTracker()
-                                var moved = androidx.compose.ui.geometry.Offset.Zero
-                                var panning = false
-                                var pinched = false
+                                var moved = 0f
+                                var pinching = false
+                                var ox = 0f; var oy = 0f; var cx = 0f; var cy = 0f
                                 do {
                                     val event = awaitPointerEvent(PointerEventPass.Initial)
                                     if (event.changes.size >= 2) {
-                                        pinched = true
-                                        val nz = (zoom * event.calculateZoom()).coerceIn(1f, MAX_ZOOM)
                                         val c = event.calculateCentroid()
-                                        val pan = event.calculatePan()
-                                        offX = (c.x * zoom + offX + pan.x - c.x * nz).coerceIn(size.width * (1f - nz), 0f)
-                                        list.dispatchRawDelta(c.y / zoom - c.y / nz - pan.y / nz)
-                                        zoom = nz
+                                        if (!pinching) { pinching = true; ox = c.x; oy = c.y; liveOx = c.x; liveOy = c.y; liveTx = 0f; liveTy = 0f }
+                                        live = (live * event.calculateZoom()).coerceIn(1f / zoom, MAX_ZOOM / zoom)
+                                        cx = c.x; cy = c.y
+                                        liveTx = cx - ox; liveTy = cy - oy
                                         event.changes.forEach { it.consume() }
-                                    } else if (!pinched && zoom > 1.01f && event.changes.size == 1 && !(editing && editTool != EditTool.Hand)) {
-                                        val change = event.changes[0]
-                                        tracker.addPosition(change.uptimeMillis, change.position)
+                                    } else if (!pinching && zoom > 1.01f && event.changes.size == 1 && !(editing && editTool != EditTool.Hand)) {
                                         val pan = event.calculatePan()
-                                        moved += pan
-                                        if (!panning && moved.getDistance() > slop) {
-                                            panning = true
-                                            panBy(moved.x, moved.y)
-                                            change.consume()
-                                        } else if (panning) {
-                                            panBy(pan.x, pan.y)
-                                            change.consume()
-                                        }
+                                        moved += kotlin.math.abs(pan.x)
+                                        if (moved > slop) offX = (offX + pan.x).coerceIn(viewW * (1f - zoom), 0f)
                                     }
                                 } while (event.changes.any { it.pressed })
-                                if (panning && !pinched && zoom > 1.01f) {
-                                    val v = tracker.calculateVelocity().y
-                                    if (kotlin.math.abs(v) > 200f) flingJob = scope.launch {
-                                        var last = 0f
-                                        animateDecay(0f, v, androidx.compose.animation.core.FloatExponentialDecaySpec()) { value, _ -> panBy(0f, value - last); last = value }
-                                    }
-                                }
+                                if (pinching) scope.launch { settle(live, ox, oy, cx, cy) }
                             }
+                        },
+                ) {
+                LazyColumn(
+                    state = list,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .layout { measurable, constraints ->
+                            val w = (constraints.maxWidth * zoom).roundToInt().coerceAtLeast(1)
+                            val placeable = measurable.measure(androidx.compose.ui.unit.Constraints.fixed(w, constraints.maxHeight))
+                            layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(offX.roundToInt(), 0) }
                         },
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -409,6 +408,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                             color = when (editTool) { EditTool.Highlight -> markColor; else -> penColor }, width = penWidth,
                             onNote = { pt, existing -> markNote = MarkNoteEdit(index, pt, existing) })
                     }
+                }
                 }
             }
             val current = (list.firstVisibleItemIndex + 1).coerceIn(1, file.pageCount)
