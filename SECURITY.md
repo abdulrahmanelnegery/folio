@@ -1,6 +1,6 @@
 # Security
 
-Rukn keeps your data on your own device and has no server, so most reports are about the app itself: how files are read and written, permissions, and the signed downloads.
+Manhal keeps your data on your own device and has no server, so most reports are about the app itself: how files are read and written, permissions, and the signed downloads.
 
 ## Report a problem
 

@@ -1,6 +1,6 @@
-# Contributing to Rukn
+# Contributing to Manhal
 
-Rukn is a small open-source app by [Zimam Labs](https://github.com/zimamlabs). Ideas, bug reports and pull requests are welcome.
+Manhal is a small open-source app by [Zimam Labs](https://github.com/zimamlabs). Ideas, bug reports and pull requests are welcome.
 
 ## Before you start
 
