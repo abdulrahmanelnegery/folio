@@ -112,4 +112,13 @@ class AnnotationsTest {
         assertEquals(0.5f, shownAspect(200f, 100f, 180), 0.001f)
         assertEquals(2f, shownAspect(200f, 100f, 270), 0.001f)
     }
+
+    @Test fun `a long stroke is thinned but keeps its ends and its shape`() {
+        val line = (0..1000).map { Pt(it / 1000f, 0.5f) }
+        val thin = dev.folio.reader.ui.thin(line)
+        assertTrue(thin.size < 700)
+        assertEquals(line.first(), thin.first())
+        assertEquals(line.last(), thin.last())
+        assertEquals(line.take(2), dev.folio.reader.ui.thin(line.take(2)))
+    }
 }

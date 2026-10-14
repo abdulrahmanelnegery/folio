@@ -139,7 +139,7 @@ private fun distance(px: Float, py: Float, ax: Float, ay: Float, bx: Float, by: 
  * Maps between the page's fractions and the part of it on screen. When margins are cropped only the middle of the
  * page shows; [l], [t] are the cropped fractions and [visW], [visH] what is left.
  */
-class PageMapper(private val l: Float = 0f, private val t: Float = 0f, private val visW: Float = 1f, private val visH: Float = 1f) {
+class PageMapper(val l: Float = 0f, val t: Float = 0f, val visW: Float = 1f, val visH: Float = 1f) {
     fun screenX(x: Float, width: Float) = (x - l) / visW * width
     fun screenY(y: Float, height: Float) = (y - t) / visH * height
     fun pageX(px: Float, width: Float) = (px / width * visW + l).coerceIn(0f, 1f)

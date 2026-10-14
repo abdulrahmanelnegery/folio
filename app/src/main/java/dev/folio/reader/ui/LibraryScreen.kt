@@ -558,6 +558,9 @@ private fun Cover(model: FolioViewModel, book: Book, modifier: Modifier = Modifi
         if (marks && book.favorite) {
             Icon(Icons.Rounded.Star, null, tint = Color(0xFFF2B12E), modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(20.dp))
         }
+        if (marks && book.draftMarks > 0) {
+            Text("✎ draft", Modifier.align(Alignment.BottomEnd).padding(6.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFFF5A1F)).padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.labelSmall)
+        }
         if (marks && book.status == Status.Finished) {
             Icon(Icons.Rounded.CheckCircle, null, tint = Color.White, modifier = Modifier.align(Alignment.TopStart).padding(6.dp).size(20.dp).background(Color(0xFF2E7D5B), androidx.compose.foundation.shape.CircleShape))
         }

@@ -57,6 +57,16 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) { if (backups.auto(repo.state.value)) _backupTick.value++ }
     }
 
+    // ---- PDF edit drafts -------------------------------------------------------------------
+
+    private val editSessions = HashMap<String, dev.folio.reader.edits.EditSession>()
+
+    /** The draft of [id]'s PDF edits; the same object while the app lives, so it survives leaving the reader. */
+    @Synchronized
+    fun editSession(id: String): dev.folio.reader.edits.EditSession = editSessions.getOrPut(id) {
+        dev.folio.reader.edits.EditSession(File(storage.dir("edits"), "$id.json"), viewModelScope) { n -> repo.updateBook(id) { it.copy(draftMarks = n) } }
+    }
+
     // ---- reading time ----------------------------------------------------------------------
 
     private var lastTouch = android.os.SystemClock.elapsedRealtime()
@@ -271,6 +281,8 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         dev.folio.reader.epub.EpubStore.delete(getApplication(), id)
         dev.folio.reader.epub.ComicStore.delete(getApplication(), id)
         discardText(id)
+        editSession(id).discard()
+        synchronized(this) { editSessions.remove(id) }
         repo.remove(id)
     }
 
