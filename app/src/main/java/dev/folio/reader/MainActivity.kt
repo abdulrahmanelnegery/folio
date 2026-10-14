@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
                 var splash by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(true) }
                 androidx.compose.foundation.layout.Box {
                     FolioApp(model)
+                    if (!splash) dev.folio.reader.ui.WelcomeHost(model)
                     androidx.compose.animation.AnimatedVisibility(splash, exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(260))) {
                         dev.folio.reader.ui.Splash("Rukn") { splash = false }
                     }

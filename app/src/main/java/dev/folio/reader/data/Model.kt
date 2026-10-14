@@ -172,6 +172,10 @@ data class LibraryState(
     val epubTextPercent: Int = 100,
     /** Optional free Google Books key; without it the shared quota is often used up for the day. */
     val googleBooksKey: String = "",
+    /** The version whose what's-new notes were closed last; empty when never. */
+    val lastSeenVersion: String = "",
+    /** The first-run tour was finished or skipped. */
+    val tourDone: Boolean = false,
     /** The folder the file explorer was last in. */
     val explorerDir: String = "",
     /** One entry per time a book was opened and closed. */

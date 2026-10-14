@@ -44,6 +44,8 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     val storage = Storage(app).also { it.refresh() }
     val repo = LibraryRepository(storage, viewModelScope)
     val covers = Covers(app, storage)
+    /** Set from Settings to show the first-run tour again. */
+    val tourRequested = kotlinx.coroutines.flow.MutableStateFlow(false)
     val pageCache = dev.folio.reader.pdf.PageDiskCache(storage)
     val backups = Backups(storage)
 
