@@ -101,6 +101,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.animation.core.animateDecay
 import kotlinx.coroutines.Job
@@ -183,7 +186,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var barsVisible by remember { mutableStateOf(true) }
     var zoom by remember { mutableFloatStateOf(1f) }
     var offX by remember { mutableFloatStateOf(0f) }
-    var offY by remember { mutableFloatStateOf(0f) }
+    var viewH by remember { mutableIntStateOf(0) }
     val theme = state.theme
     ImmersiveBars(barsVisible)
     ReadingClock(model, id)
@@ -317,15 +320,18 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
 
                 LazyColumn(
                     state = list,
+                    // Room below the last page so the end of the book can be scrolled into the zoomed window.
+                    contentPadding = PaddingValues(bottom = with(androidx.compose.ui.platform.LocalDensity.current) { (viewH * (1f - 1f / zoom)).toDp() }),
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = offX; translationY = offY; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f) }
+                        .onSizeChanged { viewH = it.height }
+                        .graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = offX; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f) }
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onTap = { barsVisible = !barsVisible },
                                 // A double tap zooms in on the spot you tapped, or back out, with a short glide.
                                 onDoubleTap = { p ->
-                                    val z0 = zoom; val x0 = offX; val y0 = offY
+                                    val z0 = zoom; val x0 = offX; var prevZ = z0
                                     val z1 = if (z0 > 1.05f) 1f else DOUBLE_TAP_ZOOM
                                     val w = size.width.toFloat(); val h = size.height.toFloat()
                                     scope.launch {
@@ -333,7 +339,9 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                             val z = z0 + (z1 - z0) * t
                                             // The point under your finger stays where it is while the page grows around it.
                                             offX = (p.x * z0 + x0 - p.x * z).coerceIn(w * (1f - z), 0f)
-                                            offY = (p.y * z0 + y0 - p.y * z).coerceIn(h * (1f - z), 0f)
+                                            // Up and down is the book's own scroll, so the page under your finger stays put by moving the list.
+                                            list.dispatchRawDelta(p.y / prevZ - p.y / z)
+                                            prevZ = z
                                             zoom = z
                                         }
                                     }
@@ -347,10 +355,8 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                             // Moves the zoomed page; what runs past its edge scrolls the book.
                             fun panBy(dx: Float, dy: Float) {
                                 offX = (offX + dx).coerceIn(size.width * (1f - zoom), 0f)
-                                val wantY = offY + dy
-                                offY = wantY.coerceIn(size.height * (1f - zoom), 0f)
-                                val spill = wantY - offY
-                                if (spill != 0f) list.dispatchRawDelta(-spill / zoom)
+                                // Up and down is the list scrolling, the same as at normal size.
+                                if (dy != 0f) list.dispatchRawDelta(-dy / zoom)
                             }
                             awaitEachGesture {
                                 awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
@@ -367,7 +373,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                         val c = event.calculateCentroid()
                                         val pan = event.calculatePan()
                                         offX = (c.x * zoom + offX + pan.x - c.x * nz).coerceIn(size.width * (1f - nz), 0f)
-                                        offY = (c.y * zoom + offY + pan.y - c.y * nz).coerceIn(size.height * (1f - nz), 0f)
+                                        list.dispatchRawDelta(c.y / zoom - c.y / nz - pan.y / nz)
                                         zoom = nz
                                         event.changes.forEach { it.consume() }
                                     } else if (!pinched && zoom > 1.01f && event.changes.size == 1 && !(editing && editTool != EditTool.Hand)) {
