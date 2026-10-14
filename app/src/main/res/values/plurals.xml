@@ -1,0 +1,9 @@
+<resources>
+    <plurals name="pages_n"><item quantity="one">%1$d page</item><item quantity="other">%1$d pages</item></plurals>
+    <plurals name="days_n"><item quantity="one">%1$d day</item><item quantity="other">%1$d days</item></plurals>
+    <plurals name="days_now"><item quantity="one">%1$d day now</item><item quantity="other">%1$d days now</item></plurals>
+    <plurals name="books_in_progress"><item quantity="one">%1$d book in progress</item><item quantity="other">%1$d books in progress</item></plurals>
+    <plurals name="edits_on_pdf"><item quantity="one">%1$d edit on this PDF. The original is not changed unless you choose Overwrite.</item><item quantity="other">%1$d edits on this PDF. The original is not changed unless you choose Overwrite.</item></plurals>
+    <plurals name="chapters_n"><item quantity="one">%1$d chapter</item><item quantity="other">%1$d chapters</item></plurals>
+    <plurals name="lines_n"><item quantity="one">%1$d line</item><item quantity="other">%1$d lines</item></plurals>
+</resources>

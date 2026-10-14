@@ -1,5 +1,11 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.sp
+import dev.folio.reader.data.label
+import dev.folio.reader.data.note
+import androidx.annotation.StringRes
+import dev.folio.reader.R
+import dev.folio.reader.s
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -58,7 +64,7 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
 import androidx.compose.material.icons.rounded.FolderOff
-import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Checklist
@@ -170,12 +176,12 @@ import java.text.DateFormat
 import java.util.Date
 
 private fun Tab.title(): String = when (this) {
-    Tab.Home -> "Home"
-    Tab.ReadingNow -> "Reading now"
-    Tab.ToRead -> "To read"
-    Tab.Finished -> "Finished"
-    Tab.Favorites -> "Favorites"
-    Tab.All -> "All books"
+    Tab.Home -> s(R.string.home)
+    Tab.ReadingNow -> s(R.string.reading_now)
+    Tab.ToRead -> s(R.string.to_read)
+    Tab.Finished -> s(R.string.finished)
+    Tab.Favorites -> s(R.string.favorites)
+    Tab.All -> s(R.string.all_books)
     is Tab.List -> nameOf(path)
 }
 
@@ -263,16 +269,16 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
             ModalDrawerSheet {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Column(Modifier.padding(horizontal = 28.dp, vertical = 24.dp)) {
-                        Text("Rukn", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-                        Text("by Zimam", style = MaterialTheme.typography.labelMedium, color = Color(0xFFFF5A1F))
+                        Text(s(R.string.rukn), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                        Text(s(R.string.by_zimam), style = MaterialTheme.typography.labelMedium, color = Color(0xFFFF5A1F))
                     }
                     shelves.forEach { t ->
                         DrawerEntry(t.icon(), t.title(), if (t == Tab.Home) null else state.books.count { it.inTab(t) }, tab == t, 0) { tab = t; scope.launch { drawer.close() } }
                     }
                     HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
                     Row(Modifier.fillMaxWidth().padding(start = 28.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Lists", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                        if (lists.isNotEmpty()) TextButton(onClick = { scope.launch { drawer.close() }; manageLists = true }) { Text("Manage") }
+                        Text(s(R.string.lists), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                        if (lists.isNotEmpty()) TextButton(onClick = { scope.launch { drawer.close() }; manageLists = true }) { Text(s(R.string.manage)) }
                     }
                     // Only the top level here; the lists inside open as folders once a list is.
                     lists.filter { depthOf(it) == 0 }.forEach { path ->
@@ -280,34 +286,37 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                         val inside = (tab as? Tab.List)?.let { isInside(it.path, path) } == true
                         DrawerEntry(Icons.Rounded.Folder, nameOf(path), state.books.count { it.inTab(t, deep = false) }, inside, 0, onLongClick = { scope.launch { drawer.close() }; folderMenu = path }) { tab = t; scope.launch { drawer.close() } }
                     }
-                    DrawerEntry(Icons.Rounded.CreateNewFolder, "New list", null, false, 0) { scope.launch { drawer.close() }; newList = NewList("", null) }
+                    DrawerEntry(Icons.Rounded.CreateNewFolder, s(R.string.new_list), null, false, 0) { scope.launch { drawer.close() }; newList = NewList("", null) }
                     HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
-                    Text("Files on this phone", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp))
-                    DrawerEntry(Icons.Rounded.FolderOpen, "Browse files", null, false, 0) { scope.launch { drawer.close() }; onBrowse(null, null) }
-                    DrawerEntry(Icons.Rounded.Download, "Downloads", null, false, 0) { scope.launch { drawer.close() }; onBrowse(null, android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS).absolutePath) }
-                    DrawerEntry(Icons.Rounded.Description, "Documents", null, false, 0) { scope.launch { drawer.close() }; onBrowse(null, android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS).absolutePath) }
+                    Text(s(R.string.files_on_this_phone), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp))
+                    DrawerEntry(Icons.Rounded.FolderOpen, s(R.string.browse_files), null, false, 0) { scope.launch { drawer.close() }; onBrowse(null, null) }
+                    DrawerEntry(Icons.Rounded.Download, s(R.string.downloads), null, false, 0) { scope.launch { drawer.close() }; onBrowse(null, android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS).absolutePath) }
+                    DrawerEntry(Icons.Rounded.Description, s(R.string.documents), null, false, 0) { scope.launch { drawer.close() }; onBrowse(null, android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS).absolutePath) }
                     HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
-                    DrawerEntry(Icons.Rounded.Settings, "Settings and backup", null, false, 0) { scope.launch { drawer.close() }; onSettings() }
-                    DrawerEntry(Icons.Rounded.Info, "About Rukn", null, false, 0) { scope.launch { drawer.close() }; onAbout() }
+                    DrawerEntry(Icons.Rounded.Settings, s(R.string.settings_and_backup), null, false, 0) { scope.launch { drawer.close() }; onSettings() }
+                    DrawerEntry(Icons.Rounded.Info, s(R.string.about_rukn), null, false, 0) { scope.launch { drawer.close() }; onAbout() }
                     Spacer(Modifier.height(24.dp))
                 }
             }
         },
     ) {
+      val rtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
       Box(
-        Modifier.fillMaxSize().pointerInput(drawer) {
-            // A rightward drag that starts in the left 80dp opens the menu. Watching on the Initial pass means nothing
+        Modifier.fillMaxSize().pointerInput(drawer, rtl) {
+            // A drag towards the middle that starts in the 80dp at the menu's edge (left, or right in Arabic) opens the menu. Watching on the Initial pass means nothing
             // underneath (buttons, cards) is blocked: a tap still reaches them, and only a real sideways drag is taken.
             val edge = 80.dp.toPx()
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-                if (down.position.x > edge || drawer.currentValue != DrawerValue.Closed) return@awaitEachGesture
+                val fromEdge = if (rtl) down.position.x >= size.width - edge else down.position.x <= edge
+                if (!fromEdge || drawer.currentValue != DrawerValue.Closed) return@awaitEachGesture
+                val dir = if (rtl) -1f else 1f
                 var dx = 0f; var dy = 0f
                 while (true) {
                     val e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
                     val c = e.changes.firstOrNull { it.id == down.id } ?: break
                     if (!c.pressed) break
-                    dx += (c.position.x - c.previousPosition.x); dy += (c.position.y - c.previousPosition.y)
+                    dx += dir * (c.position.x - c.previousPosition.x); dy += (c.position.y - c.previousPosition.y)
                     if (kotlin.math.abs(dy) > 2 * kotlin.math.abs(dx) && kotlin.math.abs(dy) > 24f) break
                     if (dx > 36f && dx > kotlin.math.abs(dy)) { c.consume(); scope.launch { drawer.open() }; break }
                 }
@@ -320,25 +329,25 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                 if (selecting) {
                     var more by remember { mutableStateOf(false) }
                     TopAppBar(
-                        title = { Text("${selected.size} selected") },
-                        navigationIcon = { IconButton(onClick = { selecting = false; selected = emptySet() }) { Icon(Icons.Rounded.Close, "Done") } },
+                        title = { Text(s(R.string.selected, selected.size)) },
+                        navigationIcon = { IconButton(onClick = { selecting = false; selected = emptySet() }) { Icon(Icons.Rounded.Close, s(R.string.done)) } },
                         actions = {
-                            IconButton(onClick = { selected = shown.map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll, "Select all") }
-                            IconButton(onClick = { bulkLists = true }, enabled = selected.isNotEmpty()) { Icon(Icons.Rounded.CreateNewFolder, "Add to a list") }
+                            IconButton(onClick = { selected = shown.map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll, s(R.string.select_all)) }
+                            IconButton(onClick = { bulkLists = true }, enabled = selected.isNotEmpty()) { Icon(Icons.Rounded.CreateNewFolder, s(R.string.add_to_a_list)) }
                             Box {
-                                IconButton(onClick = { more = true }, enabled = selected.isNotEmpty()) { Icon(Icons.Rounded.MoreVert, "More") }
+                                IconButton(onClick = { more = true }, enabled = selected.isNotEmpty()) { Icon(Icons.Rounded.MoreVert, s(R.string.more)) }
                                 DropdownMenu(more, { more = false }) {
                                     (tab as? Tab.List)?.let { open ->
                                         DropdownMenuItem(
-                                            text = { Text("Remove from “${nameOf(open.path)}”") },
+                                            text = { Text(s(R.string.remove_from, nameOf(open.path))) },
                                             leadingIcon = { Icon(Icons.Rounded.FolderOff, null) },
-                                            onClick = { more = false; ask = ConfirmRequest("Remove ${selected.size} books from “${nameOf(open.path)}”?", "They stay in your library; only their place in this list is removed.") { model.repo.setInList(selected, open.path, false); selected = emptySet(); selecting = false } },
+                                            onClick = { more = false; ask = ConfirmRequest(s(R.string.remove_books_from, selected.size, nameOf(open.path)), s(R.string.they_stay_in_your_library)) { model.repo.setInList(selected, open.path, false); selected = emptySet(); selecting = false } },
                                         )
                                     }
-                                    DropdownMenuItem(text = { Text("Add to favorites") }, leadingIcon = { Icon(Icons.Rounded.Star, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(favorite = true) } })
-                                    DropdownMenuItem(text = { Text("Mark as To read") }, leadingIcon = { Icon(Icons.Rounded.BookmarkAdd, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(status = Status.ToRead) } })
-                                    DropdownMenuItem(text = { Text("Mark as finished") }, leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(status = Status.Finished) } })
-                                    DropdownMenuItem(text = { Text("Remove from library") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { more = false; confirmBulkRemove = true })
+                                    DropdownMenuItem(text = { Text(s(R.string.add_to_favorites)) }, leadingIcon = { Icon(Icons.Rounded.Star, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(favorite = true) } })
+                                    DropdownMenuItem(text = { Text(s(R.string.mark_as_to_read)) }, leadingIcon = { Icon(Icons.Rounded.BookmarkAdd, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(status = Status.ToRead) } })
+                                    DropdownMenuItem(text = { Text(s(R.string.mark_as_finished)) }, leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) }, onClick = { more = false; model.repo.updateBooks(selected) { it.copy(status = Status.Finished) } })
+                                    DropdownMenuItem(text = { Text(s(R.string.remove_from_library)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { more = false; confirmBulkRemove = true })
                                 }
                             }
                         },
@@ -352,7 +361,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                                 value = query,
                                 onValueChange = { query = it },
                                 singleLine = true,
-                                placeholder = { Text(if (tab is Tab.List) "Search in ${tab.title()}" else "Search your books") },
+                                placeholder = { Text(if (tab is Tab.List) s(R.string.search_in, tab.title()) else s(R.string.search_your_books)) },
                                 shape = RoundedCornerShape(28.dp),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                 keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
@@ -361,20 +370,20 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                         } else {
                             Column {
                                 Text(tab.title(), fontSize = 22.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(if (tab == Tab.Home && query.isBlank()) "Your reading at a glance" else "${shown.size} ${if (shown.size == 1) "book" else "books"}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(if (tab == Tab.Home && query.isBlank()) s(R.string.your_reading_at_a_glance) else "${shown.size} ${if (shown.size == 1) "book" else "books"}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     },
-                    navigationIcon = { IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(Icons.Rounded.Menu, "Menu") } },
+                    navigationIcon = { IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(Icons.Rounded.Menu, s(R.string.menu)) } },
                     actions = {
                         // Home has no tools of its own; the shelves and lists get search, view, sort and select.
                         if (tab != Tab.Home) {
-                        IconButton(onClick = { selecting = true }) { Icon(Icons.Rounded.Checklist, "Select books") }
+                        IconButton(onClick = { selecting = true }) { Icon(Icons.Rounded.Checklist, s(R.string.select_books)) }
                         IconButton(onClick = { searching = !searching; if (!searching) query = "" }) {
-                            Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, "Search")
+                            Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, s(R.string.search))
                         }
                         Box {
-                            IconButton(onClick = { viewMenu = true }) { Icon(state.view.icon(), "View") }
+                            IconButton(onClick = { viewMenu = true }) { Icon(state.view.icon(), s(R.string.view)) }
                             DropdownMenu(viewMenu, { viewMenu = false }) {
                                 ViewMode.entries.forEach { mode ->
                                     DropdownMenuItem(
@@ -387,7 +396,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                             }
                         }
                         Box {
-                            IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Rounded.Sort, "Sort") }
+                            IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Rounded.Sort, s(R.string.sort)) }
                             DropdownMenu(sortMenu, { sortMenu = false }) {
                                 SortOrder.entries.forEach { order ->
                                     DropdownMenuItem(
@@ -441,7 +450,7 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                         if (hero != null) {
                             item(span = { GridItemSpan(maxLineSpan) }) { HeroCard(model, hero, onOpen = { open(hero) }, onDetails = { details(hero) }) }
                             if (rest.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-                                Text("Also reading", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
+                                Text(s(R.string.also_reading), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
                             }
                         }
                         items(rest, key = { it.id }) { book ->
@@ -517,10 +526,10 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
     )
     if (confirmBulkRemove) AlertDialog(
         onDismissRequest = { confirmBulkRemove = false },
-        title = { Text("Remove ${selected.size} books?") },
-        text = { Text("The files stay where they are. Their reading places, notes and bookmarks are removed.") },
-        confirmButton = { TextButton(onClick = { selected.forEach { model.covers.forget(it) }; model.repo.removeBooks(selected); selected = emptySet(); selecting = false; confirmBulkRemove = false }) { Text("Remove") } },
-        dismissButton = { TextButton(onClick = { confirmBulkRemove = false }) { Text("Cancel") } },
+        title = { Text(s(R.string.remove_books, selected.size)) },
+        text = { Text(s(R.string.the_files_stay_where_they)) },
+        confirmButton = { TextButton(onClick = { selected.forEach { model.covers.forget(it) }; model.repo.removeBooks(selected); selected = emptySet(); selecting = false; confirmBulkRemove = false }) { Text(s(R.string.remove)) } },
+        dismissButton = { TextButton(onClick = { confirmBulkRemove = false }) { Text(s(R.string.cancel)) } },
     )
     if (manageLists) ManageListsSheet(model, lists, onNewIn = { newList = NewList(it, null) }, onDismiss = { manageLists = false })
 }
@@ -555,14 +564,14 @@ private fun Cover(model: FolioViewModel, book: Book, modifier: Modifier = Modifi
         }
         if (book.id in LocalSelection.current) {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.CheckCircle, "Selected", tint = Color.White, modifier = Modifier.size(34.dp))
+                Icon(Icons.Rounded.CheckCircle, s(R.string.selected_label), tint = Color.White, modifier = Modifier.size(34.dp))
             }
         }
         if (marks && book.favorite) {
             Icon(Icons.Rounded.Star, null, tint = Color(0xFFF2B12E), modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(20.dp))
         }
         if (marks && book.draftMarks > 0) {
-            Text("✎ draft", Modifier.align(Alignment.BottomEnd).padding(6.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFFF5A1F)).padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text(s(R.string.draft), Modifier.align(Alignment.BottomEnd).padding(6.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFFF5A1F)).padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.labelSmall)
         }
         if (marks && book.status == Status.Finished) {
             Icon(Icons.Rounded.CheckCircle, null, tint = Color.White, modifier = Modifier.align(Alignment.TopStart).padding(6.dp).size(20.dp).background(Color(0xFF2E7D5B), androidx.compose.foundation.shape.CircleShape))
@@ -591,7 +600,7 @@ private fun Stars(rating: Int, size: Int = 14, onRate: ((Int) -> Unit)? = null) 
             val filled = i <= rating
             val icon = Icon(
                 if (filled) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                if (onRate != null) "$i stars" else null,
+                if (onRate != null) s(R.string.n_stars, i) else null,
                 Modifier.size(size.dp).let { if (onRate != null) it.clickable { onRate(if (i == rating) 0 else i) } else it },
                 tint = if (filled) Color(0xFFF2B12E) else MaterialTheme.colorScheme.outline,
             )
@@ -613,7 +622,7 @@ private fun HeroCard(model: FolioViewModel, book: Book, onOpen: () -> Unit, onDe
             Cover(model, book, Modifier.width(96.dp).aspectRatio(0.68f), marks = false)
             Column(Modifier.weight(1f).height(140.dp), verticalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text("CONTINUE READING", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, letterSpacing = 1.sp)
+                    Text(s(R.string.continue_reading), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, letterSpacing = 1.sp)
                     Spacer(Modifier.height(4.dp))
                     Text(book.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
                     Text(
@@ -626,7 +635,7 @@ private fun HeroCard(model: FolioViewModel, book: Book, onOpen: () -> Unit, onDe
                 Column {
                     ReadingProgress(book)
                     Spacer(Modifier.height(10.dp))
-                    Button(onClick = onOpen) { Icon(Icons.Rounded.AutoStories, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Continue") }
+                    Button(onClick = onOpen) { Icon(Icons.Rounded.AutoStories, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(s(R.string.continue_action)) }
                 }
             }
         }
@@ -642,7 +651,7 @@ private fun GridBook(model: FolioViewModel, book: Book, ratio: Float, compact: B
         Text(book.name, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (!compact) {
             if (book.rating > 0) Stars(book.rating, 12)
-            else Text(if (book.status == Status.Finished) "Finished" else book.countLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else Text(if (book.status == Status.Finished) s(R.string.finished) else book.countLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(6.dp))
         ReadingProgress(book)
@@ -668,7 +677,7 @@ private fun ListBook(model: FolioViewModel, book: Book, onOpen: () -> Unit, onDe
             Spacer(Modifier.height(6.dp))
             ReadingProgress(book)
         }
-        IconButton(onClick = onDetails) { Icon(Icons.Rounded.MoreVert, "Details") }
+        IconButton(onClick = onDetails) { Icon(Icons.Rounded.MoreVert, s(R.string.details)) }
     }
 }
 
@@ -691,7 +700,7 @@ private fun DetailRow(model: FolioViewModel, book: Book, onOpen: () -> Unit, onD
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    if (book.lastOpened > 0) "Opened ${formatDate(book.lastOpened)}" else "Not opened yet",
+                    if (book.lastOpened > 0) s(R.string.opened_date, formatDate(book.lastOpened)) else s(R.string.not_opened_yet),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (book.note.isNotBlank()) Text(book.note, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -704,13 +713,13 @@ private fun DetailRow(model: FolioViewModel, book: Book, onOpen: () -> Unit, onD
 @Composable
 private fun EmptyShelf(tab: Tab, onOpen: () -> Unit) {
     val (title, hint) = when (tab) {
-        Tab.Home -> "Welcome" to "Open a file to start your library."
-        Tab.ReadingNow -> "Nothing here yet" to "Books you open show up here, so you can pick up where you stopped."
-        Tab.ToRead -> "Your to-read shelf is empty" to "Press and hold a book, then choose To read."
-        Tab.Finished -> "No finished books" to "Books you reach the end of land here."
-        Tab.Favorites -> "No favorites yet" to "Press and hold a book, then choose Add to favorites."
-        Tab.All -> "No books yet" to "Open a PDF to start your library."
-        is Tab.List -> "This list is empty" to "Press and hold a book, then choose Lists."
+        Tab.Home -> s(R.string.welcome) to s(R.string.open_a_file_to_start)
+        Tab.ReadingNow -> s(R.string.nothing_here_yet) to s(R.string.books_you_open_show_up)
+        Tab.ToRead -> s(R.string.your_to_read_shelf_is) to s(R.string.press_and_hold_a_book)
+        Tab.Finished -> s(R.string.no_finished_books) to s(R.string.books_you_reach_the_end)
+        Tab.Favorites -> s(R.string.no_favorites_yet) to s(R.string.press_and_hold_a_book_cec3)
+        Tab.All -> s(R.string.no_books_yet) to s(R.string.open_a_pdf_to_start)
+        is Tab.List -> s(R.string.this_list_is_empty) to s(R.string.press_and_hold_a_book_f1e6)
     }
     Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(Icons.Rounded.AutoStories, null, Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -719,7 +728,7 @@ private fun EmptyShelf(tab: Tab, onOpen: () -> Unit) {
         Spacer(Modifier.height(4.dp))
         Text(hint, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(20.dp))
-        Button(onClick = onOpen) { Text("Open a PDF") }
+        Button(onClick = onOpen) { Text(s(R.string.open_a_pdf)) }
     }
 }
 
@@ -738,7 +747,9 @@ private fun DrawerEntry(icon: ImageVector, label: String, count: Int?, selected:
 
 // ---- details of one book ------------------------------------------------------------------
 
-private enum class SheetSection(val label: String) { Actions("Actions"), Details("Details"), Notes("Notes") }
+private enum class SheetSection(@StringRes val labelRes: Int) { Actions(R.string.actions), Details(R.string.details), Notes(R.string.notes) }
+
+private val SheetSection.label: String get() = s(labelRes)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -778,10 +789,10 @@ private fun DetailsSheet(model: FolioViewModel, book: Book, lists: List<String>,
     }
     if (confirmRemove) AlertDialog(
         onDismissRequest = { confirmRemove = false },
-        title = { Text("Remove from library?") },
-        text = { Text("The PDF file stays where it is. Your reading place, notes and bookmarks for it are removed.") },
-        confirmButton = { TextButton(onClick = { model.remove(book.id); confirmRemove = false; onDismiss() }) { Text("Remove") } },
-        dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } },
+        title = { Text(s(R.string.remove_from_library_4769)) },
+        text = { Text(s(R.string.the_pdf_file_stays_where)) },
+        confirmButton = { TextButton(onClick = { model.remove(book.id); confirmRemove = false; onDismiss() }) { Text(s(R.string.remove)) } },
+        dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(s(R.string.cancel)) } },
     )
 }
 
@@ -793,14 +804,14 @@ private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String
     ConfirmDialog(ask) { ask = null }
     val here = openList?.takeIf { it in book.lists }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        SheetRow(Icons.Rounded.AutoStories, if (book.physical) "Log a reading session" else "Open", onClick = onOpenBook)
-        SheetRow(Icons.Rounded.Edit, "Edit details and cover…", onClick = onEdit)
+        SheetRow(Icons.Rounded.AutoStories, if (book.physical) s(R.string.log_a_reading_session) else s(R.string.open), onClick = onOpenBook)
+        SheetRow(Icons.Rounded.Edit, s(R.string.edit_details_and_cover), onClick = onEdit)
         // Inside a list: take the book out of it, or carry it to another list (it stays in the library).
         if (here != null) {
-            SheetRow(Icons.Rounded.FolderOff, "Remove from “${nameOf(here)}”") { ask = ConfirmRequest("Remove from “${nameOf(here)}”?", "The book stays in your library; only its place in this list is removed.") { model.repo.toggleList(book.id, here); onDismiss() } }
-            SheetRow(Icons.AutoMirrored.Rounded.DriveFileMove, if (picker == 2) "Move to… (tap to close)" else "Move to another list…") { picker = if (picker == 2) 0 else 2 }
+            SheetRow(Icons.Rounded.FolderOff, s(R.string.remove_from, nameOf(here))) { ask = ConfirmRequest(s(R.string.remove_from_01d2, nameOf(here)), s(R.string.the_book_stays_in_your)) { model.repo.toggleList(book.id, here); onDismiss() } }
+            SheetRow(Icons.AutoMirrored.Rounded.DriveFileMove, if (picker == 2) s(R.string.move_to_tap_to_close) else s(R.string.move_to_another_list)) { picker = if (picker == 2) 0 else 2 }
         }
-        SheetRow(Icons.Rounded.Folder, if (picker == 1) "Lists (tap to close)" else if (here != null) "Also add to another list…" else "Add to a list…") { picker = if (picker == 1) 0 else 1 }
+        SheetRow(Icons.Rounded.Folder, if (picker == 1) s(R.string.lists_tap_to_close) else if (here != null) s(R.string.also_add_to_another_list) else s(R.string.add_to_a_list_2f02)) { picker = if (picker == 1) 0 else 1 }
         if (picker != 0) {
             lists.filter { picker == 1 || it != here }.forEach { list ->
                 val on = list in book.lists
@@ -812,18 +823,18 @@ private fun ActionsSection(model: FolioViewModel, book: Book, lists: List<String
                     } else model.repo.toggleList(book.id, list)
                 }
             }
-            SheetRow(Icons.Rounded.CreateNewFolder, "New list…", indent = 1, onClick = onNewList)
+            SheetRow(Icons.Rounded.CreateNewFolder, s(R.string.new_list_f13d), indent = 1, onClick = onNewList)
         }
-        SheetRow(if (book.favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, if (book.favorite) "Remove from favorites" else "Add to favorites") {
+        SheetRow(if (book.favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, if (book.favorite) s(R.string.remove_from_favorites) else s(R.string.add_to_favorites)) {
             model.repo.updateBook(book.id) { it.copy(favorite = !it.favorite) }
         }
-        SheetRow(Icons.Rounded.BookmarkAdd, if (book.status == Status.ToRead) "Remove from To read" else "To read") {
+        SheetRow(Icons.Rounded.BookmarkAdd, if (book.status == Status.ToRead) s(R.string.remove_from_to_read) else s(R.string.to_read)) {
             model.repo.updateBook(book.id) { it.copy(status = if (it.status == Status.ToRead) Status.Reading else Status.ToRead) }
         }
-        SheetRow(Icons.Rounded.CheckCircle, if (book.status == Status.Finished) "Mark as reading" else "Mark as finished") {
+        SheetRow(Icons.Rounded.CheckCircle, if (book.status == Status.Finished) s(R.string.mark_as_reading) else s(R.string.mark_as_finished)) {
             model.repo.updateBook(book.id) { it.copy(status = if (it.status == Status.Finished) Status.Reading else Status.Finished) }
         }
-        SheetRow(Icons.Rounded.Delete, "Remove from library", onClick = onRemove)
+        SheetRow(Icons.Rounded.Delete, s(R.string.remove_from_library), onClick = onRemove)
     }
 }
 
@@ -836,36 +847,36 @@ private fun DetailsSection(book: Book, sessions: Int, onEdit: () -> Unit) {
             val out = ArrayList<Pair<String, String>>()
             if (book.physical) return@withContext out
             val uri = Uri.parse(book.uri)
-            PdfFile.open(context, uri)?.use { pdf -> pdf.sizeOf(0)?.let { (w, h) -> out += "Page size" to pageSize(w, h) } }
+            PdfFile.open(context, uri)?.use { pdf -> pdf.sizeOf(0)?.let { (w, h) -> out += s(R.string.page_size) to pageSize(w, h) } }
             out += PdfInfo.read(context, uri)
             out
         }
     }
     val rows = buildList {
         // Where you are in the book comes first: the page, the time you have given it and the sittings.
-        add((if (book.kind == dev.folio.reader.data.Kind.Epub) "Reading chapter" else "Reading page") to if (book.progress > 0f || book.page > 0) book.placeLabel else "Not started")
-        add("Total time read" to if (book.readSeconds > 0) minutesLabel(book.readSeconds) else "None yet")
-        add("Sessions" to sessions.toString())
-        if (book.author.isNotBlank()) add("Author" to book.author)
-        if (book.publisher.isNotBlank()) add("Publisher" to book.publisher)
-        if (book.year.isNotBlank()) add("Year" to book.year)
+        add((if (book.kind == dev.folio.reader.data.Kind.Epub) s(R.string.reading_chapter) else s(R.string.reading_page)) to if (book.progress > 0f || book.page > 0) book.placeLabel else s(R.string.not_started))
+        add(s(R.string.total_time_read) to if (book.readSeconds > 0) minutesLabel(book.readSeconds) else s(R.string.none_yet))
+        add(s(R.string.sessions) to sessions.toString())
+        if (book.author.isNotBlank()) add(s(R.string.author) to book.author)
+        if (book.publisher.isNotBlank()) add(s(R.string.publisher) to book.publisher)
+        if (book.year.isNotBlank()) add(s(R.string.year) to book.year)
         if (book.isbn.isNotBlank()) add("ISBN" to book.isbn)
-        if (book.description.isNotBlank()) add("Description" to book.description)
-        if (book.physical) add("Type" to "Paper book") else add("File name" to book.fileName.ifEmpty { book.name })
-        add(when (book.kind) { dev.folio.reader.data.Kind.Pdf, dev.folio.reader.data.Kind.Comic -> "Pages"; dev.folio.reader.data.Kind.Epub -> "Chapters"; dev.folio.reader.data.Kind.Text -> "Lines" } to book.pages.toString())
-        if (!book.physical) add("Type" to dev.folio.reader.data.FileTypes.badge(book.fileName.ifEmpty { book.name }, book.kind))
-        if (!book.physical) add("Size" to formatSize(book.size))
+        if (book.description.isNotBlank()) add(s(R.string.description) to book.description)
+        if (book.physical) add(s(R.string.type) to s(R.string.paper_book)) else add(s(R.string.file_name) to book.fileName.ifEmpty { book.name })
+        add(when (book.kind) { dev.folio.reader.data.Kind.Pdf, dev.folio.reader.data.Kind.Comic -> s(R.string.pages); dev.folio.reader.data.Kind.Epub -> s(R.string.chapters); dev.folio.reader.data.Kind.Text -> s(R.string.lines) } to book.pages.toString())
+        if (!book.physical) add(s(R.string.type) to dev.folio.reader.data.FileTypes.badge(book.fileName.ifEmpty { book.name }, book.kind))
+        if (!book.physical) add(s(R.string.size) to formatSize(book.size))
         addAll(facts.orEmpty())
-        if (book.added > 0) add("Added" to formatDate(book.added))
-        add("Last opened" to if (book.lastOpened > 0) formatDate(book.lastOpened) else "Never")
-        add("Status" to when (book.status) { Status.New -> "New"; Status.Reading -> "Reading"; Status.ToRead -> "To read"; Status.Finished -> "Finished" })
-        if (book.lists.isNotEmpty()) add("Lists" to book.lists.joinToString(", ") { it.replace("/", " › ") })
-        if (!book.physical) add("Location" to friendlyLocation(book.uri))
+        if (book.added > 0) add(s(R.string.added) to formatDate(book.added))
+        add(s(R.string.last_opened) to if (book.lastOpened > 0) formatDate(book.lastOpened) else s(R.string.never))
+        add(s(R.string.status) to when (book.status) { Status.New -> s(R.string.new_label); Status.Reading -> s(R.string.reading); Status.ToRead -> s(R.string.to_read); Status.Finished -> s(R.string.finished) })
+        if (book.lists.isNotEmpty()) add(s(R.string.lists) to book.lists.joinToString(", ") { it.replace("/", " › ") })
+        if (!book.physical) add(s(R.string.location) to friendlyLocation(book.uri))
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
         rows.forEach { (k, v) -> FactRow(k, v) }
-        TextButton(onClick = onEdit, Modifier.padding(horizontal = 16.dp)) { Text("Edit these details") }
-        if (facts == null) Text("Reading the file…", Modifier.padding(horizontal = 24.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick = onEdit, Modifier.padding(horizontal = 16.dp)) { Text(s(R.string.edit_these_details)) }
+        if (facts == null) Text(s(R.string.reading_the_file), Modifier.padding(horizontal = 24.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -875,23 +886,23 @@ private fun NotesSection(model: FolioViewModel, book: Book) {
     var ask by remember { mutableStateOf<ConfirmRequest?>(null) }
     ConfirmDialog(ask) { ask = null }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Your rating", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        Text(s(R.string.your_rating), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Stars(book.rating, 34) { model.repo.setRating(book.id, it) }
-            if (book.rating > 0) TextButton(onClick = { ask = ConfirmRequest("Clear your rating?", "The stars on this book will be cleared.", "Clear") { model.repo.setRating(book.id, 0) } }) { Text("Clear") }
+            if (book.rating > 0) TextButton(onClick = { ask = ConfirmRequest(s(R.string.clear_your_rating), s(R.string.the_stars_on_this_book), s(R.string.clear)) { model.repo.setRating(book.id, 0) } }) { Text(s(R.string.clear)) }
         }
-        Text("Note about this book", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp))
+        Text(s(R.string.note_about_this_book), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp))
         var note by remember(book.id) { mutableStateOf(book.note) }
-        OutlinedTextField(note, { note = it; model.repo.setNote(book.id, it) }, placeholder = { Text("Write a note") }, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 5)
-        Text("Page comments (${book.comments.size})", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp))
-        if (book.comments.isEmpty()) Text("Add them while reading with the comment icon.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedTextField(note, { note = it; model.repo.setNote(book.id, it) }, placeholder = { Text(s(R.string.write_a_note)) }, modifier = Modifier.fillMaxWidth(), minLines = 2, maxLines = 5)
+        Text(s(R.string.page_comments, book.comments.size), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp))
+        if (book.comments.isEmpty()) Text(s(R.string.add_them_while_reading_with), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         book.comments.forEach { c ->
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { editing = c }.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
-                    Text("Page ${c.page + 1}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Text(s(R.string.page, c.page + 1), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     Text(c.text, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
-                IconButton(onClick = { ask = ConfirmRequest("Delete this comment?", "The comment on page ${c.page + 1} will be deleted.", "Delete") { model.repo.deleteComment(book.id, c.id) } }) { Icon(Icons.Rounded.Delete, "Delete comment") }
+                IconButton(onClick = { ask = ConfirmRequest(s(R.string.delete_this_comment), s(R.string.the_comment_on_page_will, c.page + 1), s(R.string.delete)) { model.repo.deleteComment(book.id, c.id) } }) { Icon(Icons.Rounded.Delete, s(R.string.delete_comment)) }
             }
         }
     }
@@ -899,10 +910,10 @@ private fun NotesSection(model: FolioViewModel, book: Book) {
         var text by remember(c.id) { mutableStateOf(c.text) }
         AlertDialog(
             onDismissRequest = { editing = null },
-            title = { Text("Comment on page ${c.page + 1}") },
+            title = { Text(s(R.string.comment_on_page, c.page + 1)) },
             text = { OutlinedTextField(text, { text = it }, minLines = 3, maxLines = 8, modifier = Modifier.fillMaxWidth()) },
-            confirmButton = { TextButton(onClick = { model.repo.saveComment(book.id, c.page, text, c.id); editing = null }, enabled = text.isNotBlank()) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancel") } },
+            confirmButton = { TextButton(onClick = { model.repo.saveComment(book.id, c.page, text, c.id); editing = null }, enabled = text.isNotBlank()) { Text(s(R.string.save)) } },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text(s(R.string.cancel)) } },
         )
     }
 }
@@ -949,23 +960,23 @@ private fun ManageListsSheet(model: FolioViewModel, lists: List<String>, onNewIn
     val library by model.repo.state.collectAsState()
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
-            Text("Manage lists", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-            Text("Use the arrows to change the order inside a list. Lists can hold other lists.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
+            Text(s(R.string.manage_lists), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            Text(s(R.string.use_the_arrows_to_change), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
             lists.forEach { path ->
                 var menu by remember { mutableStateOf(false) }
                 val siblings = lists.filter { parentOf(it) == parentOf(path) }
                 Row(Modifier.fillMaxWidth().padding(start = (16 + depthOf(path) * 20).dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
                     Text(nameOf(path), Modifier.weight(1f).padding(vertical = 14.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    IconButton(onClick = { model.repo.moveList(path, true) }, enabled = siblings.firstOrNull() != path) { Icon(Icons.Rounded.ArrowUpward, "Move up") }
-                    IconButton(onClick = { model.repo.moveList(path, false) }, enabled = siblings.lastOrNull() != path) { Icon(Icons.Rounded.ArrowDownward, "Move down") }
+                    IconButton(onClick = { model.repo.moveList(path, true) }, enabled = siblings.firstOrNull() != path) { Icon(Icons.Rounded.ArrowUpward, s(R.string.move_up)) }
+                    IconButton(onClick = { model.repo.moveList(path, false) }, enabled = siblings.lastOrNull() != path) { Icon(Icons.Rounded.ArrowDownward, s(R.string.move_down)) }
                     Box {
-                        IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, s(R.string.more)) }
                         DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem(text = { Text("Rename") }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; renaming = path })
-                            DropdownMenuItem(text = { Text("Move to…") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.DriveFileMove, null) }, onClick = { menu = false; movingList = path })
-                            DropdownMenuItem(text = { Text("New list inside") }, leadingIcon = { Icon(Icons.Rounded.CreateNewFolder, null) }, onClick = { menu = false; onNewIn(path) })
-                            DropdownMenuItem(text = { Text("Delete") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; deleting = path })
+                            DropdownMenuItem(text = { Text(s(R.string.rename)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; renaming = path })
+                            DropdownMenuItem(text = { Text(s(R.string.move_to)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.DriveFileMove, null) }, onClick = { menu = false; movingList = path })
+                            DropdownMenuItem(text = { Text(s(R.string.new_list_inside)) }, leadingIcon = { Icon(Icons.Rounded.CreateNewFolder, null) }, onClick = { menu = false; onNewIn(path) })
+                            DropdownMenuItem(text = { Text(s(R.string.delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; deleting = path })
                         }
                     }
                 }
@@ -974,7 +985,7 @@ private fun ManageListsSheet(model: FolioViewModel, lists: List<String>, onNewIn
     }
     movingList?.let { path -> MoveListDialog(library, path, onDismiss = { movingList = null }) { parent -> model.repo.moveListTo(path, parent); movingList = null } }
     renaming?.let { path ->
-        NameDialog("Rename list", nameOf(path), "Rename", onDismiss = { renaming = null }) { name ->
+        NameDialog(s(R.string.rename_list), nameOf(path), s(R.string.rename), onDismiss = { renaming = null }) { name ->
             model.repo.renameList(path, name)
             renaming = null
         }
@@ -982,10 +993,10 @@ private fun ManageListsSheet(model: FolioViewModel, lists: List<String>, onNewIn
     deleting?.let { path ->
         AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text("Delete “${nameOf(path)}”?") },
-            text = { Text("The list and any lists inside it are removed. The books stay in your library.") },
-            confirmButton = { TextButton(onClick = { model.repo.deleteList(path); deleting = null }) { Text("Delete") } },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
+            title = { Text(s(R.string.delete_9cdd, nameOf(path))) },
+            text = { Text(s(R.string.the_list_and_any_lists)) },
+            confirmButton = { TextButton(onClick = { model.repo.deleteList(path); deleting = null }) { Text(s(R.string.delete)) } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(s(R.string.cancel)) } },
         )
     }
 }
@@ -997,18 +1008,18 @@ private fun ListDialog(lists: List<String>, initialParent: String, onDismiss: ()
     var menu by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New list") },
+        title = { Text(s(R.string.new_list)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(name, { name = it.replace("/", "") }, singleLine = true, placeholder = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(name, { name = it.replace("/", "") }, singleLine = true, placeholder = { Text(s(R.string.name)) }, modifier = Modifier.fillMaxWidth())
                 Box {
                     TextButton(onClick = { menu = true }) {
                         Icon(Icons.Rounded.Folder, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text(if (parent.isEmpty()) "Top level" else "Inside " + parent.replace("/", " › "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(if (parent.isEmpty()) s(R.string.top_level) else s(R.string.inside) + parent.replace("/", " › "), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     DropdownMenu(menu, { menu = false }) {
-                        DropdownMenuItem(text = { Text("Top level") }, onClick = { parent = ""; menu = false })
+                        DropdownMenuItem(text = { Text(s(R.string.top_level)) }, onClick = { parent = ""; menu = false })
                         lists.forEach { path ->
                             DropdownMenuItem(text = { Text(nameOf(path), modifier = Modifier.padding(start = (depthOf(path) * 14).dp)) }, onClick = { parent = path; menu = false })
                         }
@@ -1016,8 +1027,8 @@ private fun ListDialog(lists: List<String>, initialParent: String, onDismiss: ()
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onDone(name, parent) }, enabled = name.isNotBlank()) { Text("Create") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = { onDone(name, parent) }, enabled = name.isNotBlank()) { Text(s(R.string.create)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(s(R.string.cancel)) } },
     )
 }
 
@@ -1027,16 +1038,16 @@ private fun NameDialog(title: String, initial: String, confirm: String, onDismis
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
-        text = { OutlinedTextField(name, { name = it.replace("/", "") }, singleLine = true, placeholder = { Text("Name") }) },
+        text = { OutlinedTextField(name, { name = it.replace("/", "") }, singleLine = true, placeholder = { Text(s(R.string.name)) }) },
         confirmButton = { TextButton(onClick = { onDone(name) }, enabled = name.isNotBlank()) { Text(confirm) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(s(R.string.cancel)) } },
     )
 }
 
 // ---- formatting ---------------------------------------------------------------------------
 
 internal fun formatSize(bytes: Long): String = when {
-    bytes <= 0 -> "Unknown size"
+    bytes <= 0 -> s(R.string.unknown_size)
     bytes < 1024 * 1024 -> "${(bytes / 1024.0).let { "%.0f".format(it) }} KB"
     bytes < 1024L * 1024 * 1024 -> "%.1f MB".format(bytes / 1048576.0)
     else -> "%.2f GB".format(bytes / 1073741824.0)
@@ -1064,7 +1075,7 @@ private fun ListHeader(tab: Tab.List, onOpen: (String) -> Unit, onRoot: () -> Un
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
         val parts = tab.path.split('/')
         androidx.compose.foundation.lazy.LazyRow(verticalAlignment = Alignment.CenterVertically) {
-            item { Text("Lists", Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onRoot).padding(horizontal = 6.dp, vertical = 6.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge) }
+            item { Text(s(R.string.lists), Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onRoot).padding(horizontal = 6.dp, vertical = 6.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge) }
             parts.forEachIndexed { i, part ->
                 item { Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 item {
@@ -1086,18 +1097,18 @@ private fun ListHeader(tab: Tab.List, onOpen: (String) -> Unit, onRoot: () -> Un
 internal fun friendlyLocation(uri: String): String {
     val decoded = Uri.decode(uri)
     return when {
-        decoded.startsWith("file://") -> decoded.removePrefix("file://").replace("/storage/emulated/0", "Phone").replace("/storage/", "").trim('/').split('/').filter { it.isNotEmpty() }.joinToString(" › ")
-        decoded.startsWith("content://com.android.providers.downloads") -> "Downloads (opened with the file picker)"
-        decoded.startsWith("content://com.android.externalstorage") -> "Phone storage (opened with the file picker)"
-        decoded.contains("/document/") -> "Opened with the system file picker"
+        decoded.startsWith("file://") -> decoded.removePrefix("file://").replace("/storage/emulated/0", s(R.string.phone)).replace("/storage/", "").trim('/').split('/').filter { it.isNotEmpty() }.joinToString(" › ")
+        decoded.startsWith("content://com.android.providers.downloads") -> s(R.string.downloads_opened_with_the_file)
+        decoded.startsWith("content://com.android.externalstorage") -> s(R.string.phone_storage_opened_with_the)
+        decoded.contains("/document/") -> s(R.string.opened_with_the_system_file)
         else -> decoded
     }
 }
 
 private fun minutesLabel(seconds: Long): String {
-    if (seconds < 60) return "$seconds s"
+    if (seconds < 60) return s(R.string.n_seconds, seconds)
     val m = seconds / 60
-    return if (m < 60) "$m min" else "${m / 60} h ${m % 60} min"
+    return if (m < 60) s(R.string.n_minutes, m) else s(R.string.n_hours_minutes, m / 60, m % 60)
 }
 
 /** Home: today's minutes and pages, this week, and the streak. */
@@ -1112,9 +1123,9 @@ private fun StatsCard(state: dev.folio.reader.data.LibraryState, onClick: () -> 
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
     ) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Stat("Today", minutesLabel(today.seconds), "${today.pages} ${if (today.pages == 1) "page" else "pages"}", Modifier.weight(1f))
-            Stat("This week", minutesLabel(week.seconds), "${week.pages} pages", Modifier.weight(1f))
-            Stat("Streak", "$streak ${if (streak == 1) "day" else "days"}", if (streak > 0) "keep going" else "read a minute", Modifier.weight(1f))
+            Stat(s(R.string.today), minutesLabel(today.seconds), sp(R.plurals.pages_n, today.pages), Modifier.weight(1f))
+            Stat(s(R.string.this_week), minutesLabel(week.seconds), sp(R.plurals.pages_n, week.pages), Modifier.weight(1f))
+            Stat(s(R.string.streak), sp(R.plurals.days_n, streak), if (streak > 0) s(R.string.keep_going) else s(R.string.read_a_minute), Modifier.weight(1f))
         }
     }
 }
@@ -1138,21 +1149,21 @@ private fun StatsSheet(state: dev.folio.reader.data.LibraryState, onDismiss: () 
     val totalPages = state.days.values.sumOf { it.pages }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("Your reading", style = MaterialTheme.typography.titleMedium)
+            Text(s(R.string.your_reading), style = MaterialTheme.typography.titleMedium)
             Row(Modifier.fillMaxWidth().height(120.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
                 days.forEach { (d, back) ->
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
                         Text("${d.seconds / 60}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Box(Modifier.fillMaxWidth().height((80f * d.seconds / top).coerceAtLeast(3f).dp).clip(RoundedCornerShape(6.dp)).background(if (back == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)))
-                        Text(if (back == 0) "Today" else java.text.SimpleDateFormat("EEE", java.util.Locale.getDefault()).format(java.util.Date(System.currentTimeMillis() - back * 86_400_000L)), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                        Text(if (back == 0) s(R.string.today) else java.text.SimpleDateFormat("EEE", java.util.Locale.getDefault()).format(java.util.Date(System.currentTimeMillis() - back * 86_400_000L)), style = MaterialTheme.typography.labelSmall, maxLines = 1)
                     }
                 }
             }
-            Text("Minutes per day", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            FactRow("All time", minutesLabel(total))
-            FactRow("Pages read", totalPages.toString())
-            FactRow("Books finished", state.books.count { it.status == Status.Finished }.toString())
-            FactRow("Longest streak", "${state.streak()} days now")
+            Text(s(R.string.minutes_per_day), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FactRow(s(R.string.all_time), minutesLabel(total))
+            FactRow(s(R.string.pages_read), totalPages.toString())
+            FactRow(s(R.string.books_finished), state.books.count { it.status == Status.Finished }.toString())
+            FactRow(s(R.string.longest_streak), sp(R.plurals.days_now, state.streak()))
         }
     }
 }
@@ -1163,18 +1174,18 @@ private fun StatsSheet(state: dev.folio.reader.data.LibraryState, onDismiss: () 
 private fun BulkListSheet(picked: List<Book>, lists: List<String>, onSet: (String, Boolean) -> Unit, onNew: () -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
-            Text("Add ${picked.size} books to…", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            Text(s(R.string.add_books_to, picked.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             lists.forEach { list ->
                 val have = picked.count { list in it.lists }
                 val all = have == picked.size && picked.isNotEmpty()
                 SheetRow(
                     if (all) Icons.Rounded.Check else if (have > 0) Icons.Rounded.Remove else Icons.Rounded.Folder,
-                    nameOf(list) + if (have > 0 && !all) "  ($have of ${picked.size})" else "",
+                    nameOf(list) + if (have > 0 && !all) s(R.string.of, have, picked.size) else "",
                     highlighted = have > 0,
                     indent = depthOf(list),
                 ) { onSet(list, !all) }
             }
-            SheetRow(Icons.Rounded.CreateNewFolder, "New list…", onClick = onNew)
+            SheetRow(Icons.Rounded.CreateNewFolder, s(R.string.new_list_f13d), onClick = onNew)
         }
     }
 }
@@ -1216,7 +1227,7 @@ private fun FolderRow(state: dev.folio.reader.data.LibraryState, path: String, o
             Text(nameOf(path), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(folderSummary(books, inner), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -1241,17 +1252,17 @@ private fun FolderSheet(model: FolioViewModel, state: dev.folio.reader.data.Libr
                 Column {
                     Text(nameOf(path), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(folderSummary(books, state.childLists(path).size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (parentOf(path).isNotEmpty()) Text("in " + parentOf(path).replace("/", " › "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (parentOf(path).isNotEmpty()) Text(s(R.string.in_text) + parentOf(path).replace("/", " › "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            SheetRow(Icons.Rounded.AutoStories, "Open", onClick = onOpen)
-            SheetRow(Icons.Rounded.Edit, "Rename") { renaming = true }
-            SheetRow(Icons.AutoMirrored.Rounded.DriveFileMove, "Move to another list…") { moving = true }
-            SheetRow(Icons.Rounded.CreateNewFolder, "New list inside", onClick = onNewInside)
-            SheetRow(Icons.Rounded.Delete, "Delete this list") { deleting = true }
+            SheetRow(Icons.Rounded.AutoStories, s(R.string.open), onClick = onOpen)
+            SheetRow(Icons.Rounded.Edit, s(R.string.rename)) { renaming = true }
+            SheetRow(Icons.AutoMirrored.Rounded.DriveFileMove, s(R.string.move_to_another_list)) { moving = true }
+            SheetRow(Icons.Rounded.CreateNewFolder, s(R.string.new_list_inside), onClick = onNewInside)
+            SheetRow(Icons.Rounded.Delete, s(R.string.delete_this_list)) { deleting = true }
         }
     }
-    if (renaming) NameDialog("Rename list", nameOf(path), "Rename", onDismiss = { renaming = false }) { name ->
+    if (renaming) NameDialog(s(R.string.rename_list), nameOf(path), s(R.string.rename), onDismiss = { renaming = false }) { name ->
         model.repo.renameList(path, name); renaming = false; onDismiss()
     }
     if (moving) MoveListDialog(state, path, onDismiss = { moving = false }) { parent ->
@@ -1259,10 +1270,10 @@ private fun FolderSheet(model: FolioViewModel, state: dev.folio.reader.data.Libr
     }
     if (deleting) AlertDialog(
         onDismissRequest = { deleting = false },
-        title = { Text("Delete “${nameOf(path)}”?") },
-        text = { Text("The list and any lists inside it are removed. The books stay in your library.") },
-        confirmButton = { TextButton(onClick = { model.repo.deleteList(path); deleting = false; onDismiss() }) { Text("Delete") } },
-        dismissButton = { TextButton(onClick = { deleting = false }) { Text("Cancel") } },
+        title = { Text(s(R.string.delete_9cdd, nameOf(path))) },
+        text = { Text(s(R.string.the_list_and_any_lists)) },
+        confirmButton = { TextButton(onClick = { model.repo.deleteList(path); deleting = false; onDismiss() }) { Text(s(R.string.delete)) } },
+        dismissButton = { TextButton(onClick = { deleting = false }) { Text(s(R.string.cancel)) } },
     )
 }
 
@@ -1272,10 +1283,10 @@ private fun MoveListDialog(state: dev.folio.reader.data.LibraryState, path: Stri
     val targets = state.moveTargets(path)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Move “${nameOf(path)}” to") },
+        title = { Text(s(R.string.move_to_ebad, nameOf(path))) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                if (targets.isEmpty()) Text("There is nowhere else to move it.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (targets.isEmpty()) Text(s(R.string.there_is_nowhere_else_to), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 targets.forEach { target ->
                     Row(
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onPick(target) }.padding(start = (depthOf(target) * 16).dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
@@ -1283,13 +1294,13 @@ private fun MoveListDialog(state: dev.folio.reader.data.LibraryState, path: Stri
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(if (target.isEmpty()) "Top level" else nameOf(target))
+                        Text(if (target.isEmpty()) s(R.string.top_level) else nameOf(target))
                     }
                 }
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(s(R.string.cancel)) } },
     )
 }
 
@@ -1311,18 +1322,18 @@ private fun AddMenu(open: Boolean, onToggle: () -> Unit, listPath: String?, onBr
                 androidx.compose.animation.scaleOut(androidx.compose.animation.core.tween(160), targetScale = 0.85f),
         ) {
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (listPath != null) MenuAction(Icons.Rounded.AutoStories, "Add books from the library", onFromLibrary)
-                MenuAction(Icons.Rounded.FolderOpen, if (listPath != null) "Browse files to add" else "Browse files", onBrowse)
-                MenuAction(Icons.Rounded.UploadFile, "Pick a file with the system", onPick)
-                MenuAction(Icons.Rounded.CreateNewFolder, if (listPath != null) "New list here" else "New list", onNewList)
-                MenuAction(Icons.Rounded.AutoStories, "Add a paper book", onPaperBook)
+                if (listPath != null) MenuAction(Icons.Rounded.AutoStories, s(R.string.add_books_from_the_library), onFromLibrary)
+                MenuAction(Icons.Rounded.FolderOpen, if (listPath != null) s(R.string.browse_files_to_add) else s(R.string.browse_files), onBrowse)
+                MenuAction(Icons.Rounded.UploadFile, s(R.string.pick_a_file_with_the), onPick)
+                MenuAction(Icons.Rounded.CreateNewFolder, if (listPath != null) s(R.string.new_list_here) else s(R.string.new_list), onNewList)
+                MenuAction(Icons.Rounded.AutoStories, s(R.string.add_a_paper_book), onPaperBook)
             }
         }
         androidx.compose.material3.FloatingActionButton(
             onClick = onToggle,
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
-        ) { Icon(Icons.Rounded.Add, if (open) "Close" else "Add", Modifier.graphicsLayer { rotationZ = turn }) }
+        ) { Icon(Icons.Rounded.Add, if (open) s(R.string.close) else s(R.string.add_label), Modifier.graphicsLayer { rotationZ = turn }) }
     }
 }
 
@@ -1344,8 +1355,8 @@ private fun AddBooksSheet(candidates: List<Book>, listPath: String, onAdd: (Set<
     var chosen by remember { mutableStateOf(setOf<String>()) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-            Text("Add to “${nameOf(listPath)}”", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-            if (candidates.isEmpty()) Text("Every book in your library is already in this list.", Modifier.padding(horizontal = 24.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(s(R.string.add_to, nameOf(listPath)), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            if (candidates.isEmpty()) Text(s(R.string.every_book_in_your_library), Modifier.padding(horizontal = 24.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                 candidates.forEach { b ->
                     val on = b.id in chosen
@@ -1361,7 +1372,7 @@ private fun AddBooksSheet(candidates: List<Book>, listPath: String, onAdd: (Set<
                     }
                 }
             }
-            Button(onClick = { onAdd(chosen) }, enabled = chosen.isNotEmpty(), modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).fillMaxWidth()) { Text("Add ${chosen.size}") }
+            Button(onClick = { onAdd(chosen) }, enabled = chosen.isNotEmpty(), modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).fillMaxWidth()) { Text(s(R.string.add, chosen.size)) }
         }
     }
 }
@@ -1418,7 +1429,7 @@ private fun HomeContent(
                         recent.firstOrNull { it.status != Status.Finished }?.let { b -> item(key = "continue") { HeroCard(model, b, onOpen = { onOpen(b) }, onDetails = { onDetails(b) }) } }
                         if (recent.isNotEmpty()) item(key = "latest") {
                             Column {
-                                HomeTitle("Pick up where you left off", "Reading now") { onShelf(Tab.ReadingNow) }
+                                HomeTitle(s(R.string.pick_up_where_you_left), s(R.string.reading_now)) { onShelf(Tab.ReadingNow) }
                                 androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                                     items(recent.take(3), key = { it.id }) { b -> Box(Modifier.width(120.dp)) { GridBook(model, b, 0.7f, compact = false, { onOpen(b) }, { onDetails(b) }) } }
                                 }
@@ -1429,7 +1440,7 @@ private fun HomeContent(
                         item(key = "stats") { HomeStats(state, onStats) }
                         val top = state.mostRead(7, 4)
                         if (top.isNotEmpty()) item(key = "mostread") {
-                            Panel2("Most read this week") {
+                            Panel2(s(R.string.most_read_this_week)) {
                                 val max = top.first().second.coerceAtLeast(1)
                                 top.forEach { (b, seconds) ->
                                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen(b) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1448,11 +1459,11 @@ private fun HomeContent(
                         }
                         val sittings = state.sessions.takeLast(6).reversed()
                         if (sittings.isNotEmpty()) item(key = "sittings") {
-                            Panel2("Recent sittings") {
+                            Panel2(s(R.string.recent_sittings)) {
                                 sittings.forEach { sess ->
                                     val b = state.books.firstOrNull { it.id == sess.bookId }
                                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Text(b?.name ?: "A removed book", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(b?.name ?: s(R.string.a_removed_book), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text(formatDate(sess.start), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Text(minutesLabel(sess.seconds), style = MaterialTheme.typography.labelMedium)
                                     }
@@ -1463,7 +1474,7 @@ private fun HomeContent(
                     HomeTab.Library -> {
                         item(key = "shelves") {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                HomeTitle("Shelves", null) {}
+                                HomeTitle(s(R.string.shelves), null) {}
                                 listOf(Tab.ReadingNow, Tab.ToRead, Tab.Finished, Tab.Favorites, Tab.All).chunked(2).forEach { pair ->
                                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                         pair.forEach { t ->
@@ -1485,7 +1496,7 @@ private fun HomeContent(
                         val top = lists.filter { depthOf(it) == 0 }
                         if (top.isNotEmpty()) item(key = "lists") {
                             Column {
-                                HomeTitle("Lists", null) {}
+                                HomeTitle(s(R.string.lists), null) {}
                                 androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     items(top) { path ->
                                         val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
@@ -1506,7 +1517,7 @@ private fun HomeContent(
                         val favs = state.books.filter { it.favorite }
                         if (favs.isNotEmpty()) item(key = "favorites") {
                             Column {
-                                HomeTitle("Favorites", "All favorites") { onShelf(Tab.Favorites) }
+                                HomeTitle(s(R.string.favorites), s(R.string.all_favorites)) { onShelf(Tab.Favorites) }
                                 androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                                     items(favs.take(12), key = { it.id }) { b -> Box(Modifier.width(110.dp)) { GridBook(model, b, 0.7f, compact = true, { onOpen(b) }, { onDetails(b) }) } }
                                 }
@@ -1544,7 +1555,7 @@ private fun HomeGreeting(model: FolioViewModel, state: dev.folio.reader.data.Lib
     val context = androidx.compose.ui.platform.LocalContext.current
     val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty() }
     val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
-    val greeting = when { hour < 5 -> "Still up?"; hour < 12 -> "Good morning"; hour < 18 -> "Good afternoon"; else -> "Good evening" }
+    val greeting = when { hour < 5 -> s(R.string.still_up); hour < 12 -> s(R.string.good_morning); hour < 18 -> s(R.string.good_afternoon); else -> s(R.string.good_evening) }
     val today = state.day(0)
     val streak = state.streak()
     val reading = state.books.count { it.status == Status.Reading }
@@ -1554,9 +1565,9 @@ private fun HomeGreeting(model: FolioViewModel, state: dev.folio.reader.data.Lib
             Text(greeting, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
             Text(
                 when {
-                    today.seconds > 0 -> "${minutesLabel(today.seconds)} read today" + if (streak > 1) ", a $streak day streak" else ""
-                    reading > 0 -> "$reading ${if (reading == 1) "book" else "books"} in progress"
-                    else -> "Pick a book to start"
+                    today.seconds > 0 -> s(R.string.read_today, minutesLabel(today.seconds)) + if (streak > 1) s(R.string.a_day_streak, streak) else ""
+                    reading > 0 -> sp(R.plurals.books_in_progress, reading)
+                    else -> s(R.string.pick_a_book_to_start)
                 },
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1564,13 +1575,13 @@ private fun HomeGreeting(model: FolioViewModel, state: dev.folio.reader.data.Lib
         }
         val notes = remember(version) { dev.folio.reader.data.ReleaseNotes.forVersion(version) }
         if (notes.isNotEmpty() && state.hiddenNews != version) {
-            Panel2("New in Rukn $version") {
+            Panel2(s(R.string.new_in_rukn, version)) {
                 notes.forEach { Text("\u2022  $it", style = MaterialTheme.typography.bodySmall) }
-                androidx.compose.material3.TextButton(onClick = { model.repo.update { it.copy(hiddenNews = version) } }) { Text("Hide") }
+                androidx.compose.material3.TextButton(onClick = { model.repo.update { it.copy(hiddenNews = version) } }) { Text(s(R.string.hide)) }
             }
         }
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Reading now" to { onShelf(Tab.ReadingNow) }, "To read" to { onShelf(Tab.ToRead) }, "Finished" to { onShelf(Tab.Finished) }, "Favourites" to { onShelf(Tab.Favorites) }, "All books" to { onShelf(Tab.All) }, "Stats" to onStats, "Files" to onFiles).forEach { (label, go) ->
+            listOf(s(R.string.reading_now) to { onShelf(Tab.ReadingNow) }, s(R.string.to_read) to { onShelf(Tab.ToRead) }, s(R.string.finished) to { onShelf(Tab.Finished) }, s(R.string.favourites) to { onShelf(Tab.Favorites) }, s(R.string.all_books) to { onShelf(Tab.All) }, s(R.string.stats) to onStats, s(R.string.files) to onFiles).forEach { (label, go) ->
                 androidx.compose.material3.AssistChip(onClick = go, label = { Text(label) })
             }
         }
@@ -1591,14 +1602,14 @@ private fun HomeStats(state: dev.folio.reader.data.LibraryState, onClick: () -> 
     Card(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row {
-                Stat("Today", minutesLabel(today.seconds), "${today.pages} ${if (today.pages == 1) "page" else "pages"}", Modifier.weight(1f))
-                Stat("This week", minutesLabel(week.seconds), "${week.pages} pages", Modifier.weight(1f))
-                Stat("Streak", "$streak ${if (streak == 1) "day" else "days"}", if (streak > 0) "keep going" else "read a minute", Modifier.weight(1f))
+                Stat(s(R.string.today), minutesLabel(today.seconds), sp(R.plurals.pages_n, today.pages), Modifier.weight(1f))
+                Stat(s(R.string.this_week), minutesLabel(week.seconds), sp(R.plurals.pages_n, week.pages), Modifier.weight(1f))
+                Stat(s(R.string.streak), sp(R.plurals.days_n, streak), if (streak > 0) s(R.string.keep_going) else s(R.string.read_a_minute), Modifier.weight(1f))
             }
             Row {
-                Stat("Sittings", "${sittings.size}", "$sittingsToday today", Modifier.weight(1f))
-                Stat("Average sitting", minutesLabel(avg), "this week", Modifier.weight(1f))
-                Stat("Books", "${state.books.count { it.status == Status.Reading }}", "being read", Modifier.weight(1f))
+                Stat(s(R.string.sittings), "${sittings.size}", s(R.string.n_today, sittingsToday), Modifier.weight(1f))
+                Stat(s(R.string.average_sitting), minutesLabel(avg), s(R.string.this_week_lower), Modifier.weight(1f))
+                Stat(s(R.string.books), "${state.books.count { it.status == Status.Reading }}", s(R.string.being_read), Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth().height(54.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
                 days.forEachIndexed { i, d ->

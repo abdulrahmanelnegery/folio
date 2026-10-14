@@ -32,6 +32,7 @@ Rukn (ركن, a corner, a pillar) keeps your reading in one calm place: a librar
 - **Paper books**: add a book you read on paper and log sittings (the page you are on, or the pages you read, and the minutes). Progress, the Stats tab and your sessions follow along.
 - **Details and covers**: every book has editable title, author, publisher, year, pages, ISBN and description, and a cover you can change from your gallery. *Find details online* searches Open Library, Google Books and the Internet Archive, and asks Wikidata for the original title of translated books (Arabic titles included), shows each result next to your values and applies only the parts you tick. An optional Google Books key in Settings avoids the shared daily limit.
 - **Careful by default**: every clear, delete or remove asks first, saving changes to a book's details says what will change, and opening a book shows a loading screen until it is on the page you were reading.
+- **Languages**: English and العربية (Arabic) with a full right-to-left layout; choose the language in Settings (or follow the phone), and optionally show numbers in Arabic-Indic digits.
 - **Backups**: reading places, lists, ratings, notes and bookmarks are copied automatically and can be restored, or saved to a file from Settings.
 
 ## Languages

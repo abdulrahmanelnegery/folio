@@ -1,5 +1,7 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.R
+import dev.folio.reader.s
 import android.annotation.SuppressLint
 import android.net.Uri
 import android.view.View
@@ -88,7 +90,7 @@ fun EpubScreen(model: FolioViewModel, id: String) {
             Text(pkg.title.ifBlank { book.name }, Modifier.weight(1f), color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
             androidx.compose.material3.TextButton(onClick = { model.repo.update { it.copy(epubTextPercent = (percent - 10).coerceAtLeast(70)) } }) { Text("A−", color = ink) }
             androidx.compose.material3.TextButton(onClick = { model.repo.update { it.copy(epubTextPercent = (percent + 10).coerceAtMost(220)) } }) { Text("A+", color = ink) }
-            IconButton(onClick = { model.repo.update { it.copy(theme = theme.next()) } }) { Icon(if (theme == PageTheme.Normal) Icons.Rounded.LightMode else Icons.Rounded.DarkMode, "Page theme", tint = ink) }
+            IconButton(onClick = { model.repo.update { it.copy(theme = theme.next()) } }) { Icon(if (theme == PageTheme.Normal) Icons.Rounded.LightMode else Icons.Rounded.DarkMode, s(R.string.page_theme), tint = ink) }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             AndroidView(
@@ -128,13 +130,13 @@ fun EpubScreen(model: FolioViewModel, id: String) {
             )
         }
         Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(enabled = chapter > 0, onClick = { save(); offset = 0f; chapter -= 1; save() }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Previous chapter", tint = ink) }
+            IconButton(enabled = chapter > 0, onClick = { save(); offset = 0f; chapter -= 1; save() }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, s(R.string.previous_chapter), tint = ink) }
             Slider(
                 value = chapter.toFloat(), onValueChange = { chapter = it.toInt().coerceIn(0, pkg.spine.lastIndex); offset = 0f },
                 valueRange = 0f..pkg.spine.lastIndex.coerceAtLeast(1).toFloat(), onValueChangeFinished = { save() }, modifier = Modifier.weight(1f),
             )
             Text("${chapter + 1}/${pkg.spine.size}", color = ink, style = MaterialTheme.typography.labelMedium)
-            IconButton(enabled = chapter < pkg.spine.lastIndex, onClick = { save(); offset = 0f; chapter += 1; save() }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Next chapter", tint = ink) }
+            IconButton(enabled = chapter < pkg.spine.lastIndex, onClick = { save(); offset = 0f; chapter += 1; save() }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, s(R.string.next_chapter), tint = ink) }
         }
     }
 }

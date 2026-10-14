@@ -1,5 +1,7 @@
 package dev.folio.reader.data
 
+import dev.folio.reader.R
+import dev.folio.reader.s
 import android.content.Context
 import android.net.Uri
 import java.nio.charset.Charset
@@ -11,27 +13,27 @@ object PdfInfo {
     private const val WHOLE_FILE_LIMIT = 48L * 1024 * 1024
     private const val CHUNK = 8 * 1024 * 1024
 
-    private val infoKeys = listOf(
-        "Title" to "Title",
-        "Author" to "Author",
-        "Subject" to "Subject",
-        "Keywords" to "Keywords",
-        "Creator" to "Created with",
-        "Producer" to "PDF producer",
-        "CreationDate" to "Created",
-        "ModDate" to "Modified",
+    private val infoKeys get() = listOf(
+        "Title" to s(R.string.title),
+        "Author" to s(R.string.author),
+        "Subject" to s(R.string.subject),
+        "Keywords" to s(R.string.keywords),
+        "Creator" to s(R.string.created_with),
+        "Producer" to s(R.string.pdf_producer),
+        "CreationDate" to s(R.string.created),
+        "ModDate" to s(R.string.modified),
     )
 
     fun read(context: Context, uri: Uri): List<Pair<String, String>> {
         val text = runCatching { sample(context, uri) }.getOrNull() ?: return emptyList()
         val out = ArrayList<Pair<String, String>>()
-        Regex("%PDF-(\\d\\.\\d)").find(text.take(1024))?.let { out += "PDF version" to it.groupValues[1] }
+        Regex("%PDF-(\\d\\.\\d)").find(text.take(1024))?.let { out += s(R.string.pdf_version) to it.groupValues[1] }
         for ((key, label) in infoKeys) {
             val value = infoValue(text, key) ?: xmpValue(text, key) ?: continue
             out += label to if (key.endsWith("Date")) prettyDate(value) else value
         }
-        if (text.contains("/Encrypt")) out += "Encrypted" to "yes"
-        if (text.contains("/Linearized")) out += "Optimised for the web" to "yes"
+        if (text.contains("/Encrypt")) out += s(R.string.encrypted) to s(R.string.yes)
+        if (text.contains("/Linearized")) out += s(R.string.optimised_for_the_web) to s(R.string.yes)
         return out
     }
 

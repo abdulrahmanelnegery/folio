@@ -1,5 +1,10 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.sp
+import dev.folio.reader.data.label
+import dev.folio.reader.data.note
+import dev.folio.reader.R
+import dev.folio.reader.s
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.LruCache
@@ -439,33 +444,33 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.97f), tonalElevation = 3.dp, shadowElevation = 4.dp) {
                     Column(Modifier.statusBarsPadding().padding(horizontal = 4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { requestClose() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+                            IconButton(onClick = { requestClose() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, s(R.string.back)) }
                             Text(book.name, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             val marked = (current - 1) in book.bookmarks
-                            IconButton(onClick = { if (marked) ask = ConfirmRequest("Remove this bookmark?", "The bookmark on page $current will be removed.") { model.repo.toggleBookmark(id, current - 1) } else model.repo.toggleBookmark(id, current - 1) }) {
-                                Icon(if (marked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (marked) "Remove bookmark" else "Add bookmark", tint = if (marked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                            IconButton(onClick = { if (marked) ask = ConfirmRequest(s(R.string.remove_this_bookmark), s(R.string.the_bookmark_on_page_will, current)) { model.repo.toggleBookmark(id, current - 1) } else model.repo.toggleBookmark(id, current - 1) }) {
+                                Icon(if (marked) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (marked) s(R.string.remove_bookmark) else s(R.string.add_bookmark), tint = if (marked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                             }
                             Box {
-                                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "Reading options") }
+                                IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, s(R.string.reading_options)) }
                                 DropdownMenu(menu, { menu = false }) {
                                     DropdownMenuItem(
                                         leadingIcon = { Icon(Icons.Rounded.PlayCircle, null) },
-                                        text = { Text(if (autoScroll) "Stop auto-scroll" else "Auto-scroll") },
+                                        text = { Text(if (autoScroll) s(R.string.stop_auto_scroll) else s(R.string.auto_scroll)) },
                                         onClick = { menu = false; autoScroll = !autoScroll; tool = if (autoScroll) ReaderTool.AutoScroll else null; barsVisible = !autoScroll },
                                     )
                                     DropdownMenuItem(
                                         leadingIcon = { Icon(Icons.Rounded.Edit, null) },
-                                        text = { Text(if (editing) "Finish editing" else "Edit this PDF") },
+                                        text = { Text(if (editing) s(R.string.finish_editing) else s(R.string.edit_this_pdf)) },
                                         onClick = { menu = false; if (editing) finishEditing() else { editing = true; editTool = EditTool.Hand; autoScroll = false; tool = null; barsVisible = true } },
                                     )
                                     DropdownMenuItem(
                                         leadingIcon = { Icon(Icons.Rounded.AddComment, null) },
-                                        text = { Text("Comment on this page") },
+                                        text = { Text(s(R.string.comment_on_this_page)) },
                                         onClick = { menu = false; editNote = NoteEdit(null, current - 1, "") },
                                     )
                                     DropdownMenuItem(
                                         leadingIcon = { Icon(Icons.Rounded.Bookmarks, null) },
-                                        text = { Text("Bookmarks and notes") },
+                                        text = { Text(s(R.string.bookmarks_and_notes)) },
                                         onClick = { menu = false; bookmarkSheet = true },
                                     )
                                 }
@@ -484,7 +489,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                     scope.launch {
                                         val found = file.detectMargins()
                                         detecting = false
-                                        if (found == null) model.notify("No clear margins to remove in this book.")
+                                        if (found == null) model.notify(s(R.string.no_clear_margins_to_remove))
                                         else model.repo.updateBook(id) { it.copy(margins = found, cropMargins = true) }
                                     }
                                 }
@@ -507,15 +512,15 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) {
                         when (tool) {
                             ReaderTool.AutoScroll -> {
-                                ToolHeader("Auto-scroll", onClose = { autoScroll = false; tool = null })
+                                ToolHeader(s(R.string.auto_scroll), onClose = { autoScroll = false; tool = null })
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     IconButton(onClick = { autoScroll = !autoScroll }) {
-                                        Icon(if (autoScroll) Icons.Rounded.PauseCircle else Icons.Rounded.PlayCircle, if (autoScroll) "Pause" else "Play", Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                                        Icon(if (autoScroll) Icons.Rounded.PauseCircle else Icons.Rounded.PlayCircle, if (autoScroll) s(R.string.pause) else s(R.string.play), Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
                                     }
                                     Icon(Icons.Rounded.Speed, null, Modifier.size(20.dp))
                                     Slider(value = autoSpeed, onValueChange = { autoSpeed = it }, valueRange = 15f..400f, modifier = Modifier.weight(1f))
                                 }
-                                Text("Tap the page to show the controls. Speed ${autoSpeed.roundToInt()}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(s(R.string.tap_the_page_to_show, autoSpeed.roundToInt()), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             null -> {}
                         }
@@ -591,9 +596,9 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Icon(Icons.AutoMirrored.Rounded.Undo, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
-                            Text("Back to page ${point.page + 1}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                            Text(s(R.string.back_to_page, point.page + 1), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onTertiaryContainer)
                         }
-                        IconButton(onClick = { returnTo = null }, modifier = Modifier.size(36.dp)) { Icon(Icons.Rounded.Close, "Dismiss", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer) }
+                        IconButton(onClick = { returnTo = null }, modifier = Modifier.size(36.dp)) { Icon(Icons.Rounded.Close, s(R.string.dismiss), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer) }
                     }
                 }
             }
@@ -603,7 +608,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primary, shadowElevation = 6.dp,
                     modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp),
                 ) {
-                    Text("Page ${p + 1}", Modifier.padding(horizontal = 18.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
+                    Text(s(R.string.page, p + 1), Modifier.padding(horizontal = 18.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
                 }
             }
         }
@@ -615,7 +620,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     if (bookmarkSheet) NotesSheet(
         book,
         onGo = { page -> jumpTo.value = page; bookmarkSheet = false },
-        onRemoveBookmark = { page -> ask = ConfirmRequest("Remove this bookmark?", "The bookmark on page ${page + 1} will be removed.") { model.repo.toggleBookmark(id, page) } },
+        onRemoveBookmark = { page -> ask = ConfirmRequest(s(R.string.remove_this_bookmark), s(R.string.the_bookmark_on_page_will, page + 1)) { model.repo.toggleBookmark(id, page) } },
         onEdit = { note -> bookmarkSheet = false; editNote = NoteEdit(note.id, note.page, note.text) },
         onDismiss = { bookmarkSheet = false },
     )
@@ -623,7 +628,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
         NoteDialog(
             edit,
             onSave = { text -> model.repo.saveComment(id, edit.page, text, edit.id); editNote = null },
-            onDelete = { val note = edit; editNote = null; ask = ConfirmRequest("Delete this comment?", "The comment on page ${note.page + 1} will be deleted.", "Delete") { note.id?.let { model.repo.deleteComment(id, it) } } },
+            onDelete = { val note = edit; editNote = null; ask = ConfirmRequest(s(R.string.delete_this_comment), s(R.string.the_comment_on_page_will, note.page + 1), s(R.string.delete)) { note.id?.let { model.repo.deleteComment(id, it) } } },
             onDismiss = { editNote = null },
         )
     }
@@ -638,46 +643,46 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
         val canOverwrite = remember(id, ask) { model.canOverwrite(id) }
         AlertDialog(
             onDismissRequest = { if (!saving) saveAsk = null },
-            title = { Text(if (saving) "Saving…" else "Save your edits?") },
+            title = { Text(if (saving) s(R.string.saving) else s(R.string.save_your_edits)) },
             text = {
                 if (saving) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         androidx.compose.material3.CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
-                        Text("Writing the new file and checking it.")
+                        Text(s(R.string.writing_the_new_file_and))
                     }
                 } else {
                     Column {
-                        Text("${session.marks.size} edit${if (session.marks.size == 1) "" else "s"} on this PDF. The original is not changed unless you choose Overwrite.", style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = { run(FolioViewModel.SaveMode.AsNew) }) { Text("Save as a new file") }
-                        if (canOverwrite) TextButton(onClick = { confirm = SaveConfirm.Overwrite }) { Text("Overwrite the original…") }
-                        else Text("This file cannot be replaced from here; save it as a new file.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(onClick = { confirm = SaveConfirm.Discard }) { Text("Discard the edits…", color = MaterialTheme.colorScheme.error) }
-                        TextButton(onClick = { saveAsk = null; if (ask.close) model.closeBook() else { editing = false; editTool = EditTool.Hand } }) { Text(if (ask.close) "Keep the draft and close" else "Keep the draft") }
+                        Text(sp(R.plurals.edits_on_pdf, session.marks.size), style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { run(FolioViewModel.SaveMode.AsNew) }) { Text(s(R.string.save_as_a_new_file)) }
+                        if (canOverwrite) TextButton(onClick = { confirm = SaveConfirm.Overwrite }) { Text(s(R.string.overwrite_the_original)) }
+                        else Text(s(R.string.this_file_cannot_be_replaced_ddec), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = { confirm = SaveConfirm.Discard }) { Text(s(R.string.discard_the_edits), color = MaterialTheme.colorScheme.error) }
+                        TextButton(onClick = { saveAsk = null; if (ask.close) model.closeBook() else { editing = false; editTool = EditTool.Hand } }) { Text(if (ask.close) s(R.string.keep_the_draft_and_close) else s(R.string.keep_the_draft)) }
                     }
                 }
             },
             confirmButton = {},
-            dismissButton = { if (!saving) TextButton(onClick = { saveAsk = null }) { Text("Cancel") } },
+            dismissButton = { if (!saving) TextButton(onClick = { saveAsk = null }) { Text(s(R.string.cancel)) } },
         )
         when (confirm) {
             SaveConfirm.Overwrite -> AlertDialog(
                 onDismissRequest = { confirm = null },
-                title = { Text("Replace the original?") },
-                text = { Text("The PDF itself is replaced with the edited one. Rukn first keeps a copy of the original in its “originals” folder, and only replaces the file once the new one has been written and checked.") },
-                confirmButton = { TextButton(onClick = { confirm = null; run(FolioViewModel.SaveMode.Overwrite) }) { Text("Replace") } },
-                dismissButton = { TextButton(onClick = { confirm = null }) { Text("Back") } },
+                title = { Text(s(R.string.replace_the_original)) },
+                text = { Text(s(R.string.the_pdf_itself_is_replaced)) },
+                confirmButton = { TextButton(onClick = { confirm = null; run(FolioViewModel.SaveMode.Overwrite) }) { Text(s(R.string.replace)) } },
+                dismissButton = { TextButton(onClick = { confirm = null }) { Text(s(R.string.back)) } },
             )
             SaveConfirm.Discard -> AlertDialog(
                 onDismissRequest = { confirm = null },
-                title = { Text("Discard the edits?") },
-                text = { Text("All ${session.marks.size} edits are deleted. This cannot be undone. The PDF is not changed.") },
+                title = { Text(s(R.string.discard_the_edits_12a3)) },
+                text = { Text(s(R.string.all_edits_are_deleted_this, session.marks.size)) },
                 confirmButton = {
                     TextButton(onClick = {
                         confirm = null; session.discard(); saveAsk = null
                         if (ask.close) model.closeBook() else { editing = false; editTool = EditTool.Hand }
-                    }) { Text("Discard", color = MaterialTheme.colorScheme.error) }
+                    }) { Text(s(R.string.discard), color = MaterialTheme.colorScheme.error) }
                 },
-                dismissButton = { TextButton(onClick = { confirm = null }) { Text("Back") } },
+                dismissButton = { TextButton(onClick = { confirm = null }) { Text(s(R.string.back)) } },
             )
             null -> {}
         }
@@ -791,31 +796,31 @@ private fun ImmersiveBars(barsVisible: Boolean) {
 private fun NotesSheet(book: dev.folio.reader.data.Book, onGo: (Int) -> Unit, onRemoveBookmark: (Int) -> Unit, onEdit: (PageNote) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(bottom = 24.dp)) {
-            Text("Bookmarks", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            Text(s(R.string.bookmarks), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             if (book.bookmarks.isEmpty()) {
-                Text("Tap the bookmark icon on a page to mark it.", modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(s(R.string.tap_the_bookmark_icon_on), modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             book.bookmarks.forEach { page ->
                 Row(Modifier.fillMaxWidth().clickable { onGo(page) }.padding(horizontal = 24.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Bookmark, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(16.dp))
-                    Text("Page ${page + 1}", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                    TextButton(onClick = { onRemoveBookmark(page) }) { Text("Remove") }
+                    Text(s(R.string.page, page + 1), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                    TextButton(onClick = { onRemoveBookmark(page) }) { Text(s(R.string.remove)) }
                 }
             }
-            Text("Page comments", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 8.dp))
+            Text(s(R.string.page_comments_d9e2), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 8.dp))
             if (book.comments.isEmpty()) {
-                Text("Use the comment icon to write a note on a page.", modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(s(R.string.use_the_comment_icon_to), modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             book.comments.forEach { note ->
                 Row(Modifier.fillMaxWidth().clickable { onGo(note.page) }.padding(horizontal = 24.dp, vertical = 10.dp), verticalAlignment = Alignment.Top) {
                     Icon(Icons.AutoMirrored.Rounded.StickyNote2, null, tint = Color(0xFFC08A3E))
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Page ${note.page + 1}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(s(R.string.page, note.page + 1), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Text(note.text, style = MaterialTheme.typography.bodyMedium)
                     }
-                    IconButton(onClick = { onEdit(note) }) { Icon(Icons.Rounded.Edit, "Edit") }
+                    IconButton(onClick = { onEdit(note) }) { Icon(Icons.Rounded.Edit, s(R.string.edit)) }
                 }
             }
         }
@@ -827,15 +832,15 @@ private fun NoteDialog(edit: NoteEdit, onSave: (String) -> Unit, onDelete: () ->
     var text by remember { mutableStateOf(edit.text) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Comment on page ${edit.page + 1}") },
+        title = { Text(s(R.string.comment_on_page, edit.page + 1)) },
         text = {
-            OutlinedTextField(text, { text = it }, placeholder = { Text("Write your comment") }, minLines = 3, maxLines = 8, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(text, { text = it }, placeholder = { Text(s(R.string.write_your_comment)) }, minLines = 3, maxLines = 8, modifier = Modifier.fillMaxWidth())
         },
-        confirmButton = { TextButton(onClick = { onSave(text) }, enabled = text.isNotBlank()) { Text("Save") } },
+        confirmButton = { TextButton(onClick = { onSave(text) }, enabled = text.isNotBlank()) { Text(s(R.string.save)) } },
         dismissButton = {
             Row {
-                if (edit.id != null) TextButton(onClick = onDelete) { Text("Delete") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                if (edit.id != null) TextButton(onClick = onDelete) { Text(s(R.string.delete)) }
+                TextButton(onClick = onDismiss) { Text(s(R.string.cancel)) }
             }
         },
     )
@@ -847,7 +852,7 @@ private fun ThemeMenu(current: PageTheme, onPick: (PageTheme) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(if (current == PageTheme.Normal) Icons.Rounded.LightMode else Icons.Rounded.DarkMode, "Page theme", tint = if (current == PageTheme.Normal) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary)
+            Icon(if (current == PageTheme.Normal) Icons.Rounded.LightMode else Icons.Rounded.DarkMode, s(R.string.page_theme), tint = if (current == PageTheme.Normal) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary)
         }
         DropdownMenu(open, { open = false }) {
             PageTheme.entries.forEach { t ->
@@ -877,7 +882,7 @@ private fun ThemeMenu(current: PageTheme, onPick: (PageTheme) -> Unit) {
 private fun CropButton(on: Boolean, detecting: Boolean, onClick: () -> Unit) {
     IconButton(onClick = onClick) {
         if (detecting) androidx.compose.material3.CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
-        else Icon(Icons.Rounded.Crop, if (on) "Show the margins" else "Remove the margins", tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+        else Icon(Icons.Rounded.Crop, if (on) s(R.string.show_the_margins) else s(R.string.remove_the_margins), tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -895,7 +900,7 @@ private fun RotationMenu(current: dev.folio.reader.data.Orientation, onPick: (de
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(current.icon(), "Rotation: ${current.label}", tint = if (current == dev.folio.reader.data.Orientation.Normal) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary)
+            Icon(current.icon(), s(R.string.rotation_x, current.label), tint = if (current == dev.folio.reader.data.Orientation.Normal) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary)
         }
         DropdownMenu(open, { open = false }) {
             dev.folio.reader.data.Orientation.entries.forEach { o ->
@@ -914,7 +919,7 @@ private fun RotationMenu(current: dev.folio.reader.data.Orientation, onPick: (de
 private fun ToolHeader(title: String, onClose: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-        IconButton(onClick = onClose, modifier = Modifier.size(32.dp)) { Icon(Icons.Rounded.Close, "Close", Modifier.size(18.dp)) }
+        IconButton(onClick = onClose, modifier = Modifier.size(32.dp)) { Icon(Icons.Rounded.Close, s(R.string.close), Modifier.size(18.dp)) }
     }
 }
 
@@ -937,16 +942,16 @@ private fun PageSlider(page: Int, pageCount: Int, modifier: Modifier, onScrub: (
 private fun BrightnessButton(brightness: Float, onChange: (Float) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { open = true }) { Icon(if (brightness < 0f) Icons.Rounded.BrightnessMedium else Icons.Rounded.BrightnessHigh, "Brightness", tint = if (brightness < 0f) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary) }
+        IconButton(onClick = { open = true }) { Icon(if (brightness < 0f) Icons.Rounded.BrightnessMedium else Icons.Rounded.BrightnessHigh, s(R.string.brightness), tint = if (brightness < 0f) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary) }
         DropdownMenu(open, { open = false }) {
             Column(Modifier.width(240.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text("Brightness for this book", style = MaterialTheme.typography.labelLarge)
+                Text(s(R.string.brightness_for_this_book), style = MaterialTheme.typography.labelLarge)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.BrightnessLow, null, Modifier.size(18.dp))
                     Slider(value = if (brightness < 0f) 0.5f else brightness, onValueChange = { onChange(it.coerceIn(0.02f, 1f)) }, valueRange = 0.02f..1f, modifier = Modifier.weight(1f))
                     Icon(Icons.Rounded.BrightnessHigh, null, Modifier.size(18.dp))
                 }
-                TextButton(onClick = { onChange(-1f) }, enabled = brightness >= 0f) { Text("Use the system brightness") }
+                TextButton(onClick = { onChange(-1f) }, enabled = brightness >= 0f) { Text(s(R.string.use_the_system_brightness)) }
             }
         }
     }
@@ -974,16 +979,16 @@ private fun JumpDialog(pages: Int, onGo: (Int) -> Unit, onDismiss: () -> Unit) {
     val number = text.toIntOrNull()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Go to page") },
+        title = { Text(s(R.string.go_to_page)) },
         text = {
             OutlinedTextField(
                 text, { text = it.filter(Char::isDigit).take(6) }, singleLine = true,
-                placeholder = { Text("1 to $pages") },
+                placeholder = { Text(s(R.string.to, pages)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
         },
-        confirmButton = { TextButton(onClick = { number?.let { onGo((it - 1).coerceIn(0, pages - 1)) } }, enabled = number != null) { Text("Go") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = { number?.let { onGo((it - 1).coerceIn(0, pages - 1)) } }, enabled = number != null) { Text(s(R.string.go)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(s(R.string.cancel)) } },
     )
 }
 

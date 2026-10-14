@@ -1,5 +1,7 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.R
+import dev.folio.reader.s
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -214,15 +216,15 @@ fun EditToolbar(
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                ToolButton(EditTool.Hand, tool, onTool, Icons.Rounded.PanTool, "Move and scroll")
-                ToolButton(EditTool.Highlight, tool, onTool, Icons.Rounded.Highlight, "Highlight")
-                ToolButton(EditTool.Pen, tool, onTool, Icons.Rounded.Create, "Pen")
-                ToolButton(EditTool.Underline, tool, onTool, Icons.Rounded.FormatUnderlined, "Underline")
-                ToolButton(EditTool.Note, tool, onTool, Icons.AutoMirrored.Rounded.StickyNote2, "Note")
-                ToolButton(EditTool.Eraser, tool, onTool, Icons.Rounded.AutoFixNormal, "Eraser")
-                IconButton(onClick = onUndo, enabled = canUndo) { Icon(Icons.AutoMirrored.Rounded.Undo, "Undo") }
-                IconButton(onClick = onRedo, enabled = canRedo) { Icon(Icons.AutoMirrored.Rounded.Redo, "Redo") }
-                IconButton(onClick = onDone) { Icon(Icons.Rounded.Check, "Done editing", tint = MaterialTheme.colorScheme.primary) }
+                ToolButton(EditTool.Hand, tool, onTool, Icons.Rounded.PanTool, s(R.string.move_and_scroll))
+                ToolButton(EditTool.Highlight, tool, onTool, Icons.Rounded.Highlight, s(R.string.highlight))
+                ToolButton(EditTool.Pen, tool, onTool, Icons.Rounded.Create, s(R.string.pen))
+                ToolButton(EditTool.Underline, tool, onTool, Icons.Rounded.FormatUnderlined, s(R.string.underline))
+                ToolButton(EditTool.Note, tool, onTool, Icons.AutoMirrored.Rounded.StickyNote2, s(R.string.note))
+                ToolButton(EditTool.Eraser, tool, onTool, Icons.Rounded.AutoFixNormal, s(R.string.eraser))
+                IconButton(onClick = onUndo, enabled = canUndo) { Icon(Icons.AutoMirrored.Rounded.Undo, s(R.string.undo)) }
+                IconButton(onClick = onRedo, enabled = canRedo) { Icon(Icons.AutoMirrored.Rounded.Redo, s(R.string.redo)) }
+                IconButton(onClick = onDone) { Icon(Icons.Rounded.Check, s(R.string.done_editing), tint = MaterialTheme.colorScheme.primary) }
             }
         }
     }

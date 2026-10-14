@@ -1,5 +1,8 @@
 package dev.folio.reader.ui
 
+import androidx.annotation.StringRes
+import dev.folio.reader.R
+import dev.folio.reader.s
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -34,7 +37,7 @@ import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
@@ -96,8 +99,12 @@ import java.util.Date
 /** Where the explorer opens and, when set, the list the picked files are added to. */
 data class ExplorerRequest(val targetList: String? = null, val startDir: String? = null)
 
-private enum class FileSort(val label: String) { Name("Name"), Newest("Newest first"), Oldest("Oldest first"), Largest("Largest first") }
-private enum class FileFilter(val label: String) { All("All"), Books("Books"), Folders("Folders") }
+private enum class FileSort(@StringRes val labelRes: Int) { Name(R.string.name), Newest(R.string.newest_first), Oldest(R.string.oldest_first), Largest(R.string.largest_first) }
+
+private val FileSort.label: String get() = s(labelRes)
+private enum class FileFilter(@StringRes val labelRes: Int) { All(R.string.all), Books(R.string.books), Folders(R.string.folders) }
+
+private val FileFilter.label: String get() = s(labelRes)
 
 private class Entry(val file: File, val isDir: Boolean, val size: Long, val modified: Long, val kind: Kind?)
 
@@ -106,10 +113,10 @@ private fun allFilesAllowed(): Boolean = Build.VERSION.SDK_INT < 30 || Environme
 private fun volumes(): List<Triple<String, ImageVector, File>> {
     val out = ArrayList<Triple<String, ImageVector, File>>()
     val internal = Environment.getExternalStorageDirectory()
-    out += Triple("Phone", Icons.Rounded.Smartphone, internal)
-    File(internal, Environment.DIRECTORY_DOWNLOADS).takeIf { it.isDirectory }?.let { out += Triple("Downloads", Icons.Rounded.Download, it) }
-    File(internal, Environment.DIRECTORY_DOCUMENTS).takeIf { it.isDirectory }?.let { out += Triple("Documents", Icons.Rounded.Description, it) }
-    File("/storage").listFiles()?.filter { it.isDirectory && it.name != "emulated" && it.name != "self" && it.canRead() }?.forEach { out += Triple("SD card ${it.name}", Icons.Rounded.SdCard, it) }
+    out += Triple(s(R.string.phone), Icons.Rounded.Smartphone, internal)
+    File(internal, Environment.DIRECTORY_DOWNLOADS).takeIf { it.isDirectory }?.let { out += Triple(s(R.string.downloads), Icons.Rounded.Download, it) }
+    File(internal, Environment.DIRECTORY_DOCUMENTS).takeIf { it.isDirectory }?.let { out += Triple(s(R.string.documents), Icons.Rounded.Description, it) }
+    File("/storage").listFiles()?.filter { it.isDirectory && it.name != "emulated" && it.name != "self" && it.canRead() }?.forEach { out += Triple(s(R.string.sd_card, it.name), Icons.Rounded.SdCard, it) }
     return out
 }
 
@@ -223,19 +230,19 @@ fun ExplorerScreen(model: FolioViewModel, request: ExplorerRequest, onClose: () 
             TopAppBar(
                 title = {
                     if (searching) OutlinedTextField(
-                        query, { query = it }, singleLine = true, placeholder = { Text("Search in ${dir.name.ifEmpty { "phone" }}") },
+                        query, { query = it }, singleLine = true, placeholder = { Text(s(R.string.search_in, dir.name.ifEmpty { "phone" })) },
                         shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth(),
                     ) else Column {
-                        Text(if (picked.isNotEmpty()) "${picked.size} selected" else request.targetList?.let { "Add to “${nameOf(it)}”" } ?: "Browse files", fontWeight = FontWeight.SemiBold)
-                        Text(dir.name.ifEmpty { "Phone" }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        Text(if (picked.isNotEmpty()) s(R.string.selected, picked.size) else request.targetList?.let { s(R.string.add_to, nameOf(it)) } ?: s(R.string.browse_files), fontWeight = FontWeight.SemiBold)
+                        Text(dir.name.ifEmpty { s(R.string.phone) }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
                 },
-                navigationIcon = { IconButton(onClick = { if (picked.isNotEmpty()) picked = emptySet() else up() }) { Icon(if (picked.isNotEmpty()) Icons.Rounded.Close else Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = { if (picked.isNotEmpty()) picked = emptySet() else up() }) { Icon(if (picked.isNotEmpty()) Icons.Rounded.Close else Icons.AutoMirrored.Rounded.ArrowBack, s(R.string.back)) } },
                 actions = {
-                    IconButton(onClick = { searching = !searching; if (!searching) query = "" }) { Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, "Search") }
-                    IconButton(onClick = { hidden = !hidden }) { Icon(if (hidden) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff, if (hidden) "Hide hidden files" else "Show hidden files") }
+                    IconButton(onClick = { searching = !searching; if (!searching) query = "" }) { Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, s(R.string.search)) }
+                    IconButton(onClick = { hidden = !hidden }) { Icon(if (hidden) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff, if (hidden) s(R.string.hide_hidden_files) else s(R.string.show_hidden_files)) }
                     Box {
-                        IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Rounded.Sort, "Sort") }
+                        IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Rounded.Sort, s(R.string.sort)) }
                         DropdownMenu(sortMenu, { sortMenu = false }) {
                             FileSort.entries.forEach { s ->
                                 DropdownMenuItem(text = { Text(s.label) }, trailingIcon = { if (s == sort) Icon(Icons.Rounded.Check, null) }, onClick = { sort = s; sortMenu = false })
@@ -251,9 +258,9 @@ fun ExplorerScreen(model: FolioViewModel, request: ExplorerRequest, onClose: () 
                 Surface(tonalElevation = 6.dp, shadowElevation = 8.dp) {
                     Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Button(onClick = { addPicked(open = false) }, Modifier.weight(1f)) {
-                            Text(if (request.targetList != null) "Add ${picked.size} to “${nameOf(request.targetList)}”" else "Add ${picked.size} to library")
+                            Text(if (request.targetList != null) s(R.string.add_to_d1a5, picked.size, nameOf(request.targetList)) else s(R.string.add_to_library, picked.size))
                         }
-                        if (request.targetList == null && picked.size == 1) OutlinedButton(onClick = { addPicked(open = true) }) { Text("Open") }
+                        if (request.targetList == null && picked.size == 1) OutlinedButton(onClick = { addPicked(open = true) }) { Text(s(R.string.open)) }
                     }
                 }
             }
@@ -282,13 +289,13 @@ fun ExplorerScreen(model: FolioViewModel, request: ExplorerRequest, onClose: () 
             Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 FileFilter.entries.forEach { f -> FilterChip(filter == f, { filter = f }, { Text(f.label) }) }
                 Spacer(Modifier.weight(1f))
-                Text(if (busy) "Looking…" else "${shown.size} items", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (busy) s(R.string.looking) else s(R.string.n_items, shown.size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (shown.isEmpty() && !busy) {
                 Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Icon(Icons.Rounded.Folder, null, Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
-                    Text(if (query.isNotBlank()) "Nothing matches “$query”" else "This folder is empty", style = MaterialTheme.typography.titleMedium)
+                    Text(if (query.isNotBlank()) s(R.string.nothing_matches, query) else s(R.string.this_folder_is_empty), style = MaterialTheme.typography.titleMedium)
                 }
             }
             LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 24.dp)) {
@@ -320,14 +327,14 @@ fun ExplorerScreen(model: FolioViewModel, request: ExplorerRequest, onClose: () 
                             Text(e.file.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (e.isDir || e.kind != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
                             val where = if (query.isNotBlank()) e.file.parentFile?.name.orEmpty() + "  ·  " else ""
                             Text(
-                                where + (if (e.isDir) "Folder" else readable(e.size)) + "  ·  " + DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(e.modified)),
+                                where + (if (e.isDir) s(R.string.folder) else readable(e.size)) + "  ·  " + DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(e.modified)),
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
                         }
                         when {
-                            selected -> Icon(Icons.Rounded.CheckCircle, "Selected", tint = MaterialTheme.colorScheme.primary)
-                            known -> Text("In library", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                            e.isDir -> Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            selected -> Icon(Icons.Rounded.CheckCircle, s(R.string.selected_label), tint = MaterialTheme.colorScheme.primary)
+                            known -> Text(s(R.string.in_library), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            e.isDir -> Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -349,13 +356,13 @@ private fun Breadcrumb(dir: File, home: File, onGo: (File) -> Unit) {
         items(parts) { f ->
             val last = f == parts.last()
             Text(
-                if (f == home) "Phone" else f.name,
+                if (f == home) s(R.string.phone) else f.name,
                 Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !last) { onGo(f) }.padding(horizontal = 6.dp, vertical = 6.dp),
                 style = MaterialTheme.typography.labelLarge,
                 color = if (last) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary,
                 fontWeight = if (last) FontWeight.SemiBold else FontWeight.Normal,
             )
-            if (!last) Icon(Icons.Rounded.ChevronRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (!last) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -365,14 +372,14 @@ private fun NeedsAccess(onGrant: () -> Unit, onClose: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(Icons.Rounded.Folder, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(16.dp))
-        Text("Browse the files on your phone", style = MaterialTheme.typography.titleMedium)
+        Text(s(R.string.browse_the_files_on_your), style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Allow access to all files and Rukn can show your folders, search them and open a book straight from where it is. Nothing is uploaded; it only reads the names and the files you open.",
+            s(R.string.allow_access_to_all_files),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(20.dp))
-        Button(onClick = onGrant) { Text("Allow access") }
-        OutlinedButton(onClick = onClose, Modifier.padding(top = 8.dp)) { Text("Not now") }
+        Button(onClick = onGrant) { Text(s(R.string.allow_access)) }
+        OutlinedButton(onClick = onClose, Modifier.padding(top = 8.dp)) { Text(s(R.string.not_now)) }
     }
 }

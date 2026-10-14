@@ -1,5 +1,7 @@
 package dev.folio.reader.edits
 
+import dev.folio.reader.R
+import dev.folio.reader.s
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -26,17 +28,17 @@ sealed interface SaveResult {
 object SafeWrite {
     /** Writes the edited copy to [target], which must not exist; it is created only once the copy has checked out. */
     fun saveAsNew(source: File, target: File, work: PdfWork): SaveResult {
-        if (target.exists()) return SaveResult.Failed("A file named ${target.name} is already there.")
+        if (target.exists()) return SaveResult.Failed(s(R.string.a_file_named_is_already, target.name))
         val tmp = File(target.parentFile, ".${target.name}.part")
         return try {
-            val expected = work.pageCount(source) ?: return SaveResult.Failed("The original could not be read.")
+            val expected = work.pageCount(source) ?: return SaveResult.Failed(s(R.string.the_original_could_not_be))
             tmp.parentFile?.mkdirs()
             work.write(source, tmp)
-            if (work.pageCount(tmp) != expected) return SaveResult.Failed("The edited copy did not check out, so it was not saved.")
+            if (work.pageCount(tmp) != expected) return SaveResult.Failed(s(R.string.the_edited_copy_did_not))
             Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE)
             SaveResult.Saved(target)
         } catch (e: Exception) {
-            SaveResult.Failed(e.message ?: "The copy could not be written.")
+            SaveResult.Failed(e.message ?: s(R.string.the_copy_could_not_be))
         } finally {
             tmp.delete()
         }
@@ -48,24 +50,24 @@ object SafeWrite {
      * if the swap itself fails the backup is put back.
      */
     fun overwrite(original: File, backup: File, work: PdfWork): SaveResult {
-        if (!original.canWrite()) return SaveResult.Failed("This file is read only.")
+        if (!original.canWrite()) return SaveResult.Failed(s(R.string.this_file_is_read_only))
         val tmp = File(original.parentFile, ".${original.name}.part")
         return try {
-            val expected = work.pageCount(original) ?: return SaveResult.Failed("The original could not be read.")
+            val expected = work.pageCount(original) ?: return SaveResult.Failed(s(R.string.the_original_could_not_be))
             backup.parentFile?.mkdirs()
             original.copyTo(backup, overwrite = true)
-            if (backup.length() != original.length()) return SaveResult.Failed("The backup copy was incomplete, so nothing was changed.")
+            if (backup.length() != original.length()) return SaveResult.Failed(s(R.string.the_backup_copy_was_incomplete))
             work.write(original, tmp)
-            if (work.pageCount(tmp) != expected) return SaveResult.Failed("The edited file did not check out, so the original was left as it is.")
+            if (work.pageCount(tmp) != expected) return SaveResult.Failed(s(R.string.the_edited_file_did_not))
             try {
                 Files.move(tmp.toPath(), original.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
             } catch (e: Exception) {
                 if (!original.exists() || original.length() == 0L) backup.copyTo(original, overwrite = true)
-                return SaveResult.Failed("The file could not be replaced; the original is as it was.")
+                return SaveResult.Failed(s(R.string.the_file_could_not_be_1ab0))
             }
             SaveResult.Saved(original)
         } catch (e: Exception) {
-            SaveResult.Failed(e.message ?: "The file could not be written; the original is as it was.")
+            SaveResult.Failed(e.message ?: s(R.string.the_file_could_not_be_564c))
         } finally {
             tmp.delete()
         }

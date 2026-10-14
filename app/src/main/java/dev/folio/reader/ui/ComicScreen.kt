@@ -1,5 +1,7 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.R
+import dev.folio.reader.s
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -59,7 +61,7 @@ fun ComicScreen(model: FolioViewModel, id: String) {
     ReadingClock(model, id)
     val list = pages
     if (list == null || list.isEmpty()) {
-        Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) { Text(if (list == null) "Opening…" else "No pages found.", color = Color.White) }
+        Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) { Text(if (list == null) s(R.string.opening) else s(R.string.no_pages_found), color = Color.White) }
         return
     }
     val pager = rememberPagerState(initialPage = book.page.coerceIn(0, list.lastIndex)) { list.size }
@@ -71,11 +73,13 @@ fun ComicScreen(model: FolioViewModel, id: String) {
             model.repo.updateBook(id) { it.copy(page = p, pages = list.size, status = if (p >= list.lastIndex && list.size > 1) dev.folio.reader.data.Status.Finished else it.status) }
         }
     }
+    // Comic pages keep their left-to-right order whatever the language of the app is.
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         HorizontalPager(pager, Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { bars = !bars } }) { i -> ComicPage(list[i]) }
         if (bars) {
             Row(Modifier.fillMaxWidth().background(Color(0xCC000000)).statusBarsPadding().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { model.closeBook() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = Color.White) }
+                IconButton(onClick = { model.closeBook() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, s(R.string.back), tint = Color.White) }
                 Text(book.name, Modifier.weight(1f), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
             }
             Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color(0xCC000000)).navigationBarsPadding().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -86,6 +90,7 @@ fun ComicScreen(model: FolioViewModel, id: String) {
                 Text("${pager.currentPage + 1}/${list.size}", color = Color.White, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 8.dp))
             }
         }
+    }
     }
 }
 

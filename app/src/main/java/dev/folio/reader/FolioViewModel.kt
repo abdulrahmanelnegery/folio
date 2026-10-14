@@ -116,8 +116,8 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun runSave(id: String, mode: SaveMode, draft: dev.folio.reader.edits.Draft): Pair<File?, String> {
-        val book = repo.book(id) ?: return null to "That book is gone."
-        if (draft.isEmpty) return null to "There is nothing to save."
+        val book = repo.book(id) ?: return null to s(R.string.that_book_is_gone)
+        if (draft.isEmpty) return null to s(R.string.there_is_nothing_to_save)
         val app = getApplication<Application>()
         val real = realFile(book)
         // A file only reachable through a provider is copied aside first; it can be saved as new but never replaced.
@@ -125,7 +125,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         try {
             val source = real ?: temp!!.also { t ->
                 val ok = runCatching { app.contentResolver.openInputStream(Uri.parse(book.uri))?.use { i -> t.outputStream().use { i.copyTo(it) } } }.isSuccess
-                if (!ok || t.length() == 0L) return null to "The PDF could not be read."
+                if (!ok || t.length() == 0L) return null to s(R.string.the_pdf_could_not_be)
             }
             val work = dev.folio.reader.pdf.PdfEditWriter(app, draft)
             val fileName = book.fileName.ifEmpty { "${book.name}.pdf" }
@@ -134,15 +134,15 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
                     val dir = real?.parentFile?.takeIf { it.canWrite() } ?: storage.dir("edited")
                     val target = File(dir, dev.folio.reader.edits.SafeWrite.editedName(File(dir, fileName)))
                     when (val r = dev.folio.reader.edits.SafeWrite.saveAsNew(source, target, work)) {
-                        is dev.folio.reader.edits.SaveResult.Saved -> target to "Saved as “${target.name}”. The original is untouched."
+                        is dev.folio.reader.edits.SaveResult.Saved -> target to s(R.string.saved_as_the_original_is, target.name)
                         is dev.folio.reader.edits.SaveResult.Failed -> null to r.reason
                     }
                 }
                 SaveMode.Overwrite -> {
-                    if (real == null || !canOverwrite(id)) return null to "This file cannot be replaced. Save it as a new file instead."
+                    if (real == null || !canOverwrite(id)) return null to s(R.string.this_file_cannot_be_replaced)
                     val backup = File(originalsFolder, "${book.id}-${System.currentTimeMillis()}.pdf")
                     when (val r = dev.folio.reader.edits.SafeWrite.overwrite(real, backup, work)) {
-                        is dev.folio.reader.edits.SaveResult.Saved -> real to "Saved over the original. A copy of the original is in ${backup.parentFile?.name}/${backup.name}."
+                        is dev.folio.reader.edits.SaveResult.Saved -> real to s(R.string.saved_over_the_original_a, backup.parentFile?.name, backup.name)
                         is dev.folio.reader.edits.SaveResult.Failed -> null to r.reason
                     }
                 }
@@ -232,7 +232,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
             if (changed) {
                 repo.reload()
                 _backupTick.value++
-                _message.value = "Rukn now keeps its data in ${storage.root.path}"
+                _message.value = s(R.string.rukn_now_keeps_its_data, storage.root.path)
             }
             storage.migrationMessage?.let { _message.value = it }
         }
@@ -242,7 +242,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             val ok = backups.now(repo.state.value) != null
             _backupTick.value++
-            _message.value = if (ok) "Backup made." else "The backup could not be made."
+            _message.value = if (ok) s(R.string.backup_made) else s(R.string.the_backup_could_not_be)
         }
     }
 
@@ -278,11 +278,11 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         if (size == 0L && uri.scheme == "file") size = runCatching { File(uri.path.orEmpty()).length() }.getOrDefault(0L)
         val mime = runCatching { resolver.getType(uri) }.getOrNull()
         val kind = FileTypes.kindOf(name, mime) ?: sniffKind(uri) ?: run {
-            _message.value = "Rukn cannot open “$name”. It reads PDF, EPUB, comic and text files."
+            _message.value = s(R.string.rukn_cannot_open_it_reads, name)
             return null
         }
         if (kind == Kind.Comic && !name.lowercase().endsWith(".cbz") && !name.lowercase().endsWith(".zip")) {
-            _message.value = "Rukn reads comics in .cbz (a zip of page images). “$name” is another format; convert it to .cbz first."
+            _message.value = s(R.string.rukn_reads_comics_in_cbz, name)
             return null
         }
 
@@ -303,23 +303,23 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         val base = Book(id = sameId ?: hash(uri.toString()), uri = stored.toString(), name = clean, fileName = name, kind = kind, size = size, added = System.currentTimeMillis())
         return when (kind) {
             Kind.Pdf -> {
-                val pdf = PdfFile.open(context, stored) ?: run { _message.value = "That file could not be opened as a PDF."; return null }
+                val pdf = PdfFile.open(context, stored) ?: run { _message.value = s(R.string.that_file_could_not_be); return null }
                 val pages = pdf.pageCount
                 pdf.close()
                 base.copy(pages = pages)
             }
             Kind.Text -> {
-                if (size > MAX_TEXT) { _message.value = "That file is too large to open as text (limit ${MAX_TEXT / 1048576} MB)."; return null }
-                val text = readText(stored) ?: run { _message.value = "That file could not be read."; return null }
+                if (size > MAX_TEXT) { _message.value = s(R.string.that_file_is_too_large, MAX_TEXT / 1048576); return null }
+                val text = readText(stored) ?: run { _message.value = s(R.string.that_file_could_not_be_bba1); return null }
                 base.copy(name = name, pages = text.count { it == '\n' } + 1, size = if (size > 0) size else text.length.toLong())
             }
             Kind.Epub -> {
-                val (pkg, _) = dev.folio.reader.epub.EpubStore.open(context, stored, base.id) ?: run { _message.value = "That file could not be opened as an EPUB."; return null }
+                val (pkg, _) = dev.folio.reader.epub.EpubStore.open(context, stored, base.id) ?: run { _message.value = s(R.string.that_file_could_not_be_9f67); return null }
                 base.copy(name = pkg.title.ifBlank { clean }, author = pkg.author, pages = pkg.spine.size)
             }
             Kind.Comic -> {
                 val pages = dev.folio.reader.epub.ComicStore.open(context, stored, base.id)
-                if (pages.isEmpty()) { _message.value = "That file has no page images Rukn can read."; return null }
+                if (pages.isEmpty()) { _message.value = s(R.string.that_file_has_no_page); return null }
                 base.copy(pages = pages.size)
             }
         }
@@ -397,7 +397,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
                     if (draft.exists()) runCatching { s.text = draft.readText() }
                 }
             }
-            if (session == null) _message.value = "That file could not be read." else texts[book.id] = session
+            if (session == null) _message.value = s(R.string.that_file_could_not_be_bba1) else texts[book.id] = session
         }
     }
 
@@ -418,7 +418,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
                 repo.updateBook(id) { it.copy(pages = text.count { c -> c == '\n' } + 1, size = text.toByteArray().size.toLong()) }
                 _message.value = "Saved."
             } else {
-                _message.value = "Rukn could not write to this file. Use Save as to keep your changes."
+                _message.value = s(R.string.rukn_could_not_write_to)
             }
             after(ok)
         }
@@ -432,7 +432,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
             val ok = withContext(Dispatchers.IO) {
                 runCatching { getApplication<Application>().contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray()) } != null }.getOrDefault(false)
             }
-            _message.value = if (ok) "Saved a new file." else "The file could not be saved."
+            _message.value = if (ok) s(R.string.saved_a_new_file) else s(R.string.the_file_could_not_be)
             after(ok)
         }
     }
@@ -461,7 +461,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
             val ok = withContext(Dispatchers.IO) {
                 runCatching { getApplication<Application>().contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray()) } != null }.getOrDefault(false)
             }
-            _message.value = if (ok) "Backup saved." else "The backup could not be saved."
+            _message.value = if (ok) s(R.string.backup_saved) else s(R.string.the_backup_could_not_be_777b)
         }
     }
 
@@ -483,11 +483,11 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun applyRestore(state: LibraryState?) {
         if (state == null) {
-            _message.value = "That is not a Rukn backup."
+            _message.value = s(R.string.that_is_not_a_rukn)
         } else {
             repo.replace(state)
             repo.flush()
-            _message.value = "Library restored: ${state.books.size} books."
+            _message.value = s(R.string.library_restored_books, state.books.size)
         }
     }
 

@@ -1,5 +1,7 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.R
+import dev.folio.reader.s
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -141,25 +143,25 @@ fun TextScreen(model: FolioViewModel, id: String) {
                         maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium,
                     )
                 },
-                navigationIcon = { IconButton(onClick = ::close) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = ::close) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, s(R.string.back)) } },
                 actions = {
                     if (session != null) {
                         IconButton(onClick = { session.editing = !session.editing }) {
-                            Icon(if (session.editing) Icons.AutoMirrored.Rounded.MenuBook else Icons.Rounded.Edit, if (session.editing) "Read" else "Edit")
+                            Icon(if (session.editing) Icons.AutoMirrored.Rounded.MenuBook else Icons.Rounded.Edit, if (session.editing) s(R.string.read_label) else s(R.string.edit))
                         }
-                        IconButton(onClick = { model.saveText(id) }, enabled = session.dirty) { Icon(Icons.Rounded.Save, "Save") }
+                        IconButton(onClick = { model.saveText(id) }, enabled = session.dirty) { Icon(Icons.Rounded.Save, s(R.string.save)) }
                     }
                     IconButton(onClick = { model.repo.update { it.copy(theme = if (it.theme == PageTheme.Normal) PageTheme.Night else PageTheme.Normal) } }) {
-                        Icon(if (theme == PageTheme.Normal) Icons.Rounded.DarkMode else Icons.Rounded.LightMode, "Theme")
+                        Icon(if (theme == PageTheme.Normal) Icons.Rounded.DarkMode else Icons.Rounded.LightMode, s(R.string.theme))
                     }
                     Box {
-                        IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, s(R.string.more)) }
                         DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem(text = { Text("Text bigger") }, onClick = { fontSize = (fontSize + 1f).coerceAtMost(32f) })
-                            DropdownMenuItem(text = { Text("Text smaller") }, onClick = { fontSize = (fontSize - 1f).coerceAtLeast(9f) })
-                            DropdownMenuItem(text = { Text("Wrap long lines") }, trailingIcon = { if (wrap) Icon(Icons.Rounded.Check, null) }, onClick = { wrap = !wrap; menu = false })
-                            DropdownMenuItem(text = { Text("Line numbers") }, trailingIcon = { if (lineNumbers) Icon(Icons.Rounded.Check, null) }, onClick = { lineNumbers = !lineNumbers; menu = false })
-                            DropdownMenuItem(text = { Text("Save as a new file…") }, onClick = { menu = false; saveAs.launch(book.fileName.ifEmpty { book.name }) })
+                            DropdownMenuItem(text = { Text(s(R.string.text_bigger)) }, onClick = { fontSize = (fontSize + 1f).coerceAtMost(32f) })
+                            DropdownMenuItem(text = { Text(s(R.string.text_smaller)) }, onClick = { fontSize = (fontSize - 1f).coerceAtLeast(9f) })
+                            DropdownMenuItem(text = { Text(s(R.string.wrap_long_lines)) }, trailingIcon = { if (wrap) Icon(Icons.Rounded.Check, null) }, onClick = { wrap = !wrap; menu = false })
+                            DropdownMenuItem(text = { Text(s(R.string.line_numbers)) }, trailingIcon = { if (lineNumbers) Icon(Icons.Rounded.Check, null) }, onClick = { lineNumbers = !lineNumbers; menu = false })
+                            DropdownMenuItem(text = { Text(s(R.string.save_as_a_new_file_517e)) }, onClick = { menu = false; saveAs.launch(book.fileName.ifEmpty { book.name }) })
                         }
                     }
                 },
@@ -169,7 +171,7 @@ fun TextScreen(model: FolioViewModel, id: String) {
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding).background(paper)) {
             when {
-                session == null -> Text("Opening…", Modifier.align(Alignment.Center), color = ink.copy(alpha = 0.6f))
+                session == null -> Text(s(R.string.opening), Modifier.align(Alignment.Center), color = ink.copy(alpha = 0.6f))
                 session.editing -> EditBody(session.text, { session.text = it }, lang, syntax, ink, fontSize, wrap)
                 lang == TextLang.Markdown -> MarkdownView(session.text, ink, paper, fontSize, listState, Modifier.fillMaxSize().navigationBarsPadding())
                 else -> CodeBody(session.text, lang, syntax, ink, fontSize, wrap, lineNumbers, listState)
@@ -179,18 +181,18 @@ fun TextScreen(model: FolioViewModel, id: String) {
 
     if (confirmClose) AlertDialog(
         onDismissRequest = { confirmClose = false },
-        title = { Text("Save your changes?") },
-        text = { Text("“${book.name}” has edits that are not saved. You can save over the file, save a new copy and keep the original, or discard the edits.") },
+        title = { Text(s(R.string.save_your_changes)) },
+        text = { Text(s(R.string.has_edits_that_are_not, book.name)) },
         confirmButton = {
             Row {
-                TextButton(onClick = { confirmClose = false; model.saveText(id) { ok -> if (ok) { model.discardText(id); model.closeBook() } } }) { Text("Save") }
-                TextButton(onClick = { confirmClose = false; saveAsAndClose.launch(book.fileName.ifEmpty { book.name }) }) { Text("Save as new") }
+                TextButton(onClick = { confirmClose = false; model.saveText(id) { ok -> if (ok) { model.discardText(id); model.closeBook() } } }) { Text(s(R.string.save)) }
+                TextButton(onClick = { confirmClose = false; saveAsAndClose.launch(book.fileName.ifEmpty { book.name }) }) { Text(s(R.string.save_as_new)) }
             }
         },
         dismissButton = {
             Row {
-                TextButton(onClick = { confirmClose = false; model.discardText(id); model.closeBook() }) { Text("Discard") }
-                TextButton(onClick = { confirmClose = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmClose = false; model.discardText(id); model.closeBook() }) { Text(s(R.string.discard)) }
+                TextButton(onClick = { confirmClose = false }) { Text(s(R.string.cancel)) }
             }
         },
     )

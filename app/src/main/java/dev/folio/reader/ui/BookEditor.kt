@@ -1,5 +1,8 @@
 package dev.folio.reader.ui
 
+import dev.folio.reader.sp
+import dev.folio.reader.R
+import dev.folio.reader.s
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -84,17 +87,17 @@ private class Draft(book: Book?) {
 
     /** The names of the details that differ from [book], for the question before saving. */
     fun changes(book: Book): List<String> = buildList {
-        if (title != book.name) add("title")
-        if (author != book.author) add("author")
-        if (publisher != book.publisher) add("publisher")
-        if (year != book.year) add("year")
-        if (book.physical && pages != (book.pages.takeIf { it > 0 }?.toString().orEmpty())) add("pages")
-        if (isbn != book.isbn) add("ISBN")
-        if (description != book.description) add("description")
-        if (newCover != null || dropCover) add("cover")
-        if (readingPage != (if (book.physical) book.page else book.page + 1).takeIf { it > 0 }?.toString().orEmpty()) add("reading page")
-        if (status != book.status) add("status")
-        if (minutes != (book.readSeconds / 60).toString().takeIf { book.readSeconds > 0 }.orEmpty()) add("time read")
+        if (title != book.name) add(s(R.string.field_title))
+        if (author != book.author) add(s(R.string.field_author))
+        if (publisher != book.publisher) add(s(R.string.field_publisher))
+        if (year != book.year) add(s(R.string.field_year))
+        if (book.physical && pages != (book.pages.takeIf { it > 0 }?.toString().orEmpty())) add(s(R.string.field_pages))
+        if (isbn != book.isbn) add(s(R.string.field_isbn))
+        if (description != book.description) add(s(R.string.field_description))
+        if (newCover != null || dropCover) add(s(R.string.field_cover))
+        if (readingPage != (if (book.physical) book.page else book.page + 1).takeIf { it > 0 }?.toString().orEmpty()) add(s(R.string.field_reading_page))
+        if (status != book.status) add(s(R.string.field_status))
+        if (minutes != (book.readSeconds / 60).toString().takeIf { book.readSeconds > 0 }.orEmpty()) add(s(R.string.field_time_read))
     }
 }
 
@@ -115,7 +118,7 @@ fun BookEditor(model: FolioViewModel, book: Book?, onDismiss: () -> Unit) {
             val bytes = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
             if (bytes != null && bytes.size < 12_000_000 && BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inJustDecodeBounds = true }).let { true }) {
                 draft.newCover = bytes; draft.dropCover = false
-            } else model.notify("Rukn could not read that image.")
+            } else model.notify(s(R.string.rukn_could_not_read_that))
         }
     }
     var confirmSave by remember { mutableStateOf(false) }
@@ -126,14 +129,14 @@ fun BookEditor(model: FolioViewModel, book: Book?, onDismiss: () -> Unit) {
             Scaffold(
                 topBar = {
                     TopAppBar(
-                        title = { Text(if (book == null) "Add a paper book" else "Edit details") },
-                        navigationIcon = { IconButton(onClick = { if (changed) confirmDiscard = true else onDismiss() }) { Icon(Icons.Rounded.Close, "Close") } },
+                        title = { Text(if (book == null) s(R.string.add_a_paper_book) else s(R.string.edit_details)) },
+                        navigationIcon = { IconButton(onClick = { if (changed) confirmDiscard = true else onDismiss() }) { Icon(Icons.Rounded.Close, s(R.string.close)) } },
                         actions = {
                             TextButton(
                                 enabled = draft.title.isNotBlank() && (book != null || changed),
                                 // Changing a book that is already in the library asks first, and says what will change.
                                 onClick = { if (book == null) scope.launch { save(model, book, draft); onDismiss() } else confirmSave = true },
-                            ) { Text("Save") }
+                            ) { Text(s(R.string.save)) }
                         },
                     )
                 },
@@ -142,36 +145,36 @@ fun BookEditor(model: FolioViewModel, book: Book?, onDismiss: () -> Unit) {
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         CoverBox(model, book, draft, Modifier.width(96.dp).height(138.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            OutlinedButton(onClick = { picker.launch("image/*") }) { Icon(Icons.Rounded.Image, null); Spacer(Modifier.width(8.dp)); Text("Change cover") }
+                            OutlinedButton(onClick = { picker.launch("image/*") }) { Icon(Icons.Rounded.Image, null); Spacer(Modifier.width(8.dp)); Text(s(R.string.change_cover)) }
                             if (draft.newCover != null || book?.customCover == true && !draft.dropCover) {
-                                TextButton(onClick = { draft.newCover = null; draft.dropCover = book?.customCover == true }) { Text("Remove cover") }
+                                TextButton(onClick = { draft.newCover = null; draft.dropCover = book?.customCover == true }) { Text(s(R.string.remove_cover)) }
                             }
                         }
                     }
-                    Button(onClick = { finding = true }, Modifier.fillMaxWidth()) { Icon(Icons.Rounded.CloudDownload, null); Spacer(Modifier.width(8.dp)); Text("Find details online") }
-                    Field("Title", draft.title) { draft.title = it }
-                    Field("Author", draft.author) { draft.author = it }
-                    Field("Publisher", draft.publisher) { draft.publisher = it }
+                    Button(onClick = { finding = true }, Modifier.fillMaxWidth()) { Icon(Icons.Rounded.CloudDownload, null); Spacer(Modifier.width(8.dp)); Text(s(R.string.find_details_online)) }
+                    Field(s(R.string.title), draft.title) { draft.title = it }
+                    Field(s(R.string.author), draft.author) { draft.author = it }
+                    Field(s(R.string.publisher), draft.publisher) { draft.publisher = it }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Field("Year", draft.year, Modifier.weight(1f), number = true) { draft.year = it.filter(Char::isDigit).take(4) }
-                        if (book == null || book.physical) Field("Pages", draft.pages, Modifier.weight(1f), number = true) { draft.pages = it.filter(Char::isDigit).take(5) }
+                        Field(s(R.string.year), draft.year, Modifier.weight(1f), number = true) { draft.year = it.filter(Char::isDigit).take(4) }
+                        if (book == null || book.physical) Field(s(R.string.pages), draft.pages, Modifier.weight(1f), number = true) { draft.pages = it.filter(Char::isDigit).take(5) }
                     }
-                    Field("ISBN", draft.isbn) { draft.isbn = it }
-                    Field("Description", draft.description, minLines = 3) { draft.description = it }
+                    Field(s(R.string.isbn), draft.isbn) { draft.isbn = it }
+                    Field(s(R.string.description), draft.description, minLines = 3) { draft.description = it }
                     if (book != null) {
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Field(if (book.kind == dev.folio.reader.data.Kind.Epub) "Reading chapter" else "Reading page", draft.readingPage, Modifier.weight(1f), number = true) { draft.readingPage = it.filter(Char::isDigit).take(5) }
-                            Field("Time read (minutes)", draft.minutes, Modifier.weight(1f), number = true) { draft.minutes = it.filter(Char::isDigit).take(6) }
+                            Field(if (book.kind == dev.folio.reader.data.Kind.Epub) s(R.string.reading_chapter) else s(R.string.reading_page), draft.readingPage, Modifier.weight(1f), number = true) { draft.readingPage = it.filter(Char::isDigit).take(5) }
+                            Field(s(R.string.time_read_minutes), draft.minutes, Modifier.weight(1f), number = true) { draft.minutes = it.filter(Char::isDigit).take(6) }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(Status.New to "New", Status.ToRead to "To read", Status.Reading to "Reading", Status.Finished to "Finished").forEach { (st, label) ->
+                            listOf(Status.New to s(R.string.new_label), Status.ToRead to s(R.string.to_read), Status.Reading to s(R.string.reading), Status.Finished to s(R.string.finished)).forEach { (st, label) ->
                                 androidx.compose.material3.FilterChip(draft.status == st, { draft.status = st }, { Text(label) })
                             }
                         }
                     }
                     Text(
-                        if (book == null || book.physical) "Details are kept in your Rukn library."
-                        else "Details are kept in your Rukn library; the PDF file itself is not changed.",
+                        if (book == null || book.physical) s(R.string.details_are_kept_in_your)
+                        else s(R.string.details_are_kept_in_your_1158),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -181,16 +184,16 @@ fun BookEditor(model: FolioViewModel, book: Book?, onDismiss: () -> Unit) {
     if (finding) OnlineFinder(draft, model.repo.state.value.googleBooksKey, startQuery = listOf(draft.isbn.ifBlank { draft.title }, if (draft.isbn.isBlank()) draft.author else "").filter { it.isNotBlank() }.joinToString(" "), onDismiss = { finding = false })
     if (confirmSave && book != null) AlertDialog(
         onDismissRequest = { confirmSave = false },
-        title = { Text("Save these changes?") },
-        text = { Text("This will change: ${draft.changes(book).joinToString(", ")}. The book's file is not touched.") },
-        confirmButton = { TextButton(onClick = { confirmSave = false; scope.launch { save(model, book, draft); onDismiss() } }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = { confirmSave = false }) { Text("Keep editing") } },
+        title = { Text(s(R.string.save_these_changes)) },
+        text = { Text(s(R.string.this_will_change_the_book, draft.changes(book).joinToString(", "))) },
+        confirmButton = { TextButton(onClick = { confirmSave = false; scope.launch { save(model, book, draft); onDismiss() } }) { Text(s(R.string.save)) } },
+        dismissButton = { TextButton(onClick = { confirmSave = false }) { Text(s(R.string.keep_editing)) } },
     )
     if (confirmDiscard) AlertDialog(
         onDismissRequest = { confirmDiscard = false },
-        title = { Text("Discard your changes?") },
-        confirmButton = { TextButton(onClick = { confirmDiscard = false; onDismiss() }) { Text("Discard") } },
-        dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Keep editing") } },
+        title = { Text(s(R.string.discard_your_changes)) },
+        confirmButton = { TextButton(onClick = { confirmDiscard = false; onDismiss() }) { Text(s(R.string.discard)) } },
+        dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text(s(R.string.keep_editing)) } },
     )
 }
 
@@ -257,7 +260,7 @@ private fun OnlineFinder(draft: Draft, googleKey: String, startQuery: String, on
     fun run() {
         busy = true; error = null
         scope.launch {
-            results = runCatching { BookLookup.search(query, googleKey) }.onFailure { error = "No connection, or the catalogue did not answer." }.getOrNull()
+            results = runCatching { BookLookup.search(query, googleKey) }.onFailure { error = s(R.string.no_connection_or_the_catalogue) }.getOrNull()
             busy = false
         }
     }
@@ -270,20 +273,20 @@ private fun OnlineFinder(draft: Draft, googleKey: String, startQuery: String, on
         onDismissRequest = onDismiss,
         modifier = Modifier.fillMaxWidth(0.96f),
         properties = DialogProperties(usePlatformDefaultWidth = false),
-        title = { Text("Find details online") },
+        title = { Text(s(R.string.find_details_online)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("Title, author, ISBN or any words") }, singleLine = true,
+                OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text(s(R.string.title_author_isbn_or_any)) }, singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { if (query.isNotBlank() && !busy) run() }))
-                Button(onClick = ::run, enabled = query.isNotBlank() && !busy) { Text("Search") }
-                Text("Searches Open Library and Google Books together. Only what you type here is sent.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Button(onClick = ::run, enabled = query.isNotBlank() && !busy) { Text(s(R.string.search)) }
+                Text(s(R.string.searches_open_library_and_google), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (busy) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 results?.let { list ->
                     if (list.isEmpty() && !busy) {
-                        Text("Nothing found. Translated books are often listed under the original title and author, so try those in English, or the ISBN.")
-                        TextButton(onClick = { draft.title = query.trim(); onDismiss() }) { Text("Use “${query.trim()}” as the title") }
+                        Text(s(R.string.nothing_found_translated_books_are))
+                        TextButton(onClick = { draft.title = query.trim(); onDismiss() }) { Text(s(R.string.use_as_the_title, query.trim())) }
                     }
                     Column(Modifier.height(340.dp).verticalScroll(rememberScrollState())) {
                         list.forEach { m ->
@@ -299,7 +302,7 @@ private fun OnlineFinder(draft: Draft, googleKey: String, startQuery: String, on
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(s(R.string.cancel)) } },
     )
 }
 
@@ -308,13 +311,13 @@ private fun OnlineFinder(draft: Draft, googleKey: String, startQuery: String, on
 private fun MetaPreview(draft: Draft, meta: BookMeta, onBack: () -> Unit, onDone: () -> Unit) {
     class Row(val label: String, val now: String, val next: String, val apply: () -> Unit)
     val rows = listOf(
-        Row("Title", draft.title, meta.title) { draft.title = meta.title },
-        Row("Author", draft.author, meta.author) { draft.author = meta.author },
-        Row("Publisher", draft.publisher, meta.publisher) { draft.publisher = meta.publisher },
-        Row("Year", draft.year, meta.year) { draft.year = meta.year },
-        Row("Pages", draft.pages, meta.pages.takeIf { it > 0 }?.toString().orEmpty()) { draft.pages = meta.pages.toString() },
+        Row(s(R.string.title), draft.title, meta.title) { draft.title = meta.title },
+        Row(s(R.string.author), draft.author, meta.author) { draft.author = meta.author },
+        Row(s(R.string.publisher), draft.publisher, meta.publisher) { draft.publisher = meta.publisher },
+        Row(s(R.string.year), draft.year, meta.year) { draft.year = meta.year },
+        Row(s(R.string.pages), draft.pages, meta.pages.takeIf { it > 0 }?.toString().orEmpty()) { draft.pages = meta.pages.toString() },
         Row("ISBN", draft.isbn, meta.isbn) { draft.isbn = meta.isbn },
-        Row("Description", draft.description, meta.description) { draft.description = meta.description },
+        Row(s(R.string.description), draft.description, meta.description) { draft.description = meta.description },
     ).filter { it.next.isNotBlank() }
     val ticked = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>().apply { rows.forEach { put(it.label, it.next != it.now) } } }
     var takeCover by remember { mutableStateOf(meta.coverUrl.isNotEmpty()) }
@@ -327,25 +330,25 @@ private fun MetaPreview(draft: Draft, meta: BookMeta, onBack: () -> Unit, onDone
         onDismissRequest = onBack,
         modifier = Modifier.fillMaxWidth(0.96f),
         properties = DialogProperties(usePlatformDefaultWidth = false),
-        title = { Text("Choose what to use") },
+        title = { Text(s(R.string.choose_what_to_use)) },
         text = {
             Column(Modifier.height(380.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (meta.coverUrl.isNotEmpty()) Row(Modifier.fillMaxWidth().clickable(enabled = coverBytes != null) { takeCover = !takeCover }, verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(takeCover && coverBytes != null, { takeCover = it }, enabled = coverBytes != null)
                     val bmp = remember(coverBytes) { coverBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } }
                     Box(Modifier.width(60.dp).height(86.dp).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                        if (bmp != null) Image(bmp, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) else if (coverLoading) CircularProgressIndicator(Modifier.width(22.dp).height(22.dp)) else Text("No cover")
+                        if (bmp != null) Image(bmp, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) else if (coverLoading) CircularProgressIndicator(Modifier.width(22.dp).height(22.dp)) else Text(s(R.string.no_cover))
                     }
-                    Text("  Cover", style = MaterialTheme.typography.labelLarge)
+                    Text(s(R.string.cover), style = MaterialTheme.typography.labelLarge)
                 }
-                if (rows.isEmpty() && meta.coverUrl.isEmpty()) Text("This result has nothing to add.")
+                if (rows.isEmpty() && meta.coverUrl.isEmpty()) Text(s(R.string.this_result_has_nothing_to))
                 rows.forEach { r ->
                     Row(Modifier.fillMaxWidth().clickable { ticked[r.label] = ticked[r.label] != true }, verticalAlignment = Alignment.Top) {
                         Checkbox(ticked[r.label] == true, { ticked[r.label] = it })
                         Column(Modifier.padding(top = 10.dp)) {
                             Text(r.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                             Text(r.next, maxLines = 4, overflow = TextOverflow.Ellipsis)
-                            if (r.now.isNotBlank() && r.now != r.next) Text("Now: ${r.now}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            if (r.now.isNotBlank() && r.now != r.next) Text(s(R.string.now, r.now), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -356,9 +359,9 @@ private fun MetaPreview(draft: Draft, meta: BookMeta, onBack: () -> Unit, onDone
                 rows.filter { ticked[it.label] == true }.forEach { it.apply() }
                 if (takeCover) coverBytes?.let { draft.newCover = it; draft.dropCover = false }
                 onDone()
-            }) { Text("Use selected") }
+            }) { Text(s(R.string.use_selected)) }
         },
-        dismissButton = { TextButton(onClick = onBack) { Text("Back") } },
+        dismissButton = { TextButton(onClick = onBack) { Text(s(R.string.back)) } },
     )
 }
 
@@ -382,7 +385,7 @@ fun LogSitting(model: FolioViewModel, book: Book, onDismiss: () -> Unit) {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf("I am on page", "I read pages").forEachIndexed { i, label ->
+                    listOf(s(R.string.i_am_on_page), s(R.string.i_read_pages)).forEachIndexed { i, label ->
                         SegmentedButton(
                             selected = byCount == (i == 1),
                             onClick = { byCount = i == 1; input = if (byCount) "" else book.page.toString() },
@@ -393,29 +396,29 @@ fun LogSitting(model: FolioViewModel, book: Book, onDismiss: () -> Unit) {
                 }
                 OutlinedTextField(
                     input, { input = it.filter(Char::isDigit).take(5) }, Modifier.fillMaxWidth(), singleLine = true,
-                    label = { Text(if (byCount) "Pages read this sitting" else "Page you are on now") },
+                    label = { Text(if (byCount) s(R.string.pages_read_this_sitting) else s(R.string.page_you_are_on_now)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
                 OutlinedTextField(
                     minutes, { minutes = it.filter(Char::isDigit).take(4) }, Modifier.fillMaxWidth(), singleLine = true,
-                    label = { Text("Minutes (optional)") },
+                    label = { Text(s(R.string.minutes_optional)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
                 Text(
                     buildString {
-                        append(if (gained > 0) "+$gained page${if (gained == 1) "" else "s"}" else "No new pages")
-                        if (target != null) append("  ·  now on page $target")
-                        if (book.pages > 0) append(" of ${book.pages}")
+                        append(if (gained > 0) "+" + sp(R.plurals.pages_n, gained) else s(R.string.no_new_pages))
+                        if (target != null) append(s(R.string.now_on_page, target))
+                        if (book.pages > 0) append(s(R.string.of_n, book.pages))
                         if (percent != null) append("  ·  $percent%")
                     },
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
                 )
-                if (book.pages <= 0) Text("Add the page count in Edit details to see your progress.", style = MaterialTheme.typography.bodySmall)
+                if (book.pages <= 0) Text(s(R.string.add_the_page_count_in), style = MaterialTheme.typography.bodySmall)
             }
         },
         confirmButton = {
-            TextButton(enabled = target != null, onClick = { model.repo.logSitting(book.id, target ?: book.page, minutes.toIntOrNull() ?: 0); onDismiss() }) { Text("Save") }
+            TextButton(enabled = target != null, onClick = { model.repo.logSitting(book.id, target ?: book.page, minutes.toIntOrNull() ?: 0); onDismiss() }) { Text(s(R.string.save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(s(R.string.cancel)) } },
     )
 }

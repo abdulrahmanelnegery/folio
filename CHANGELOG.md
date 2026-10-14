@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Arabic and right-to-left.** The whole interface is also in Arabic, with a Language setting (System, English, العربية) and a choice of Arabic-Indic digits. The layout mirrors for right-to-left; comics keep their page order. A check in CI fails when an English text has no Arabic one.
+
 ## 0.13.1
 
 - **An app theme.** Settings has System, Light and Dark for the whole app (the reading themes Normal, Night, Soft night and Sepia stay in the reader). The choice is saved and applied before the first frame, including the splash screen and the status bar.
