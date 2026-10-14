@@ -1,5 +1,3 @@
-<p align="center"><img src="branding/boards/Rukn Reading App Brand Board.png" alt="Rukn brand board" width="860"></p>
-
 <p align="center"><img src="docs/icon.png" width="96" alt="Rukn"></p>
 
 <h1 align="center">Rukn</h1>
@@ -17,7 +15,7 @@ Rukn (ركن, a corner, a pillar) keeps your reading in one calm place: a librar
 
 ## Screenshots
 
-Real screenshots will be added here after the first round of phone testing. Until then, see the brand board above.
+Real screenshots will be added here after the first round of phone testing.
 
 ## What is in it
 

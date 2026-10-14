@@ -43,6 +43,9 @@ class TextSession(val original: String) {
 
 class FolioViewModel(app: Application) : AndroidViewModel(app) {
     val storage = Storage(app)
+    /** The app's own theme (System, Light or Dark), read before the first frame. */
+    val appTheme = MutableStateFlow(dev.folio.reader.data.AppThemePrefs.load(app))
+    fun setAppTheme(theme: dev.folio.reader.data.AppTheme) { appTheme.value = theme; dev.folio.reader.data.AppThemePrefs.save(getApplication(), theme) }
     val repo = LibraryRepository(storage, viewModelScope)
     val covers = Covers(app, storage)
     /** Set from Settings to show the first-run tour again. */
@@ -319,7 +322,6 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
                 if (pages.isEmpty()) { _message.value = "That file has no page images Rukn can read."; return null }
                 base.copy(pages = pages.size)
             }
-            else -> null
         }
     }
 

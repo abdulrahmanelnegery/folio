@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.1
+
+- **An app theme.** Settings has System, Light and Dark for the whole app (the reading themes Normal, Night, Soft night and Sepia stay in the reader). The choice is saved and applied before the first frame, including the splash screen and the status bar.
+- **Settings opens at once.** What was slow: it read and decoded every automatic backup (up to 40) and hashed every file of the old folders on the main thread each time it opened. That work now runs in the background and the page fills in as it arrives (book counts per backup, the old-folder check); clearing saved covers and pages and removing the old folder also run off the main thread.
+- Housekeeping: deprecated icons replaced, a redundant branch removed, tests for the theme choice. The README no longer shows the brand board.
+
 ## 0.13.0
 
 - **A loading screen while a book opens.** A spinner and the title until the page you were on is laid out; no cover glimpse followed by a jump.

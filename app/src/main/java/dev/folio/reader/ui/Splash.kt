@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,13 +55,15 @@ fun Splash(name: String, onDone: () -> Unit) {
         kotlinx.coroutines.delay(1450)
         onDone()
     }
-    Column(Modifier.fillMaxSize().background(SplashInk), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+    val bg = MaterialTheme.colorScheme.background
+    val ink = MaterialTheme.colorScheme.onSurface
+    Column(Modifier.fillMaxSize().background(bg), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         androidx.compose.foundation.Image(
             androidx.compose.ui.res.painterResource(dev.folio.reader.R.drawable.zimam_mark), null,
             Modifier.size(132.dp).alpha(draw.value).graphicsLayer { val k = 0.82f + 0.18f * pop.value; scaleX = k; scaleY = k },
         )
         Spacer(Modifier.height(28.dp))
-        Text(name, Modifier.alpha(title.value).graphicsLayer { translationY = (1f - title.value) * 24f }, color = SplashCream, fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
+        Text(name, Modifier.alpha(title.value).graphicsLayer { translationY = (1f - title.value) * 24f }, color = ink, fontSize = 30.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(6.dp))
         Text("by Zimam", Modifier.alpha(byline.value), color = SplashOrange, fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
     }

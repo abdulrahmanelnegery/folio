@@ -66,7 +66,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.StickyNote2
+import androidx.compose.material.icons.automirrored.rounded.StickyNote2
 import dev.folio.reader.data.PageNote
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -809,7 +809,7 @@ private fun NotesSheet(book: dev.folio.reader.data.Book, onGo: (Int) -> Unit, on
             }
             book.comments.forEach { note ->
                 Row(Modifier.fillMaxWidth().clickable { onGo(note.page) }.padding(horizontal = 24.dp, vertical = 10.dp), verticalAlignment = Alignment.Top) {
-                    Icon(Icons.Rounded.StickyNote2, null, tint = Color(0xFFC08A3E))
+                    Icon(Icons.AutoMirrored.Rounded.StickyNote2, null, tint = Color(0xFFC08A3E))
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Page ${note.page + 1}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
