@@ -68,6 +68,8 @@ data class Book(
     val note: String = "",
     /** Comments pinned to pages. They live in the library, never in the PDF. */
     val comments: List<PageNote> = emptyList(),
+    /** Marks in an unsaved PDF edit draft (highlights, drawings, notes); 0 when there is none. */
+    val draftMarks: Int = 0,
     /** Seconds spent reading this book, and pages read in it. */
     val readSeconds: Long = 0,
     val pagesRead: Int = 0,

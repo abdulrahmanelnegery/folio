@@ -196,6 +196,14 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
     var autoScroll by remember { mutableStateOf(false) }
     var autoSpeed by remember { mutableFloatStateOf(70f) }
     var tool by remember { mutableStateOf<ReaderTool?>(null) }
+    // Editing: a draft of highlights, drawings and notes kept apart from the file.
+    val session = remember(id) { model.editSession(id) }
+    var editing by remember { mutableStateOf(false) }
+    var editTool by remember { mutableStateOf(EditTool.Hand) }
+    var penColor by remember { mutableStateOf(PenColors[0]) }
+    var markColor by remember { mutableStateOf(HighlightColors[0]) }
+    var penWidth by remember { mutableFloatStateOf(PenWidths[1]) }
+    var markNote by remember { mutableStateOf<MarkNoteEdit?>(null) }
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     val jumpTo = remember { mutableStateOf<Int?>(null) }
 
@@ -325,7 +333,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                         offY = (c.y * zoom + offY + pan.y - c.y * nz).coerceIn(size.height * (1f - nz), 0f)
                                         zoom = nz
                                         event.changes.forEach { it.consume() }
-                                    } else if (zoom > 1.01f && event.changes.size == 1) {
+                                    } else if (zoom > 1.01f && event.changes.size == 1 && !(editing && editTool != EditTool.Hand)) {
                                         // One finger on a zoomed page moves the page around; once its edge is reached the rest scrolls the book.
                                         val pan = event.calculatePan()
                                         offX = (offX + pan.x).coerceIn(size.width * (1f - zoom), 0f)
@@ -342,7 +350,10 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 ) {
                     items(file.pageCount) { index ->
                         @Suppress("UNUSED_VARIABLE") val layoutVersion = sizesVersion
-                        PageView(file, book.id, model.pageCache, index, widthPx, zoom, cache, theme, crop = if (book.cropMargins && book.margins.size == 4) book.margins else null, noteCount = book.comments.count { it.page == index }, onNotes = { bookmarkSheet = true })
+                        PageView(file, book.id, model.pageCache, index, widthPx, zoom, cache, theme, crop = if (book.cropMargins && book.margins.size == 4) book.margins else null, noteCount = book.comments.count { it.page == index }, onNotes = { bookmarkSheet = true },
+                            session = session, tool = if (editing) editTool else EditTool.Hand,
+                            color = when (editTool) { EditTool.Highlight -> markColor; else -> penColor }, width = penWidth,
+                            onNote = { pt, existing -> markNote = MarkNoteEdit(index, pt, existing) })
                     }
                 }
             }
@@ -388,6 +399,11 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                         leadingIcon = { Icon(Icons.Rounded.PlayCircle, null) },
                                         text = { Text(if (autoScroll) "Stop auto-scroll" else "Auto-scroll") },
                                         onClick = { menu = false; autoScroll = !autoScroll; tool = if (autoScroll) ReaderTool.AutoScroll else null; barsVisible = !autoScroll },
+                                    )
+                                    DropdownMenuItem(
+                                        leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                                        text = { Text(if (editing) "Finish editing" else "Edit this PDF") },
+                                        onClick = { menu = false; editing = !editing; editTool = EditTool.Hand; if (editing) { autoScroll = false; tool = null; barsVisible = true } },
                                     )
                                     DropdownMenuItem(
                                         leadingIcon = { Icon(Icons.Rounded.AddComment, null) },
@@ -452,6 +468,22 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                         }
                     }
                 }
+            }
+
+            AnimatedVisibility(
+                editing && barsVisible,
+                Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp).navigationBarsPadding(),
+                enter = fadeIn() + slideInVertically { it / 2 },
+                exit = fadeOut() + slideOutVertically { it / 2 },
+            ) {
+                EditToolbar(
+                    tool = editTool, onTool = { editTool = it },
+                    color = if (editTool == EditTool.Highlight) markColor else penColor,
+                    onColor = { if (editTool == EditTool.Highlight) markColor = it else penColor = it },
+                    width = penWidth, onWidth = { penWidth = it },
+                    canUndo = session.canUndo, canRedo = session.canRedo, onUndo = { session.undo() }, onRedo = { session.redo() },
+                    onDone = { editing = false; editTool = EditTool.Hand },
+                )
             }
 
             AnimatedVisibility(
@@ -541,6 +573,18 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
             onDismiss = { editNote = null },
         )
     }
+    markNote?.let { m ->
+        NoteDialog(
+            NoteEdit(m.existing?.id, m.page, m.existing?.text.orEmpty()),
+            onSave = { text ->
+                m.existing?.let { session.remove(it.id) }
+                session.add(dev.folio.reader.edits.Note(session.nextId(), m.page, m.at, text.trim()))
+                markNote = null
+            },
+            onDelete = { m.existing?.let { session.remove(it.id) }; markNote = null },
+            onDismiss = { markNote = null },
+        )
+    }
     if (jumpDialog && pages > 0) JumpDialog(pages, onGo = { page -> jumpTo.value = page; jumpDialog = false }, onDismiss = { jumpDialog = false })
 }
 
@@ -549,11 +593,16 @@ private data class ReturnPoint(val page: Int, val offset: Int)
 
 private data class NoteEdit(val id: Long?, val page: Int, val text: String)
 
+/** A sticky note being placed or changed in an edit draft. */
+private data class MarkNoteEdit(val page: Int, val at: dev.folio.reader.edits.Pt, val existing: dev.folio.reader.edits.Note?)
+
 private enum class ReaderTool { AutoScroll }
 
 /** One page: a placeholder of the right shape until its bitmap is drawn. */
 @Composable
-private fun PageView(file: PdfFile, bookId: String, disk: dev.folio.reader.pdf.PageDiskCache, index: Int, widthPx: Int, zoom: Float, cache: LruCache<String, Bitmap>, theme: PageTheme, crop: List<Float>?, noteCount: Int, onNotes: () -> Unit) {
+private fun PageView(file: PdfFile, bookId: String, disk: dev.folio.reader.pdf.PageDiskCache, index: Int, widthPx: Int, zoom: Float, cache: LruCache<String, Bitmap>, theme: PageTheme, crop: List<Float>?, noteCount: Int, onNotes: () -> Unit,
+    session: dev.folio.reader.edits.EditSession, tool: EditTool, color: Int, width: Float, onNote: (dev.folio.reader.edits.Pt, dev.folio.reader.edits.Note?) -> Unit,
+) {
     // With the margins cropped only the middle of the page is shown, so it is drawn wider to keep the text as sharp.
     val (l, t, r, b) = crop ?: listOf(0f, 0f, 0f, 0f)
     val visW = (1f - l - r).coerceAtLeast(0.3f)
@@ -578,6 +627,8 @@ private fun PageView(file: PdfFile, bookId: String, disk: dev.folio.reader.pdf.P
                 Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFF2B12E)).clickable(onClick = onNotes).padding(horizontal = 8.dp, vertical = 4.dp),
             ) { Text("✎ $noteCount", color = Color(0xFF3B2A00), style = MaterialTheme.typography.labelMedium) }
         }
+        var live by remember { mutableStateOf<dev.folio.reader.edits.Mark?>(null) }
+        val mapper = remember(l, t, visW, visH) { dev.folio.reader.edits.PageMapper(l, t, visW, visH) }
         bitmap?.let { bmp ->
             val image = remember(bmp) { bmp.asImageBitmap() }
             androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
@@ -589,6 +640,13 @@ private fun PageView(file: PdfFile, bookId: String, disk: dev.folio.reader.pdf.P
                     colorFilter = filter,
                 )
             }
+        }
+        val marks = session.marks.filter { it.page == index }
+        if (marks.isNotEmpty() || live != null) {
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) { drawMarks(marks, mapper, live) }
+        }
+        if (tool != EditTool.Hand) {
+            Box(Modifier.fillMaxSize().markInput(tool, color, width, index, file.aspect(index), mapper, session, onLive = { live = it }, onNote = onNote))
         }
     }
 }
