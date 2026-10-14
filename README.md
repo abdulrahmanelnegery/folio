@@ -15,6 +15,7 @@ Rukn is made for long reading: your books live in a library with covers, lists a
 - **Lists inside lists**: open a list and the lists inside it appear as folders, like a file explorer, with a breadcrumb and back. Hold a book or a folder to open, move, remove, rename, nest or delete it. Select several books to act on them together.
 - **File explorer**: browse the phone (Downloads, Documents, SD cards), search a folder and everything below it, filter, sort, and add books straight to the library or to a list. The same file reached by two routes is one book.
 - **Reading**: continuous scrolling, pinch and double-tap zoom, tap to hide the bars, a slim progress bar, jump to a page, bookmarks, comments on pages, auto-scroll with adjustable speed, margin cropping, and the book's own theme, brightness and rotation (each book remembers its own).
+- **Editing PDFs**: *Edit this PDF* in the reader menu gives a highlighter (four colours), a pen (four colours, three widths), underline, sticky notes, an eraser, and undo and redo. Your marks are a draft kept apart from the file, saved at once, and still there after you close the app (a "draft" tag shows on the book). When you finish or close, choose **Save as a new file** (`name (edited).pdf`, next to the original or in the Rukn folder), **Overwrite the original** (asks twice; the original is copied to an `originals` folder first, the new file is written and checked beside it, and only then swapped in) or **Discard**. Highlights, underlines and drawings are painted into the page so every reader shows them; notes are real PDF comments that keep their text. Files that only come through another app's provider can be saved as new, not replaced.
 - **Themes**: Normal, Night, Soft night and Sepia. Night flips lightness and keeps hue, so figures stay readable.
 - **EPUB books**: read chapter by chapter with the four reading themes and a text size of your own; your place in the book is remembered.
 - **Comics**: `.cbz` files, one page at a time, with a slider to jump.
@@ -68,7 +69,7 @@ PDFs are drawn by Android's own `PdfRenderer` on a worker thread; the library is
 
 ## Roadmap
 
-Editing PDFs (highlights, drawing, comments) with save-as, text search and in-app translation. A Linux edition comes after version 1.
+Text search and in-app translation, selecting text to highlight (today a highlight is a box you drag), and editing marks you have already saved into a PDF. A Linux edition comes after version 1.
 
 ## Licence
 
