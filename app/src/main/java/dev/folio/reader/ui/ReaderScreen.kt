@@ -140,8 +140,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-private const val MAX_ZOOM = 5f
-private const val DOUBLE_TAP_ZOOM = 2.5f
 
 /** Colour filters that turn the white page into each reading theme. */
 private fun PageTheme.filter(): ColorFilter? = when (this) {
@@ -304,12 +302,12 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                     snapshotFlow { list.firstVisibleItemIndex to list.firstVisibleItemScrollOffset }
                         .debounce(600)
                         .collect { (page, px) ->
-                            val height = (widthPx * zoom * file.aspect(page)).coerceAtLeast(1f)
-                            val atEnd = page >= file.pageCount - 1 && px / height > 0.3f
+                            val fraction = ZoomMath.fractionInPage(px, widthPx, zoom, file.aspect(page))
+                            val atEnd = page >= file.pageCount - 1 && fraction > 0.3f
                             model.repo.updateBook(id) {
                                 it.copy(
                                     page = page,
-                                    offset = (px / height).coerceIn(0f, 1f),
+                                    offset = fraction,
                                     pages = file.pageCount,
                                     status = if (atEnd && file.pageCount > 1) Status.Finished else it.status,
                                 )
@@ -328,18 +326,17 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                 var liveTy by remember { mutableFloatStateOf(0f) }
                 // Settles the moment's scale into the layout, keeping the point at (ox, oy) under (cx, cy).
                 suspend fun settle(scale: Float, ox: Float, oy: Float, cx: Float, cy: Float) {
-                    val newZoom = (zoom * scale).coerceIn(1f, MAX_ZOOM)
-                    val r = newZoom / zoom
                     val index = list.firstVisibleItemIndex
                     val inside = list.firstVisibleItemScrollOffset
-                    val newOff = (cx - (ox - offX) * r).coerceIn(viewW * (1f - newZoom), 0f)
-                    zoom = newZoom
-                    offX = newOff
+                    val settled = ZoomMath.settle(zoom, offX, scale, ox, cx, viewW)
+                    val r = settled.ratio
+                    zoom = settled.zoom
+                    offX = settled.offX
                     live = 1f; liveTx = 0f; liveTy = 0f
                     if (r != 1f) {
                         androidx.compose.runtime.withFrameNanos { }
                         list.scrollToItem(index, 0)
-                        list.scrollBy((inside + oy) * r - cy)
+                        list.scrollBy(ZoomMath.scrollAfterSettle(inside, oy, r, cy))
                     }
                 }
                 Box(
@@ -355,7 +352,7 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                 onTap = { barsVisible = !barsVisible },
                                 // A double tap zooms in on the spot you tapped, or back out, with a short glide.
                                 onDoubleTap = { p ->
-                                    val target = if (zoom > 1.05f) 1f else DOUBLE_TAP_ZOOM
+                                    val target = ZoomMath.doubleTapTarget(zoom)
                                     val scale = target / zoom
                                     scope.launch {
                                         liveOx = p.x; liveOy = p.y
@@ -379,14 +376,14 @@ fun ReaderScreen(model: FolioViewModel, id: String) {
                                     if (event.changes.size >= 2) {
                                         val c = event.calculateCentroid()
                                         if (!pinching) { pinching = true; ox = c.x; oy = c.y; liveOx = c.x; liveOy = c.y; liveTx = 0f; liveTy = 0f }
-                                        live = (live * event.calculateZoom()).coerceIn(1f / zoom, MAX_ZOOM / zoom)
+                                        live = ZoomMath.liveScale(live, event.calculateZoom(), zoom)
                                         cx = c.x; cy = c.y
                                         liveTx = cx - ox; liveTy = cy - oy
                                         event.changes.forEach { it.consume() }
                                     } else if (!pinching && zoom > 1.01f && event.changes.size == 1 && !(editing && editTool != EditTool.Hand)) {
                                         val pan = event.calculatePan()
                                         moved += kotlin.math.abs(pan.x)
-                                        if (moved > slop) offX = (offX + pan.x).coerceIn(viewW * (1f - zoom), 0f)
+                                        if (moved > slop) offX = ZoomMath.pan(offX, pan.x, zoom, viewW)
                                     }
                                 } while (event.changes.any { it.pressed })
                                 if (pinching) scope.launch { settle(live, ox, oy, cx, cy) }
