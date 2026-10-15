@@ -515,4 +515,6 @@
     <string name="library_unreadable_not_kept">Your library file could not be read and could not be copied aside, so changes will not be saved until this is fixed.</string>
     <string name="restore_no_safety_copy">Nothing was restored: a copy of your current library could not be saved first.</string>
     <string name="the_file_is_too_big_to_edit">This PDF is too big to save here. The original was not changed.</string>
+    <string name="safe_library_note">A damaged library file is now kept aside and your newest backup restored, and restoring a backup first saves what you have.</string>
+    <string name="safe_saves_note">Saving a text file or a large PDF can no longer leave a half-written file.</string>
 </resources>

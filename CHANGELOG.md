@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.2
+
+- **A damaged library file no longer empties your library.** If `library.json` cannot be read, Manhal keeps it as `library.corrupt-<date>.json`, restores your newest backup that opens, and tells you. Saves now go through a temporary file so a crash or a full disk cannot leave a half-written library; a failed backup write no longer deletes older backups.
+- **Restore is safer.** A file that is not a Manhal backup (an empty `{}` or another app's data) is refused, and your current library is saved as a backup before a restore replaces it.
+- **Saving a text or Markdown file can no longer destroy it.** The new text is written through a temporary file (or verified after writing through another app's provider), and your draft is kept until the save is confirmed. Running out of memory while saving a large PDF now shows a message instead of crashing.
+- **Moving to the Zimam folder:** a file that cannot be read no longer crashes the move, and when an older folder holds a different library it is kept in your backup list with a message, so you can restore it.
+
 ## 0.14.1
 
 - **A new app icon.** The roof and the swoosh, on the launcher, the splash screen and the About page.

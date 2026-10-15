@@ -33,6 +33,10 @@ object Onboarding {
 /** Short notes per version, taken from the changelog; shown once after an update. */
 object ReleaseNotes {
     private val notes: Map<String, List<String>> get() = mapOf(
+        "0.14.2" to listOf(
+            s(R.string.safe_library_note),
+            s(R.string.safe_saves_note),
+        ),
         "0.14.1" to listOf(s(R.string.new_family_icon_note)),
         "0.14.0" to listOf(
             s(R.string.manhal_rename_note),
