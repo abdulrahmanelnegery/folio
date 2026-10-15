@@ -2,6 +2,8 @@ package dev.folio.reader.ui
 
 import dev.folio.reader.R
 import dev.folio.reader.s
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import android.annotation.SuppressLint
 import android.net.Uri
 import android.view.View
@@ -88,8 +90,8 @@ fun EpubScreen(model: FolioViewModel, id: String) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { save(); model.closeBook() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = ink) }
             Text(pkg.title.ifBlank { book.name }, Modifier.weight(1f), color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-            androidx.compose.material3.TextButton(onClick = { model.repo.update { it.copy(epubTextPercent = (percent - 10).coerceAtLeast(70)) } }) { Text("A−", color = ink) }
-            androidx.compose.material3.TextButton(onClick = { model.repo.update { it.copy(epubTextPercent = (percent + 10).coerceAtMost(220)) } }) { Text("A+", color = ink) }
+            androidx.compose.material3.TextButton(onClick = { model.repo.update { it.copy(epubTextPercent = (percent - 10).coerceAtLeast(70)) } }) { Text("A−", color = ink, modifier = Modifier.semantics { contentDescription = s(R.string.smaller_text) }) }
+            androidx.compose.material3.TextButton(onClick = { model.repo.update { it.copy(epubTextPercent = (percent + 10).coerceAtMost(220)) } }) { Text("A+", color = ink, modifier = Modifier.semantics { contentDescription = s(R.string.larger_text) }) }
             IconButton(onClick = { model.repo.update { it.copy(theme = theme.next()) } }) { Icon(if (theme == PageTheme.Normal) Icons.Rounded.LightMode else Icons.Rounded.DarkMode, s(R.string.page_theme), tint = ink) }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -135,7 +137,7 @@ fun EpubScreen(model: FolioViewModel, id: String) {
                 value = chapter.toFloat(), onValueChange = { chapter = it.toInt().coerceIn(0, pkg.spine.lastIndex); offset = 0f },
                 valueRange = 0f..pkg.spine.lastIndex.coerceAtLeast(1).toFloat(), onValueChangeFinished = { save() }, modifier = Modifier.weight(1f),
             )
-            Text("${chapter + 1}/${pkg.spine.size}", color = ink, style = MaterialTheme.typography.labelMedium)
+            Text(dev.folio.reader.digits("${chapter + 1}/${pkg.spine.size}"), color = ink, style = MaterialTheme.typography.labelMedium)
             IconButton(enabled = chapter < pkg.spine.lastIndex, onClick = { save(); offset = 0f; chapter += 1; save() }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, s(R.string.next_chapter), tint = ink) }
         }
     }

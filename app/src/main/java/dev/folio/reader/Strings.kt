@@ -26,6 +26,9 @@ fun toArabicDigits(text: String): String {
     return out.toString()
 }
 
+/** A number or counter as text, in Arabic-Indic digits when that setting is on. */
+fun digits(text: String): String = if (Strings.arabicDigits) toArabicDigits(text) else text
+
 /** A plural string; the count is the first format argument. */
 fun sp(@androidx.annotation.PluralsRes id: Int, count: Int, vararg args: Any?): String {
     Strings.override?.let { return it(id, arrayOf(count, *args)) }
