@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "folio"
+rootProject.name = "manhal"
 include(":app")
