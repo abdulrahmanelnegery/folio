@@ -55,11 +55,20 @@ fun WelcomeHost(model: FolioViewModel) {
     val requested by model.tourRequested.collectAsState()
     // Decided once, when Rukn opens: finishing the tour changes what is stored.
     val decision = remember { Onboarding.decide(library.lastSeenVersion, library.tourDone, library.books.isNotEmpty() || library.lists.isNotEmpty(), version) }
+    val newsRequested by model.whatsNewRequested.collectAsState()
     var notesClosed by remember { androidx.compose.runtime.mutableStateOf(false) }
     var tourClosed by remember { androidx.compose.runtime.mutableStateOf(false) }
     fun seen() = model.repo.update { it.copy(lastSeenVersion = version, tourDone = true) }
     if (requested || (decision == Welcome.Tour && !tourClosed)) {
         Tour(model, onClose = { seen(); tourClosed = true; model.tourRequested.value = false })
+    } else if (newsRequested) {
+        val notes = ReleaseNotes.forVersion(version)
+        AlertDialog(
+            onDismissRequest = { model.whatsNewRequested.value = false },
+            title = { Text(s(R.string.what_s_new_in_rukn, version)) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { notes.forEach { Text("•  $it", style = MaterialTheme.typography.bodyMedium) } } },
+            confirmButton = { TextButton(onClick = { model.whatsNewRequested.value = false }) { Text(s(R.string.close)) } },
+        )
     } else if (decision == Welcome.WhatsNew && !notesClosed) {
         val notes = ReleaseNotes.forVersion(version)
         if (notes.isEmpty()) LaunchedEffect(Unit) { seen(); notesClosed = true } else AlertDialog(

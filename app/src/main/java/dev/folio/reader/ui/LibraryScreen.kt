@@ -81,6 +81,8 @@ import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
@@ -295,6 +297,8 @@ fun LibraryScreen(model: FolioViewModel, onOpenPicker: () -> Unit, onSettings: (
                     HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
                     DrawerEntry(Icons.Rounded.Settings, s(R.string.settings_and_backup), null, false, 0) { scope.launch { drawer.close() }; onSettings() }
                     DrawerEntry(Icons.Rounded.Info, s(R.string.about_rukn), null, false, 0) { scope.launch { drawer.close() }; onAbout() }
+                    DrawerEntry(Icons.Rounded.NewReleases, s(R.string.what_is_new), null, false, 0) { scope.launch { drawer.close() }; model.whatsNewRequested.value = true }
+                    DrawerEntry(Icons.Rounded.Explore, s(R.string.show_the_tour_again), null, false, 0) { scope.launch { drawer.close() }; model.tourRequested.value = true }
                     Spacer(Modifier.height(24.dp))
                 }
             }
