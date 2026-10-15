@@ -568,4 +568,9 @@
     <string name="search_chapter_hit">فصل %1$d</string>
     <string name="search_line_hit">سطر %1$d</string>
     <string name="pdf_needs_a_password">هذا الملف محمي بكلمة مرور. لا يستطيع منهل فتح ملفات PDF المحمية بعد.</string>
+    <string name="originals_kept">نسخ ملفات PDF السابقة المحفوظة: %1$d (%2$s). تُحفظ واحدة كلما استبدلت ملف PDF الأصلي.</string>
+    <string name="clear_old_originals">مسح النسخ الأصلية القديمة</string>
+    <string name="clear_old_originals_title">مسح النسخ الأصلية القديمة؟</string>
+    <string name="clear_old_originals_text">هذه هي النسخ المحفوظة عند اختيارك استبدال الأصل. بعد حذفها لا يمكنك العودة إلى النسخة السابقة من تلك الملفات.</string>
+    <string name="originals_cleared">النسخ المحذوفة: %1$d.</string>
 </resources>

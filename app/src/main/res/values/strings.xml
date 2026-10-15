@@ -568,4 +568,9 @@
     <string name="search_chapter_hit">Chapter %1$d</string>
     <string name="search_line_hit">Line %1$d</string>
     <string name="pdf_needs_a_password">This PDF is password protected. Manhal cannot open protected PDFs yet.</string>
+    <string name="originals_kept">Earlier PDF copies kept: %1$d (%2$s). One is saved each time you overwrite a PDF.</string>
+    <string name="clear_old_originals">Clear old originals</string>
+    <string name="clear_old_originals_title">Clear old originals?</string>
+    <string name="clear_old_originals_text">These are the copies kept when you chose Overwrite the original. Once they are gone you cannot go back to the earlier version of those PDFs.</string>
+    <string name="originals_cleared">Copies removed: %1$d.</string>
 </resources>
