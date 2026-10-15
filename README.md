@@ -37,7 +37,7 @@ Manhal (منهل, a spring to drink from) keeps your reading in one calm place: 
 
 ## Languages
 
-English today. Arabic and right-to-left screens are being added; this line will say when they are in.
+English and العربية (Arabic) with a full right-to-left layout. Choose the language in Settings, or follow the phone's, and optionally show numbers in Arabic-Indic digits (٠١٢٣).
 
 ## Screenshots
 
