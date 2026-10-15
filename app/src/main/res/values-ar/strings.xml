@@ -510,4 +510,7 @@
     <string name="arabic_note">أصبح التطبيق يتحدث العربية بتخطيط من اليمين إلى اليسار. اختر اللغة من الإعدادات، ويمكنك اختيار الأرقام الهندية.</string>
     <string name="new_icon_note">أيقونة ومظهر جديدان.</string>
     <string name="new_family_icon_note">أيقونة جديدة للتطبيق.</string>
+    <string name="library_unreadable_restored">تعذّرت قراءة ملف مكتبتك. حُفظ باسم %1$s واستُعيدت النسخة الاحتياطية من %2$s.</string>
+    <string name="library_unreadable_no_backup">تعذّرت قراءة ملف مكتبتك ولم توجد نسخة احتياطية. حُفظ باسم %1$s وبدأت مكتبة جديدة.</string>
+    <string name="library_unreadable_not_kept">تعذّرت قراءة ملف مكتبتك وتعذّر حفظ نسخة منه جانبًا، لذلك لن تُحفظ تغييراتك حتى تُحَلّ المشكلة.</string>
 </resources>
