@@ -16,7 +16,7 @@ PUBLISH=0; [ "${1:-}" = "--publish" ] && PUBLISH=1
 CHANGELOG_FILE="${CHANGELOG_FILE:-CHANGELOG.md}"
 NOTES="$(awk -v v="## $VERSION" '$0==v{p=1;next} /^## /{p=0} p' "$CHANGELOG_FILE")"
 
-if [ -z "${MANHAL_KEYSTORE:-${FOLIO_KEYSTORE:-}}" ]; then
+if [ -z "${MANHAL_KEYSTORE:-}" ]; then
   [ "$PUBLISH" = 1 ] && { echo "error: --publish needs MANHAL_KEYSTORE (and MANHAL_KEYSTORE_PASSWORD); refusing to publish unsigned APKs" >&2; exit 1; }
   echo "note: MANHAL_KEYSTORE is not set, the APKs will be unsigned" >&2
 fi

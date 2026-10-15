@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Lets Rukn keep its data in a visible Rukn folder that survives reinstalling; optional, asked for in Settings. -->
+    <!-- Lets Manhal keep its data in a visible Zimam/Manhal folder that survives reinstalling; optional, asked for in Settings. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 
@@ -12,7 +12,7 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:localeConfig="@xml/locales_config"
-        android:theme="@style/Theme.Folio">
+        android:theme="@style/Theme.Manhal">
         <activity
             android:name=".MainActivity"
             android:exported="true"
