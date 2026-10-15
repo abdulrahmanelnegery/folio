@@ -514,4 +514,5 @@
     <string name="library_unreadable_no_backup">تعذّرت قراءة ملف مكتبتك ولم توجد نسخة احتياطية. حُفظ باسم %1$s وبدأت مكتبة جديدة.</string>
     <string name="library_unreadable_not_kept">تعذّرت قراءة ملف مكتبتك وتعذّر حفظ نسخة منه جانبًا، لذلك لن تُحفظ تغييراتك حتى تُحَلّ المشكلة.</string>
     <string name="restore_no_safety_copy">لم يُستعد شيء: تعذّر حفظ نسخة من مكتبتك الحالية أولًا.</string>
+    <string name="the_file_is_too_big_to_edit">هذا الملف كبير جدًا لحفظه هنا. لم يتغيّر الأصل.</string>
 </resources>

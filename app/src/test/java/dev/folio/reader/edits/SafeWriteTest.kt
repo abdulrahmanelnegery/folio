@@ -12,8 +12,9 @@ class SafeWriteTest {
     @get:Rule val tmp = TemporaryFolder()
 
     /** A stand-in for the PDF code: the "PDF" is a text file whose first line is its page count. */
-    private class Fake(var failWrite: Boolean = false, var pagesAfter: Int? = null, var crashWriteMidway: Boolean = false) : PdfWork {
+    private class Fake(var failWrite: Boolean = false, var pagesAfter: Int? = null, var crashWriteMidway: Boolean = false, var outOfMemory: Boolean = false) : PdfWork {
         override fun write(source: File, out: File) {
+            if (outOfMemory) throw OutOfMemoryError("huge pdf")
             if (failWrite) throw IllegalStateException("cannot write")
             out.writeText("${pagesAfter ?: pageCount(source)}\nedited")
             if (crashWriteMidway) throw java.io.IOException("disk full")
@@ -102,5 +103,15 @@ class SafeWriteTest {
         assertEquals("Great Book (edited).pdf", SafeWrite.editedName(o) { false })
         assertEquals("Great Book (edited 2).pdf", SafeWrite.editedName(o) { it == "Great Book (edited).pdf" })
         assertEquals("Great Book (edited 3).pdf", SafeWrite.editedName(o) { it.endsWith("(edited).pdf") || it.endsWith("(edited 2).pdf") })
+    }
+
+    @Test fun `running out of memory while saving is a failure, not a crash, and the original is untouched`() {
+        val o = original()
+        val target = File(tmp.root, "x.pdf")
+        assertTrue(SafeWrite.saveAsNew(o, target, Fake(outOfMemory = true)) is SaveResult.Failed)
+        assertFalse(target.exists())
+        assertTrue(SafeWrite.overwrite(o, File(tmp.root, "b.orig"), Fake(outOfMemory = true)) is SaveResult.Failed)
+        assertEquals("3\noriginal", o.readText())
+        assertFalse(File(tmp.root, ".book.pdf.part").exists())
     }
 }

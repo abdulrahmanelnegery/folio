@@ -37,6 +37,8 @@ object SafeWrite {
             if (work.pageCount(tmp) != expected) return SaveResult.Failed(s(R.string.the_edited_copy_did_not))
             Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE)
             SaveResult.Saved(target)
+        } catch (e: OutOfMemoryError) {
+            SaveResult.Failed(s(R.string.the_file_is_too_big_to_edit))
         } catch (e: Exception) {
             SaveResult.Failed(e.message ?: s(R.string.the_copy_could_not_be))
         } finally {
@@ -66,6 +68,8 @@ object SafeWrite {
                 return SaveResult.Failed(s(R.string.the_file_could_not_be_1ab0))
             }
             SaveResult.Saved(original)
+        } catch (e: OutOfMemoryError) {
+            SaveResult.Failed(s(R.string.the_file_is_too_big_to_edit))
         } catch (e: Exception) {
             SaveResult.Failed(e.message ?: s(R.string.the_file_could_not_be_564c))
         } finally {
