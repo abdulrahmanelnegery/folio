@@ -316,7 +316,10 @@ class ManhalViewModel(app: Application) : AndroidViewModel(app) {
         val base = Book(id = sameId ?: hash(uri.toString()), uri = stored.toString(), name = clean, fileName = name, kind = kind, size = size, added = System.currentTimeMillis())
         return when (kind) {
             Kind.Pdf -> {
-                val pdf = PdfFile.open(context, stored) ?: run { _message.value = s(R.string.that_file_could_not_be); return null }
+                val pdf = PdfFile.open(context, stored) ?: run {
+                    _message.value = if (PdfFile.problem(context, stored) == PdfFile.Companion.Problem.Password) s(R.string.pdf_needs_a_password) else s(R.string.that_file_could_not_be)
+                    return null
+                }
                 val pages = pdf.pageCount
                 pdf.close()
                 base.copy(pages = pages)

@@ -61,4 +61,17 @@ class ComicOrderTest {
         val names = listOf("p10.jpg", "p2.jpg", "p1.jpg", "p01b.jpg").sortedWith { a, b -> ComicStore.compareNatural(a, b) }
         assertEquals(listOf("p1.jpg", "p01b.jpg", "p2.jpg", "p10.jpg"), names)
     }
+
+    @Test fun `percent escapes in spine hrefs are decoded as UTF-8`() {
+        assertEquals("فصل 1.xhtml", EpubPackage.percentDecode("%D9%81%D8%B5%D9%84%201.xhtml"))
+        assertEquals("caf\u00e9/ch 1.html", EpubPackage.percentDecode("caf%C3%A9/ch%201.html"))
+        assertEquals("a+b.html", EpubPackage.percentDecode("a+b.html"))
+        assertEquals("100%.html", EpubPackage.percentDecode("100%.html"))
+        assertEquals("bad%zz.html", EpubPackage.percentDecode("bad%zz.html"))
+    }
+
+    @Test fun `an encoded href in the package resolves to the real file name`() {
+        val opf = """<package><metadata><dc:title>T</dc:title></metadata><manifest><item id="c1" href="%D9%81%D8%B5%D9%84.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/></spine></package>"""
+        assertEquals(listOf("فصل.xhtml"), EpubPackage.parse(opf, "OEBPS/content.opf")!!.spine)
+    }
 }
