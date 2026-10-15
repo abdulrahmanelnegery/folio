@@ -237,6 +237,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
                 _backupTick.value++
                 _message.value = s(R.string.rukn_now_keeps_its_data, storage.root.path)
             }
+            storage.otherLibraryBooks?.let { _message.value = sp(R.plurals.other_library_found, it) }
             storage.migrationMessage?.let { _message.value = it }
         }
     }

@@ -6,4 +6,5 @@
     <plurals name="edits_on_pdf"><item quantity="one">%1$d edit on this PDF. The original is not changed unless you choose Overwrite.</item><item quantity="other">%1$d edits on this PDF. The original is not changed unless you choose Overwrite.</item></plurals>
     <plurals name="chapters_n"><item quantity="one">%1$d chapter</item><item quantity="other">%1$d chapters</item></plurals>
     <plurals name="lines_n"><item quantity="one">%1$d line</item><item quantity="other">%1$d lines</item></plurals>
+    <plurals name="other_library_found"><item quantity="one">Another library with %1$d book was found in the previous folder and kept. If it is the one you want, restore it from the backup list in Settings.</item><item quantity="other">Another library with %1$d books was found in the previous folder and kept. If it is the one you want, restore it from the backup list in Settings.</item></plurals>
 </resources>

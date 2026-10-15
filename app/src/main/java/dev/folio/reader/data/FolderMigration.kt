@@ -75,7 +75,8 @@ object FolderMigration {
         } catch (e: Exception) {
             problems += "copy stopped: ${e.message ?: e.javaClass.simpleName}"
         }
-        problems += verify(source, target, label)
+        // A file that cannot even be read for the check is a problem to report, not a crash.
+        problems += try { verify(source, target, label) } catch (e: Exception) { listOf("could not verify: ${e.message ?: e.javaClass.simpleName}") }
         if (problems.isEmpty()) runCatching { marker(target, label).appendText("copied from $label: $copied files, $kept kept beside existing ones\n") }
         return Result(problems.isEmpty(), copied, kept, problems)
     }
