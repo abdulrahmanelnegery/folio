@@ -75,7 +75,7 @@ fun AboutScreen(model: ManhalViewModel, onBack: () -> Unit) {
                     Spacer(Modifier.height(10.dp))
                     Text(s(R.string.manhal), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
                     Text(s(R.string.a_calm_reader_for_pdfs), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                    Text(s(R.string.version, version), style = MaterialTheme.typography.labelLarge, color = ZimamOrange)
+                    Text(s(R.string.version, version), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 }
             }
             Text(
@@ -99,7 +99,7 @@ fun AboutScreen(model: ManhalViewModel, onBack: () -> Unit) {
                     LinkRow(s(R.string.zimam_labs), "https://github.com/zimamlabs") { open(it) }
                 }
             }
-            Text(s(R.string.by_zimam_labs), Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.titleMedium, color = ZimamOrange)
+            Text(s(R.string.by_zimam_labs), Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
         }
     }
     if (news) AlertDialog(

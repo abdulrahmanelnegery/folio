@@ -8,6 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -66,45 +68,47 @@ import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(model: ManhalViewModel, onBack: () -> Unit) {
-    var confirm by remember { mutableStateOf<(() -> Unit)?>(null) }
-    var ask by remember { mutableStateOf<ConfirmRequest?>(null) }
-    var refresh by remember { mutableStateOf(0) }
-    var removeOld by remember { mutableStateOf<java.io.File?>(null) }
-    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(model::exportBackup) }
-    val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { confirm = { model.restoreFrom(it) } }
-    }
-    val tick by model.backupTick.collectAsState()
-    // Everything slow is done off the main thread and filled in as it arrives, so the page opens at once:
-    // the backup list (and each backup's book count, one at a time) and the check of the old folders (which reads every file).
-    val backups: List<File> by produceState(emptyList<File>(), refresh, tick) { value = withContext(Dispatchers.IO) { model.backups.files() } }
-    val backupBooks = remember { androidx.compose.runtime.mutableStateMapOf<File, Int>() }
-    LaunchedEffect(backups) {
-        for (f in backups) if (f !in backupBooks) withContext(Dispatchers.IO) { model.backups.read(f)?.books?.size }?.let { backupBooks[f] = it }
-    }
-    val settingsScope = rememberCoroutineScope()
+fun SettingsScreen(model: ManhalViewModel, onBack: () -> Unit, onAbout: () -> Unit = {}, initialPage: SettingsPage? = null) {
+    var page by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(initialPage) }
+    val app by model.settings.state.collectAsState()
+    val library by model.repo.state.collectAsState()
     val context = LocalContext.current
-    // Coming back from the system's All files access screen, move to the Manhal folder if it was allowed.
+    val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty() }
+    // Coming back from the system's All files access screen, move to the Zimam folder if it was allowed.
     val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) model.refreshStorage() }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
-
+    androidx.activity.compose.BackHandler(enabled = page != null) { page = null }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(s(R.string.settings_and_backup)) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, s(R.string.back)) } },
+                title = { Text(page?.let { s(it.titleRes) } ?: s(R.string.settings)) },
+                navigationIcon = { IconButton(onClick = { if (page != null) page = null else onBack() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, s(R.string.back)) } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
-            val library by model.repo.state.collectAsState()
+            when (page) {
+                null -> SettingsHub(app, library, model.storage.shared, version) { if (it == SettingsPage.About) onAbout() else page = it }
+                SettingsPage.Appearance -> AppearancePage(app) { change -> model.settings.update(change) }
+                SettingsPage.Layout -> LayoutPage(model, library)
+                SettingsPage.Language -> LanguagePage(model, app)
+                SettingsPage.Reader -> ReaderPage(model, library)
+                SettingsPage.Data -> DataPage(model)
+                SettingsPage.Privacy -> PrivacyPage(model, library)
+                SettingsPage.About -> Unit
+            }
+        }
+    }
+}
+
+@Composable
+private fun LayoutPage(model: ManhalViewModel, library: dev.manhal.reader.data.LibraryState) {
             Header(s(R.string.home_page_tabs))
             Text(s(R.string.home_is_always_first_hide), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             val tabs = library.homeTabs()
@@ -122,13 +126,21 @@ fun SettingsScreen(model: ManhalViewModel, onBack: () -> Unit) {
                 }
             }
 
-            Header(s(R.string.general))
-            val appTheme = model.settings.state.collectAsState().value.theme
-            Text(s(R.string.app_theme), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
-            Row(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                dev.manhal.reader.data.AppTheme.entries.forEach { t -> androidx.compose.material3.FilterChip(appTheme == t, { model.settings.update { it.copy(theme = t) } }, { Text(t.label) }) }
+            Row(
+                Modifier.fillMaxWidth().clickable { model.repo.update { it.copy(confirmExit = !it.confirmExit) } }.padding(horizontal = 24.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(s(R.string.ask_before_closing_manhal), style = MaterialTheme.typography.bodyLarge)
+                    Text(s(R.string.when_you_press_back_on), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                androidx.compose.material3.Switch(library.confirmExit, { v -> model.repo.update { it.copy(confirmExit = v) } })
             }
-            Text(s(R.string.the_reading_themes_normal_night), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+}
+
+@Composable
+private fun LanguagePage(model: ManhalViewModel, app: dev.manhal.reader.data.AppSettings) {
             run {
                 val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
                 var language by remember { mutableStateOf(model.settings.value.language) }
@@ -158,17 +170,78 @@ fun SettingsScreen(model: ManhalViewModel, onBack: () -> Unit) {
                     androidx.compose.material3.Switch(digits, { digits = it; model.settings.update { s -> s.copy(arabicDigits = it) }; activity?.recreate() })
                 }
             }
-            Action(Icons.Rounded.FolderSpecial, s(R.string.show_the_tour_again)) { model.tourRequested.value = true }
-            Row(
-                Modifier.fillMaxWidth().clickable { model.repo.update { it.copy(confirmExit = !it.confirmExit) } }.padding(horizontal = 24.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(s(R.string.ask_before_closing_manhal), style = MaterialTheme.typography.bodyLarge)
-                    Text(s(R.string.when_you_press_back_on), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                androidx.compose.material3.Switch(library.confirmExit, { v -> model.repo.update { it.copy(confirmExit = v) } })
+}
+
+@Composable
+private fun ReaderPage(model: ManhalViewModel, library: dev.manhal.reader.data.LibraryState) {
+    Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionTitle(s(R.string.reading_theme))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            dev.manhal.reader.data.PageTheme.entries.forEach { t ->
+                androidx.compose.material3.FilterChip(library.theme == t, { model.repo.update { it.copy(theme = t) } }, { Text(s(t.labelRes)) })
             }
+        }
+        Text(s(R.string.reading_theme_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SectionTitle(s(R.string.epub_text_size))
+        androidx.compose.material3.Slider(
+            value = library.epubTextPercent.toFloat(),
+            onValueChange = { v -> model.repo.update { it.copy(epubTextPercent = (Math.round(v / 10f) * 10).coerceIn(70, 220)) } },
+            valueRange = 70f..220f, steps = 14,
+            modifier = Modifier.heightIn(min = 48.dp),
+        )
+        Text("${library.epubTextPercent}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SectionTitle(s(R.string.screen_rotation))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            dev.manhal.reader.data.Orientation.entries.forEach { o ->
+                androidx.compose.material3.FilterChip(library.orientation == o, { model.repo.update { it.copy(orientation = o) } }, { Text(s(o.labelRes)) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrivacyPage(model: ManhalViewModel, library: dev.manhal.reader.data.LibraryState) {
+    Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ZimamCard { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(s(R.string.what_is_stored), style = MaterialTheme.typography.titleSmall)
+            Text(s(R.string.what_is_stored_note), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } }
+        ZimamCard { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(s(R.string.permissions_explained), style = MaterialTheme.typography.titleSmall)
+            Text(s(R.string.permissions_explained_note), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } }
+    }
+            SectionTitle(s(R.string.online_lookup))
+            var key by remember { mutableStateOf(library.googleBooksKey) }
+            androidx.compose.material3.OutlinedTextField(
+                key, { key = it; model.repo.update { s -> s.copy(googleBooksKey = it.trim()) } },
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp), singleLine = true,
+                label = { Text(s(R.string.google_books_key_optional)) },
+                supportingText = { Text(s(R.string.free_from_google_without_it)) },
+            )
+
+}
+
+@Composable
+private fun DataPage(model: ManhalViewModel) {
+    var confirm by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var ask by remember { mutableStateOf<ConfirmRequest?>(null) }
+    var refresh by remember { mutableStateOf(0) }
+    var removeOld by remember { mutableStateOf<java.io.File?>(null) }
+    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(model::exportBackup) }
+    val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { confirm = { model.restoreFrom(it) } }
+    }
+    val tick by model.backupTick.collectAsState()
+    // Everything slow is done off the main thread and filled in as it arrives, so the page opens at once:
+    // the backup list (and each backup's book count, one at a time) and the check of the old folders (which reads every file).
+    val backups: List<File> by produceState(emptyList<File>(), refresh, tick) { value = withContext(Dispatchers.IO) { model.backups.files() } }
+    val backupBooks = remember { androidx.compose.runtime.mutableStateMapOf<File, Int>() }
+    LaunchedEffect(backups) {
+        for (f in backups) if (f !in backupBooks) withContext(Dispatchers.IO) { model.backups.read(f)?.books?.size }?.let { backupBooks[f] = it }
+    }
+    val settingsScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
             Header(s(R.string.zimam_folder))
             Text(
@@ -222,24 +295,10 @@ fun SettingsScreen(model: ManhalViewModel, onBack: () -> Unit) {
                 }
             }
 
-            Header(s(R.string.online_lookup))
-            var key by remember { mutableStateOf(library.googleBooksKey) }
-            androidx.compose.material3.OutlinedTextField(
-                key, { key = it; model.repo.update { s -> s.copy(googleBooksKey = it.trim()) } },
-                Modifier.fillMaxWidth().padding(horizontal = 24.dp), singleLine = true,
-                label = { Text(s(R.string.google_books_key_optional)) },
-                supportingText = { Text(s(R.string.free_from_google_without_it)) },
-            )
-
             Header(s(R.string.storage))
             Action(Icons.Rounded.CleaningServices, s(R.string.clear_saved_covers)) { ask = ConfirmRequest(s(R.string.clear_saved_covers_d613), s(R.string.they_are_drawn_again_from), s(R.string.clear)) { settingsScope.launch { withContext(Dispatchers.IO) { model.covers.clear() }; refresh++ } } }
             Action(Icons.Rounded.CleaningServices, s(R.string.clear_saved_pages_they_are)) { ask = ConfirmRequest(s(R.string.clear_saved_pages), s(R.string.they_are_drawn_again_as), s(R.string.clear)) { settingsScope.launch { withContext(Dispatchers.IO) { model.pageCache.clear() }; refresh++ } } }
 
-            Header(s(R.string.about))
-            Text(s(R.string.manhal_by_zimam, runCatching { androidx.compose.ui.platform.LocalContext.current.let { c -> c.packageManager.getPackageInfo(c.packageName, 0).versionName } }.getOrNull().orEmpty()), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
-            Text(s(R.string.a_calm_pdf_reader_everything), Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
     ConfirmDialog(ask) { ask = null }
     removeOld?.let { old ->
         AlertDialog(

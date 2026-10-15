@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -26,6 +27,7 @@ import dev.manhal.reader.data.Tab
 import dev.manhal.reader.ui.LibraryScreen
 import dev.manhal.reader.ui.LocalClockHour
 import dev.manhal.reader.ui.ManhalTheme
+import dev.manhal.reader.ui.SettingsPage
 import dev.manhal.reader.ui.SettingsScreen
 import org.junit.After
 import org.junit.Before
@@ -103,4 +105,26 @@ class ScreenshotTest {
 
     @Test fun settingsNormal() { show(1f) { SettingsScreen(model, onBack = {}) }; shot("settings_normal") }
     @Test fun settingsLargeFont() { show(1.3f) { SettingsScreen(model, onBack = {}) }; shot("settings_font130") }
+    @Test fun appearanceNormal() { show(1f) { SettingsScreen(model, onBack = {}, initialPage = SettingsPage.Appearance) }; shot("appearance_normal") }
+    @Test fun appearanceLargeFont() { show(1.3f) { SettingsScreen(model, onBack = {}, initialPage = SettingsPage.Appearance) }; shot("appearance_font130") }
+    @Test fun layoutPage() { show(1f) { SettingsScreen(model, onBack = {}, initialPage = SettingsPage.Layout) }; shot("settings_layout") }
+    @Test fun readerPage() { show(1f) { SettingsScreen(model, onBack = {}, initialPage = SettingsPage.Reader) }; shot("settings_reader") }
+    @Test fun privacyPage() { show(1f) { SettingsScreen(model, onBack = {}, initialPage = SettingsPage.Privacy) }; shot("settings_privacy") }
+
+    private fun drawer(scale: Float, name: String) {
+        show(scale, library())
+        compose.onNodeWithContentDescription("Menu").performClick()
+        compose.mainClock.advanceTimeBy(600)
+        shot(name)
+    }
+    @Test fun drawerNormal() = drawer(1f, "drawer_normal")
+    @Test fun drawerLargeFont() = drawer(1.3f, "drawer_font130")
+
+    @Config(qualifiers = "+ar")
+    @Test fun drawerArabic() {
+        show(1f, library())
+        compose.onNodeWithContentDescription("القائمة").performClick()
+        compose.mainClock.advanceTimeBy(600)
+        shot("drawer_arabic")
+    }
 }

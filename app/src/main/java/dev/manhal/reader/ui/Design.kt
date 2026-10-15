@@ -35,17 +35,18 @@ fun ZimamCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
 }
 
 /** A soft orange glow, to sit behind a hero area. */
-fun Modifier.orangeGlow(strength: Float = 0.22f): Modifier = background(
-    Brush.radialGradient(listOf(ZimamOrange.copy(alpha = strength), Color.Transparent), radius = 520f),
+fun Modifier.orangeGlow(strength: Float = 0.22f, color: Color = ZimamOrange): Modifier = background(
+    Brush.radialGradient(listOf(color.copy(alpha = strength), Color.Transparent), radius = 520f),
 )
 
 /** The small orange diamond (the Zimam semi-square), used as a signature on cards and headings. */
 @Composable
 fun Diamond(size: Dp = 10.dp) {
-    Canvas(Modifier.size(size)) { zimamDot(Offset(this.size.width / 2f, this.size.height / 2f), this.size.width * 1.04f, ZimamOrange) }
+    val accent = MaterialTheme.colorScheme.primary
+    Canvas(Modifier.size(size)) { zimamDot(Offset(this.size.width / 2f, this.size.height / 2f), this.size.width * 1.04f, accent) }
 }
 
 @Composable
 fun GlowBox(modifier: Modifier = Modifier, strength: Float = 0.22f, content: @Composable () -> Unit) {
-    Box(modifier.orangeGlow(strength)) { content() }
+    Box(modifier.orangeGlow(strength, MaterialTheme.colorScheme.primary)) { content() }
 }
