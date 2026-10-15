@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.3
+
+- **Internal clean-up:** names and code tidy, no change in how Manhal works.
+
 ## 0.14.2
 
 - **A damaged library file no longer empties your library.** If `library.json` cannot be read, Manhal keeps it as `library.corrupt-<date>.json`, restores your newest backup that opens, and tells you. Saves now go through a temporary file so a crash or a full disk cannot leave a half-written library; a failed backup write no longer deletes older backups.
@@ -13,7 +17,7 @@
 
 ## 0.14.0
 
-- **Rukn is now Manhal (منهل).** New name, new icon and look. The Android app id and the signing key are unchanged, so it updates your installed copy. Your data is copied to `Zimam/Manhal` (checked file by file, never overwritten, the old folders kept as a backup); files you used to keep in `Zimam/Rukn` are copied too.
+- **The app is named Manhal (منهل).** New name, new icon and look. The Android app id and the signing key are unchanged, so it updates your installed copy. Your data is copied to `Zimam/Manhal` (checked file by file, never overwritten, the old folders kept as a backup).
 
 - **Arabic and right-to-left.** The whole interface is also in Arabic, with a Language setting (System, English, العربية) and a choice of Arabic-Indic digits. The layout mirrors for right-to-left; comics keep their page order. A check in CI fails when an English text has no Arabic one.
 
@@ -34,17 +38,17 @@
 
 ## 0.12.1
 
-- **No more stall on the first launch after updating.** Moving the library into the Zimam/Rukn folder (scan, copy and checking every file) now runs in the background. Rukn opens at once from the old folder, shows a small "Moving your library to Zimam/Rukn" note while it works, and switches only after every file is verified. If the app is closed in the middle, the next launch carries on. Nothing is deleted or overwritten.
-- **The new Rukn icon.** An open book under the Zimam semi-square, on the launcher, the Android 12 opening screen, the in-app splash and the About page.
+- **No more stall on the first launch after updating.** Moving the library into the Zimam/Manhal folder (scan, copy and checking every file) now runs in the background. Manhal opens at once from the old folder, shows a small "Moving your library to Zimam/Manhal" note while it works, and switches only after every file is verified. If the app is closed in the middle, the next launch carries on. Nothing is deleted or overwritten.
+- **The new Manhal icon.** An open book under the Zimam semi-square, on the launcher, the Android 12 opening screen, the in-app splash and the About page.
 
 ## 0.12.0
 
 - **A Home with sections.** Home opens with a greeting, how today is going (minutes read and your streak), a card for what is new (with Hide), and shortcuts to Reading now, To read, Finished, Favourites, All books, Stats and Files, above Continue and the latest books.
 - **Zoomed pages scroll and fling exactly like normal ones** (zoom is now real layout; pinch and double tap settle into it).
-- **A first-run tour** (five pages, with Skip, Next and Done): what Rukn does, your books, where your data lives, a reading theme and a start. Show it again from Settings.
+- **A first-run tour** (five pages, with Skip, Next and Done): what Manhal does, your books, where your data lives, a reading theme and a start. Show it again from Settings.
 - **What's new** after an update: a short note with a Close button, shown once on the first open of a new version.
 - **A better opening.** The name sits clearly apart from the mark (28 dp), slides up as it appears, the corner draws with an eased stroke and the dot settles with a small bounce. About a second and a half.
-- **One Zimam folder.** With *All files access* Rukn now keeps its data in `Zimam/Rukn`. Older folders (`Rukn`, `Folio`, `.folio`) are copied in, never overwritten onto existing files (a clash is kept beside it), checked by size and SHA-256, and left in place as a backup. If a check fails Rukn keeps using the old folder and tries again later. Settings has *Remove the old folder*, which asks first and re-checks every file.
+- **One Zimam folder.** With *All files access* Manhal now keeps its data in `Zimam/Manhal`. Folders left by earlier versions are copied in, never overwritten onto existing files (a clash is kept beside it), checked by size and SHA-256, and left in place as a backup. If a check fails Manhal keeps using the old folder and tries again later. Settings has *Remove the old folder*, which asks first and re-checks every file.
 
 ## 0.11.2
 
@@ -65,11 +69,11 @@
 
 ## 0.10.0
 
-- **Comic books.** Add a `.cbz` (a zip of page images). It opens one page at a time: swipe sideways, tap to show or hide the bar, drag the slider to jump. Pages are ordered by number (page 2 before page 10), the cover is the first page, and Rukn remembers the page and marks the book finished on the last one. Other comic formats (`.cbr` and so on) are refused with a message to convert them to `.cbz`.
+- **Comic books.** Add a `.cbz` (a zip of page images). It opens one page at a time: swipe sideways, tap to show or hide the bar, drag the slider to jump. Pages are ordered by number (page 2 before page 10), the cover is the first page, and Manhal remembers the page and marks the book finished on the last one. Other comic formats (`.cbr` and so on) are refused with a message to convert them to `.cbz`.
 
 ## 0.9.0
 
-- **EPUB books.** Add an `.epub` like any other book. It opens chapter by chapter with the reading theme (Normal, Night, Soft night, Sepia) and a text size you can change with A− and A+; a slider and arrows move between chapters, and Rukn remembers the chapter and the place in it. The cover and title come from the book. The book is unpacked once into its own folder (refusing any entry that would escape it), pages cannot reach the network, and removing the book deletes the unpacked copy.
+- **EPUB books.** Add an `.epub` like any other book. It opens chapter by chapter with the reading theme (Normal, Night, Soft night, Sepia) and a text size you can change with A− and A+; a slider and arrows move between chapters, and Manhal remembers the chapter and the place in it. The cover and title come from the book. The book is unpacked once into its own folder (refusing any entry that would escape it), pages cannot reach the network, and removing the book deletes the unpacked copy.
 
 ## 0.8.4
 
@@ -77,7 +81,7 @@
 
 ## 0.8.3
 
-- Rukn wears Zimam's colours: warm paper in the light theme, near-black in the dark theme, and an orange accent instead of teal.
+- Manhal wears Zimam's colours: warm paper in the light theme, near-black in the dark theme, and an orange accent instead of teal.
 - The progress bars under the books on a shelf line up: every title takes two lines, so the bars sit on the same line.
 
 ## 0.8.2
@@ -86,15 +90,15 @@
 
 ## 0.8.1
 
-- **Folio is now Rukn** (ركن, a corner or a pillar), made by [Zimam](https://github.com/zimamlabs). The package id stays the same, so it updates in place.
+- **The app got a new name**, made by [Zimam](https://github.com/zimamlabs). The package id stays the same, so it updates in place.
 - A new launcher icon (a corner and a semi-square) that fits Android's icon shapes and themed icons, a short splash screen, "by Zimam" in the side menu, and an **About** page (version, links, licence).
 - Opening a book is smoother: the book is built once the opening glide has finished, and closing is a short cross-fade.
-- The visible data folder is now `Rukn`. On first start the old `Folio` or `.folio` folder moves into it. New backups are named `rukn-...`; older `folio-...` backups are still listed and restorable.
+- The visible data folder moved to a folder of the app's own name; older folders and backups are still found, listed and restorable.
 
 ## 0.8.0
 
 - **Paper books.** Add a book you read on paper ("+" then "Add a paper book"), then log sittings: the page you are on now, or the pages you read, and optionally the minutes. Progress, the Stats tab and your sessions update as you log.
-- **Edit details and cover** for any book: title, author, publisher, year, pages, ISBN and description are all editable, and the cover can be changed from your gallery or removed. Details live in your Folio library; PDF files are not changed.
+- **Edit details and cover** for any book: title, author, publisher, year, pages, ISBN and description are all editable, and the cover can be changed from your gallery or removed. Details live in your Manhal library; PDF files are not changed.
 - **Find details online** searches Open Library, Google Books and the Internet Archive together, retries word by word for Arabic titles, shows each result against your values and lets you tick only the parts to use before anything is applied. An optional Google Books key is in Settings.
 - Press and hold a custom list (in the side menu or on Home) for rename, move and delete.
 - Back from a shelf returns to the Library tab, and back closes the side menu first.
@@ -120,7 +124,7 @@
 
 ## 0.7.2
 
-- Folio's data folder on the phone is now a visible `Folio` folder instead of the hidden `.folio`. The first start moves the old folder in (one rename, or a careful copy if both exist), so the library, backups and covers carry over.
+- The data folder on the phone is now a visible folder instead of a hidden one. The first start moves the old folder in (one rename, or a careful copy if both exist), so the library, backups and covers carry over.
 - A new README.
 - The same book listed twice is merged even when one entry is an older one with no stored file name (the case of a book first opened from the system picker and later from the explorer). It keeps the progress, lists, rating and notes, and takes the readable file path.
 - The location of a book opened with the system picker reads "Downloads (opened with the file picker)" instead of an id.
@@ -190,7 +194,7 @@
 ## 0.3.0
 
 - Text, Markdown and code files: highlighted reading, an edit mode, save, save as and a close prompt.
-- Back walks out one screen at a time and asks before closing Folio.
+- Back walks out one screen at a time and asks before closing Manhal.
 
 ## 0.2.0
 

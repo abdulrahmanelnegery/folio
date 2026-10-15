@@ -506,6 +506,7 @@
     <string name="arabic_digits">Arabic-Indic digits (٠١٢٣)</string>
     <string name="arabic_digits_note">Show numbers in Arabic-Indic digits instead of 0123.</string>
     <string name="chapter_of">Chapter %1$s of %2$s</string>
+    <string name="internal_cleanup_note">Internal clean-up: names and code tidy, no change in how Manhal works.</string>
     <string name="manhal_name_note">Manhal (منهل, a spring to drink from) is the name of the app. Your library, folders and settings carry over: your data is copied to Zimam/Manhal and the old folders are kept as a backup.</string>
     <string name="arabic_note">The app now speaks Arabic with a right-to-left layout. Choose the language in Settings, and optionally Arabic-Indic digits.</string>
     <string name="new_icon_note">A new icon and look.</string>
