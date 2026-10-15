@@ -567,4 +567,5 @@
     <string name="search_page_hit">Page %1$d</string>
     <string name="search_chapter_hit">Chapter %1$d</string>
     <string name="search_line_hit">Line %1$d</string>
+    <string name="pdf_needs_a_password">This PDF is password protected. Manhal cannot open protected PDFs yet.</string>
 </resources>

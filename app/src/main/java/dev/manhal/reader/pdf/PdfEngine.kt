@@ -164,6 +164,18 @@ class PdfFile private constructor(
     }
 
     companion object {
+        /** Why a PDF could not be opened: it needs a password, or it is damaged (or not a PDF at all). */
+        enum class Problem { Password, Damaged }
+
+        /** PdfRenderer reports a password-protected file as a SecurityException; anything else is damage. */
+        fun classify(e: Throwable): Problem = if (e is SecurityException) Problem.Password else Problem.Damaged
+
+        /** Looks again at a file [open] refused, to say why. */
+        fun problem(context: Context, uri: Uri): Problem {
+            val descriptor = runCatching { context.contentResolver.openFileDescriptor(uri, "r") }.getOrNull() ?: return Problem.Damaged
+            return try { PdfRenderer(descriptor).close(); Problem.Damaged } catch (e: Throwable) { classify(e) } finally { runCatching { descriptor.close() } }
+        }
+
         /** Opens [uri]; null when it is not a readable PDF (or needs a password). */
         fun open(context: Context, uri: Uri): PdfFile? {
             val descriptor = runCatching { context.contentResolver.openFileDescriptor(uri, "r") }.getOrNull() ?: return null
