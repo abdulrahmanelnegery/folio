@@ -520,4 +520,16 @@
     <string name="safe_saves_note">Saving a text file or a large PDF can no longer leave a half-written file.</string>
     <string name="smaller_text">Smaller text</string>
     <string name="larger_text">Larger text</string>
+    <string name="colour_orange">Orange</string>
+    <string name="colour_teal">Teal</string>
+    <string name="colour_indigo">Indigo</string>
+    <string name="colour_rose">Rose</string>
+    <string name="colour_green">Green</string>
+    <string name="colour_brown">Brown</string>
+    <string name="text_small">Small</string>
+    <string name="text_default">Default</string>
+    <string name="text_large">Large</string>
+    <string name="text_larger">Larger</string>
+    <string name="density_comfortable">Comfortable</string>
+    <string name="density_compact">Compact</string>
 </resources>

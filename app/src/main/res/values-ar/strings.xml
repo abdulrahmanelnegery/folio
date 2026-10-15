@@ -520,4 +520,16 @@
     <string name="safe_saves_note">لم يعد حفظ ملف نصي أو ملف PDF كبير يترك ملفًا نصف مكتوب.</string>
     <string name="smaller_text">نص أصغر</string>
     <string name="larger_text">نص أكبر</string>
+    <string name="colour_orange">برتقالي</string>
+    <string name="colour_teal">أزرق مخضر</string>
+    <string name="colour_indigo">نيلي</string>
+    <string name="colour_rose">وردي</string>
+    <string name="colour_green">أخضر</string>
+    <string name="colour_brown">بني</string>
+    <string name="text_small">صغير</string>
+    <string name="text_default">افتراضي</string>
+    <string name="text_large">كبير</string>
+    <string name="text_larger">أكبر</string>
+    <string name="density_comfortable">مريح</string>
+    <string name="density_compact">مضغوط</string>
 </resources>

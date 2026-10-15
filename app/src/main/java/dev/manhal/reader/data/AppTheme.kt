@@ -3,7 +3,6 @@ package dev.manhal.reader.data
 import androidx.annotation.StringRes
 import dev.manhal.reader.R
 import dev.manhal.reader.s
-import android.content.Context
 
 /** The theme of the app itself (not the reading themes of the reader): follow the system, or always light or dark. */
 enum class AppTheme(@StringRes val labelRes: Int) {
@@ -17,15 +16,3 @@ enum class AppTheme(@StringRes val labelRes: Int) {
 }
 
 val AppTheme.label: String get() = s(labelRes)
-
-/** Kept in plain SharedPreferences, which load before the first frame, so the right theme shows with no flash. */
-object AppThemePrefs {
-    private const val FILE = LegacyNames.PREFS_FILE
-    private const val KEY = "app_theme"
-
-    fun load(context: Context): AppTheme = AppTheme.parse(context.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString(KEY, null))
-
-    fun save(context: Context, theme: AppTheme) {
-        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString(KEY, theme.name).apply()
-    }
-}

@@ -56,7 +56,28 @@ private val ManhalShapes = Shapes(
     large = RoundedCornerShape(28.dp),
 )
 
+/** True when the reader asked for less animation; screens that animate between states check it. */
+val LocalReduceMotion = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/** The chosen density (row padding and gaps); shared rows read it. */
+val LocalDensitySetting = androidx.compose.runtime.staticCompositionLocalOf { dev.manhal.reader.data.Density.Comfortable }
+
+private fun ColorScheme.withAccent(c: dev.manhal.reader.data.ColourTheme, dark: Boolean): ColorScheme =
+    if (c == dev.manhal.reader.data.ColourTheme.Orange) this else copy(
+        primary = Color(c.accent),
+        primaryContainer = Color(if (dark) c.containerDark else c.containerLight),
+        onPrimaryContainer = Color(if (dark) c.onContainerDark else c.onContainerLight),
+    )
+
 @Composable
-fun ManhalTheme(mode: dev.manhal.reader.data.AppTheme = dev.manhal.reader.data.AppTheme.System, content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (mode.isDark(isSystemInDarkTheme())) Dark else Light, shapes = ManhalShapes, content = content)
+fun ManhalTheme(settings: dev.manhal.reader.data.AppSettings = dev.manhal.reader.data.AppSettings(), content: @Composable () -> Unit) {
+    val dark = settings.theme.isDark(isSystemInDarkTheme())
+    val base = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(base.density, base.fontScale * settings.textSize.scale),
+        LocalReduceMotion provides settings.reduceMotion,
+        LocalDensitySetting provides settings.density,
+    ) {
+        MaterialTheme(colorScheme = (if (dark) Dark else Light).withAccent(settings.colour, dark), shapes = ManhalShapes, content = content)
+    }
 }
