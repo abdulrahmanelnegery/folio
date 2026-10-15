@@ -12,6 +12,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.folio.reader.data.Backups
 import dev.folio.reader.data.LibraryRestore
+import dev.folio.reader.data.TextSave
 import dev.folio.reader.data.Book
 import dev.folio.reader.data.FileTypes
 import dev.folio.reader.data.Kind
@@ -410,9 +411,12 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
         val text = session.text
         viewModelScope.launch {
             val ok = withContext(Dispatchers.IO) {
-                runCatching {
-                    getApplication<Application>().contentResolver.openOutputStream(Uri.parse(book.uri), "wt")?.use { it.write(text.toByteArray()) } != null
-                }.getOrDefault(false)
+                val uri = Uri.parse(book.uri)
+                val bytes = text.toByteArray()
+                val resolver = getApplication<Application>().contentResolver
+                val file = uri.takeIf { it.scheme == "file" }?.path?.let(::File)
+                if (file != null) TextSave.toFile(file, bytes)
+                else TextSave.toProvider(bytes, draftFile(id), { resolver.openOutputStream(uri, "wt") }, { resolver.openInputStream(uri) })
             }
             if (ok) {
                 session.saved = text
