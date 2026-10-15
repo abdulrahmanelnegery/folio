@@ -74,7 +74,11 @@ Manhal keeps its library, backups, covers and your own cover images in one place
 
 ## Privacy
 
-No account, no ads, no telemetry. Manhal keeps your library on your phone. The only network use is the book lookup you start yourself, and only the words you type are sent.
+No account, no ads, no telemetry. Manhal keeps your library on your phone. The only network use is the book lookup you start yourself. One lookup sends the words you typed (or the ISBN) to Open Library, Google Books and the Internet Archive, and, for Arabic text, to Wikidata; covers are downloaded from Open Library, the Internet Archive or Google. Those services see your phone's IP address. If you add a Google Books key in Settings it is sent with the Google request.
+
+## What is tested
+
+Unit tests cover the library file (damaged, truncated and empty files, backups, restore), the folder move, the PDF edit and save paths (with a stand-in writer and a real PDF writer test), text saving, EPUB package parsing and unzip safety, the translations and the theme choice. The reader, the EPUB and comic views and the screens are checked by hand on a phone; they have no automated tests yet, so a format listed above is supported as far as that hand testing goes.
 
 ## Build
 
@@ -90,7 +94,7 @@ PDFs are drawn by Android's own `PdfRenderer` on a worker thread; the library is
 
 ## Roadmap
 
-Text search and in-app translation, selecting text to highlight (today a highlight is a box you drag), and editing marks you have already saved into a PDF. A Linux edition comes after version 1.
+Android today, Linux later. Text search and in-app translation, selecting text to highlight (today a highlight is a box you drag), and editing marks you have already saved into a PDF.
 
 ## Licence
 
