@@ -513,4 +513,5 @@
     <string name="library_unreadable_restored">Your library file could not be read. It was kept as %1$s and the backup from %2$s was restored.</string>
     <string name="library_unreadable_no_backup">Your library file could not be read and no backup was found. It was kept as %1$s and a new library was started.</string>
     <string name="library_unreadable_not_kept">Your library file could not be read and could not be copied aside, so changes will not be saved until this is fixed.</string>
+    <string name="restore_no_safety_copy">Nothing was restored: a copy of your current library could not be saved first.</string>
 </resources>

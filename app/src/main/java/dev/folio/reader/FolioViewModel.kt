@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.folio.reader.data.Backups
+import dev.folio.reader.data.LibraryRestore
 import dev.folio.reader.data.Book
 import dev.folio.reader.data.FileTypes
 import dev.folio.reader.data.Kind
@@ -483,12 +484,10 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun applyRestore(state: LibraryState?) {
-        if (state == null) {
-            _message.value = s(R.string.that_is_not_a_rukn)
-        } else {
-            repo.replace(state)
-            repo.flush()
-            _message.value = s(R.string.library_restored_books, state.books.size)
+        _message.value = when (LibraryRestore(repo, backups).apply(state)) {
+            LibraryRestore.Result.NotABackup -> s(R.string.that_is_not_a_rukn)
+            LibraryRestore.Result.NoSafetyCopy -> s(R.string.restore_no_safety_copy)
+            LibraryRestore.Result.Restored -> { _backupTick.value++; s(R.string.library_restored_books, state!!.books.size) }
         }
     }
 
