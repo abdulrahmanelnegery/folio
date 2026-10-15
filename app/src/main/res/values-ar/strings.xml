@@ -515,4 +515,6 @@
     <string name="library_unreadable_not_kept">تعذّرت قراءة ملف مكتبتك وتعذّر حفظ نسخة منه جانبًا، لذلك لن تُحفظ تغييراتك حتى تُحَلّ المشكلة.</string>
     <string name="restore_no_safety_copy">لم يُستعد شيء: تعذّر حفظ نسخة من مكتبتك الحالية أولًا.</string>
     <string name="the_file_is_too_big_to_edit">هذا الملف كبير جدًا لحفظه هنا. لم يتغيّر الأصل.</string>
+    <string name="safe_library_note">صار ملف المكتبة التالف يُحفظ جانبًا وتُستعاد أحدث نسخة احتياطية، واستعادة نسخة احتياطية تحفظ أولًا ما لديك.</string>
+    <string name="safe_saves_note">لم يعد حفظ ملف نصي أو ملف PDF كبير يترك ملفًا نصف مكتوب.</string>
 </resources>
