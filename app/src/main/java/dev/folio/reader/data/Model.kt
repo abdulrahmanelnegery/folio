@@ -199,7 +199,10 @@ data class LibraryState(
     val orientation: Orientation = Orientation.Normal,
     /** Reading time and pages per day, keyed "yyyy-MM-dd" in the phone's time zone. */
     val days: Map<String, DayStat> = emptyMap(),
-)
+) {
+    /** Nothing a reader would miss: no books, lists, history. */
+    fun isBlank(): Boolean = books.isEmpty() && lists.isEmpty() && sessions.isEmpty() && days.isEmpty()
+}
 
 /** What the library screen is showing. */
 sealed interface Tab {

@@ -11,8 +11,14 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.io.File
 
+/** A damaged library file was found: [damaged] is the copy kept aside (null if that failed), [restoredFrom] the backup used (null if none). */
+data class LibraryRecovery(val damaged: File?, val restoredFrom: File?)
+
 /** The library on disk: one JSON file, saved shortly after every change. */
-class LibraryRepository(private val storage: Storage, scope: CoroutineScope) {
+class LibraryRepository(private val storage: DataFolder, scope: CoroutineScope) {
+    @Volatile private var pendingRecovery: LibraryRecovery? = null
+    /** Set when the damaged file could not be kept aside: nothing is written, so it is never overwritten. */
+    @Volatile private var saveBlocked = false
     private val _state = MutableStateFlow(load())
     val state: StateFlow<LibraryState> = _state
 
@@ -22,22 +28,41 @@ class LibraryRepository(private val storage: Storage, scope: CoroutineScope) {
         }
     }
 
-    private fun load(): LibraryState = runCatching { decode(storage.file(Storage.LIBRARY).readText()) }.getOrDefault(LibraryState())
+    /**
+     * A missing file is a new library. A file that cannot be read or decoded is never treated as an empty library:
+     * it is kept as `library.corrupt-<stamp>.json` and the newest backup that opens is used instead.
+     */
+    private fun load(): LibraryState {
+        saveBlocked = false
+        val file = storage.file(Storage.LIBRARY)
+        if (!file.exists()) return LibraryState()
+        runCatching { decode(file.readText()) }.onSuccess { return it }
+        val kept = keepDamaged(file)
+        if (kept == null) saveBlocked = true
+        val backup = Backups(storage).newestValid()
+        pendingRecovery = LibraryRecovery(kept, backup?.first)
+        return backup?.second ?: LibraryState()
+    }
+
+    private fun keepDamaged(file: File): File? {
+        val stamp = Backups.stamp(System.currentTimeMillis())
+        var copy = File(file.parentFile, "library.corrupt-$stamp.json")
+        var n = 2
+        while (copy.exists()) copy = File(file.parentFile, "library.corrupt-$stamp-${n++}.json")
+        return runCatching { file.copyTo(copy) }.getOrNull()
+    }
+
+    /** What the last load had to do about a damaged file, once; null when it was fine. */
+    fun takeRecovery(): LibraryRecovery? = pendingRecovery.also { pendingRecovery = null }
 
     /** Reads the library again from the current folder (it moved). */
     fun reload() { _state.value = load() }
 
-    private fun save(state: LibraryState) {
-        runCatching {
-            val file = storage.file(Storage.LIBRARY)
-            val tmp = File(file.parentFile, "library.json.tmp")
-            tmp.writeText(encode(state))
-            tmp.renameTo(file)
-        }
-    }
+    private fun save(state: LibraryState): Boolean =
+        !saveBlocked && AtomicFile.write(storage.file(Storage.LIBRARY), encode(state).toByteArray())
 
     /** Writes the current state now (the app is going away). */
-    fun flush() = save(_state.value)
+    fun flush() { save(_state.value) }
 
     fun update(change: (LibraryState) -> LibraryState) = _state.update(change)
 

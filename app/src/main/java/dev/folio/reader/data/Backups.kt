@@ -11,7 +11,7 @@ import java.util.Locale
  * after that gap, and one on demand. The newest [KEEP] are kept. A copy can also be exported to,
  * and restored from, any file the user picks.
  */
-class Backups(private val storage: Storage) {
+class Backups(private val storage: DataFolder) {
     private val dir: File get() = storage.dir(Storage.BACKUPS)
 
     /** Writes a copy when the newest is older than [GAP_MS]. Returns true when it wrote one. */
@@ -25,13 +25,17 @@ class Backups(private val storage: Storage) {
     /** Writes a copy now. */
     fun now(state: LibraryState): File? {
         val file = File(dir, "manhal-${stamp(System.currentTimeMillis())}.json")
-        val ok = runCatching { file.writeText(LibraryRepository.encode(state)) }.isSuccess
-        files().drop(KEEP).forEach { it.delete() }
+        val ok = AtomicFile.write(file, LibraryRepository.encode(state).toByteArray())
+        // Old copies go only once the new one is safely written, so a failing disk never empties the folder.
+        if (ok) files().drop(KEEP).forEach { it.delete() }
         return file.takeIf { ok }
     }
 
     /** Backups, newest first. */
     fun files(): List<File> = dir.listFiles { f -> (f.name.startsWith("manhal-") || f.name.startsWith("rukn-") || f.name.startsWith("folio-")) && f.extension == "json" }.orEmpty().sortedByDescending { it.name }
+
+    /** The newest backup that opens and holds something, with its state; null when there is none. */
+    fun newestValid(): Pair<File, LibraryState>? = files().firstNotNullOfOrNull { f -> read(f)?.takeIf { !it.isBlank() }?.let { f to it } }
 
     fun read(file: File): LibraryState? = runCatching { LibraryRepository.decode(file.readText()) }.getOrNull()
 

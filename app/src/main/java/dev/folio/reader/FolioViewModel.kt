@@ -231,6 +231,7 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
             val changed = try { storage.refresh() } finally { banner.cancel(); _migrating.value = false }
             if (changed) {
                 repo.reload()
+                announceRecovery()
                 _backupTick.value++
                 _message.value = s(R.string.rukn_now_keeps_its_data, storage.root.path)
             }
@@ -494,7 +495,17 @@ class FolioViewModel(app: Application) : AndroidViewModel(app) {
     override fun onCleared() { storage.cancelled = true; repo.flush() }
 
     // Last, so every property above exists before the background check starts.
-    init { refreshStorage() }
+    init { announceRecovery(); refreshStorage() }
+
+    /** Tells the reader when the library file was damaged and what was done about it. */
+    private fun announceRecovery() {
+        val r = repo.takeRecovery() ?: return
+        _message.value = when {
+            r.damaged == null -> s(R.string.library_unreadable_not_kept)
+            r.restoredFrom == null -> s(R.string.library_unreadable_no_backup, r.damaged.name)
+            else -> s(R.string.library_unreadable_restored, r.damaged.name, Backups.label(r.restoredFrom))
+        }
+    }
 
     private fun hash(text: String): String =
         MessageDigest.getInstance("SHA-1").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }.take(20)

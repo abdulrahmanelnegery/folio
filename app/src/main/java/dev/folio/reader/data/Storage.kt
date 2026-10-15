@@ -13,7 +13,7 @@ import java.io.File
  * survives reinstalling the app; without it, the app's private folder. Older folders are copied into it, verified
  * and left in place as a backup.
  */
-class Storage(private val context: Context) {
+class Storage(private val context: Context) : DataFolder {
     @Volatile
     var root: File = initialRoot()
         private set
@@ -38,9 +38,9 @@ class Storage(private val context: Context) {
 
     fun canUseShared(): Boolean = Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()
 
-    fun file(name: String) = File(root, name)
+    override fun file(name: String) = File(root, name)
 
-    fun dir(name: String) = File(root, name).apply { mkdirs() }
+    override fun dir(name: String) = File(root, name).apply { mkdirs() }
 
     /** The old folders that still exist (kept as a backup after the copy). */
     fun oldFolders(): List<File> = legacyFolders.filter { it.isDirectory }
