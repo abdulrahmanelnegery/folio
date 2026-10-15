@@ -92,6 +92,14 @@ class ManhalViewModel(app: Application) : AndroidViewModel(app) {
         return f.canWrite() && f.parentFile?.canWrite() == true
     }
 
+    /** The PDF as a file the text search can read: the real file, or a cached copy of one behind another app's provider. */
+    suspend fun searchableFile(id: String): File? = withContext(Dispatchers.IO) {
+        val book = repo.book(id) ?: return@withContext null
+        realFile(book) ?: File(getApplication<Application>().cacheDir, "search-$id.pdf").also { copy ->
+            if (copy.length() == 0L) runCatching { getApplication<Application>().contentResolver.openInputStream(Uri.parse(book.uri))?.use { i -> copy.outputStream().use { i.copyTo(it) } } }
+        }.takeIf { it.length() > 0 }
+    }
+
     /** Where the original is kept when it is replaced. */
     val originalsFolder: File get() = storage.dir("originals")
 

@@ -40,6 +40,8 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Bookmarks
+import androidx.compose.material.icons.rounded.Search
+import kotlinx.coroutines.flow.emitAll
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.automirrored.rounded.Undo
@@ -192,6 +194,7 @@ fun ReaderScreen(model: ManhalViewModel, id: String) {
     ImmersiveBars(barsVisible)
     ReadingClock(model, id)
     var bookmarkSheet by remember { mutableStateOf(false) }
+    var searching by remember { mutableStateOf(false) }
     var jumpDialog by remember { mutableStateOf(false) }
     var editNote by remember { mutableStateOf<NoteEdit?>(null) }
     var ask by remember { mutableStateOf<ConfirmRequest?>(null) }
@@ -467,6 +470,11 @@ fun ReaderScreen(model: ManhalViewModel, id: String) {
                                         onClick = { menu = false; editNote = NoteEdit(null, current - 1, "") },
                                     )
                                     DropdownMenuItem(
+                                        leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                                        text = { Text(s(R.string.search_in_this_book)) },
+                                        onClick = { menu = false; searching = true },
+                                    )
+                                    DropdownMenuItem(
                                         leadingIcon = { Icon(Icons.Rounded.Bookmarks, null) },
                                         text = { Text(s(R.string.bookmarks_and_notes)) },
                                         onClick = { menu = false; bookmarkSheet = true },
@@ -615,6 +623,12 @@ fun ReaderScreen(model: ManhalViewModel, id: String) {
     KeepScreenOn(book.brightness)
     ReadingOrientation(book.orientation)
     ConfirmDialog(ask) { ask = null }
+    if (searching) BookSearchSheet(
+        search = { q -> kotlinx.coroutines.flow.flow { model.searchableFile(id)?.let { f -> emitAll(dev.manhal.reader.data.BookSearchSources.pdf(context, f, book.pages.coerceAtLeast(1), q)) } } },
+        where = { s(R.string.search_page_hit, it.unit + 1) },
+        onPick = { hit, _ -> jumpTo.value = hit.unit; searching = false },
+        onDismiss = { searching = false },
+    )
     if (bookmarkSheet) NotesSheet(
         book,
         onGo = { page -> jumpTo.value = page; bookmarkSheet = false },

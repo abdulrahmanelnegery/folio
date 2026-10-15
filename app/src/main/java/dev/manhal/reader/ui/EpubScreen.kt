@@ -1,6 +1,7 @@
 package dev.manhal.reader.ui
 
 import dev.manhal.reader.R
+import androidx.compose.material.icons.rounded.Search
 import dev.manhal.reader.s
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -76,6 +77,9 @@ fun EpubScreen(model: ManhalViewModel, id: String) {
     var chapter by remember(id) { mutableStateOf(book.page.coerceIn(0, pkg.spine.lastIndex)) }
     var offset by remember(id) { mutableStateOf(book.offset) }
     var web by remember { mutableStateOf<WebView?>(null) }
+    var searching by remember { mutableStateOf(false) }
+    // A word to highlight once the chapter it was found in has loaded.
+    var pendingFind by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(chapter) { model.pageSeen(id, chapter) }
 
     fun save() {
@@ -90,6 +94,7 @@ fun EpubScreen(model: ManhalViewModel, id: String) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { save(); model.closeBook() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = ink) }
             Text(pkg.title.ifBlank { book.name }, Modifier.weight(1f), color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+            IconButton(onClick = { searching = true }) { Icon(Icons.Rounded.Search, s(R.string.search_in_this_book), tint = ink) }
             androidx.compose.material3.TextButton(onClick = { model.repo.update { it.copy(epubTextPercent = (percent - 10).coerceAtLeast(70)) } }) { Text("A−", color = ink, modifier = Modifier.semantics { contentDescription = s(R.string.smaller_text) }) }
             androidx.compose.material3.TextButton(onClick = { model.repo.update { it.copy(epubTextPercent = (percent + 10).coerceAtMost(220)) } }) { Text("A+", color = ink, modifier = Modifier.semantics { contentDescription = s(R.string.larger_text) }) }
             IconButton(onClick = { model.repo.update { it.copy(theme = theme.next()) } }) { Icon(if (theme == PageTheme.Normal) Icons.Rounded.LightMode else Icons.Rounded.DarkMode, s(R.string.page_theme), tint = ink) }
@@ -110,6 +115,7 @@ fun EpubScreen(model: ManhalViewModel, id: String) {
                             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                                 if (request.url.scheme == "file") null else WebResourceResponse("text/plain", "utf-8", java.io.ByteArrayInputStream(ByteArray(0)))
                             override fun onPageFinished(view: WebView, url: String?) {
+                                pendingFind?.let { view.findAllAsync(it); pendingFind = null }
                                 view.postDelayed({
                                     val range = (view.contentHeight * view.resources.displayMetrics.density - view.height).coerceAtLeast(0f)
                                     view.scrollTo(0, (offset * range).toInt())
@@ -141,6 +147,15 @@ fun EpubScreen(model: ManhalViewModel, id: String) {
             IconButton(enabled = chapter < pkg.spine.lastIndex, onClick = { save(); offset = 0f; chapter += 1; save() }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, s(R.string.next_chapter), tint = ink) }
         }
     }
+    if (searching) BookSearchSheet(
+        search = { q -> dev.manhal.reader.data.BookSearchSources.epub(context, id, pkg, q) },
+        where = { s(R.string.search_chapter_hit, it.unit + 1) },
+        onPick = { hit, q ->
+            searching = false
+            if (hit.unit == chapter) web?.findAllAsync(q) else { save(); offset = 0f; pendingFind = q; chapter = hit.unit }
+        },
+        onDismiss = { searching = false },
+    )
 }
 
 /** Ink and paper for each reading theme. */

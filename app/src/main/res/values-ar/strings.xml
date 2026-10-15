@@ -560,4 +560,11 @@
     <string name="permissions_explained_note">يُستخدم الإنترنت فقط للبحث عن تفاصيل الكتب الذي تبدؤه أنت. أما الوصول إلى كل الملفات فاختياري، ويُستخدم لحفظ بياناتك في مجلد Zimam/Manhal الظاهر ولتصفح ملفاتك.</string>
     <string name="quick_add_books">إضافة كتب</string>
     <string name="arabic_digits_short">أرقام عربية</string>
+    <string name="search_in_this_book">بحث في هذا الكتاب</string>
+    <string name="searching">جارٍ البحث…</string>
+    <string name="no_matches">لا توجد نتائج.</string>
+    <string name="no_text_in_this_book">لم يوجد نص. يبدو أن هذا كتاب ممسوح ضوئيًا ولا نص فيه للبحث.</string>
+    <string name="search_page_hit">صفحة %1$d</string>
+    <string name="search_chapter_hit">فصل %1$d</string>
+    <string name="search_line_hit">سطر %1$d</string>
 </resources>

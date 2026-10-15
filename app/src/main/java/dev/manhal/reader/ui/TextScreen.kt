@@ -1,6 +1,7 @@
 package dev.manhal.reader.ui
 
 import dev.manhal.reader.R
+import kotlinx.coroutines.launch
 import dev.manhal.reader.s
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -98,6 +99,8 @@ fun TextScreen(model: ManhalViewModel, id: String) {
     var wrap by rememberSaveable { mutableStateOf(lang == TextLang.Plain || lang == TextLang.Markdown) }
     var lineNumbers by rememberSaveable { mutableStateOf(true) }
     var menu by remember { mutableStateOf(false) }
+    var searching by remember { mutableStateOf(false) }
+    val searchScope = androidx.compose.runtime.rememberCoroutineScope()
     var confirmClose by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val saveAs = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
@@ -157,6 +160,7 @@ fun TextScreen(model: ManhalViewModel, id: String) {
                     Box {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, s(R.string.more)) }
                         DropdownMenu(menu, { menu = false }) {
+                            if (session != null && !session.editing) DropdownMenuItem(text = { Text(s(R.string.search_in_this_book)) }, onClick = { menu = false; searching = true })
                             DropdownMenuItem(text = { Text(s(R.string.text_bigger)) }, onClick = { fontSize = (fontSize + 1f).coerceAtMost(32f) })
                             DropdownMenuItem(text = { Text(s(R.string.text_smaller)) }, onClick = { fontSize = (fontSize - 1f).coerceAtLeast(9f) })
                             DropdownMenuItem(text = { Text(s(R.string.wrap_long_lines)) }, trailingIcon = { if (wrap) Icon(Icons.Rounded.Check, null) }, onClick = { wrap = !wrap; menu = false })
@@ -179,6 +183,18 @@ fun TextScreen(model: ManhalViewModel, id: String) {
         }
     }
 
+    if (searching && session != null) BookSearchSheet(
+        search = { q -> dev.manhal.reader.data.BookSearchSources.text(session.text, q) },
+        where = { s(R.string.search_line_hit, dev.manhal.reader.data.BookSearch.lineOf(session.text, it.start)) },
+        onPick = { hit, _ ->
+            searching = false
+            val total = listState.layoutInfo.totalItemsCount
+            // Code and plain text show one line per row; Markdown shows blocks, so it goes by how far into the text the match is.
+            val row = if (lang == TextLang.Markdown) (hit.start.toFloat() / session.text.length.coerceAtLeast(1) * total).toInt() else dev.manhal.reader.data.BookSearch.lineOf(session.text, hit.start) - 1
+            searchScope.launch { listState.scrollToItem(row.coerceIn(0, (total - 1).coerceAtLeast(0))) }
+        },
+        onDismiss = { searching = false },
+    )
     if (confirmClose) AlertDialog(
         onDismissRequest = { confirmClose = false },
         title = { Text(s(R.string.save_your_changes)) },
