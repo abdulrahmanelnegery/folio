@@ -108,7 +108,7 @@ fun ManhalApp(model: ManhalViewModel) {
             } else if (id == "about") {
                 AboutScreen(model, onBack = { about = false })
             } else if (id == "settings") {
-                SettingsScreen(model, onBack = { settings = false })
+                SettingsScreen(model, onBack = { settings = false }, onAbout = { settings = false; about = true })
             } else {
                 // The book is built only once the opening glide has finished, so the glide itself is not competing with
                 // opening the file; the page then fades in over the same paper-coloured sheet.

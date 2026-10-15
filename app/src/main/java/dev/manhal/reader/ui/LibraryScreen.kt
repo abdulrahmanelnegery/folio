@@ -22,6 +22,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -270,9 +271,16 @@ fun LibraryScreen(model: ManhalViewModel, onOpenPicker: () -> Unit, onSettings: 
         drawerContent = {
             ModalDrawerSheet {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    Column(Modifier.padding(horizontal = 28.dp, vertical = 24.dp)) {
-                        Text(s(R.string.manhal), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-                        Text(s(R.string.by_zimam), style = MaterialTheme.typography.labelMedium, color = Color(0xFFFF5A1F))
+                    val appVersion = androidx.compose.ui.platform.LocalContext.current.let { c -> remember { runCatching { c.packageManager.getPackageInfo(c.packageName, 0).versionName }.getOrNull().orEmpty() } }
+                    Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF14110F)), contentAlignment = Alignment.Center) {
+                            androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.zimam_mark), null, Modifier.size(44.dp))
+                        }
+                        Column(Modifier.padding(start = 14.dp)) {
+                            Text(s(R.string.manhal), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                            Text(s(R.string.by_zimam_labs), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            Text(s(R.string.version, appVersion), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                     shelves.forEach { t ->
                         DrawerEntry(t.icon(), t.title(), if (t == Tab.Home) null else state.books.count { it.inTab(t) }, tab == t, 0) { tab = t; scope.launch { drawer.close() } }
@@ -295,10 +303,13 @@ fun LibraryScreen(model: ManhalViewModel, onOpenPicker: () -> Unit, onSettings: 
                     DrawerEntry(Icons.Rounded.Download, s(R.string.downloads), null, false, 0) { scope.launch { drawer.close() }; onBrowse(null, android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS).absolutePath) }
                     DrawerEntry(Icons.Rounded.Description, s(R.string.documents), null, false, 0) { scope.launch { drawer.close() }; onBrowse(null, android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS).absolutePath) }
                     HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 12.dp))
-                    DrawerEntry(Icons.Rounded.Settings, s(R.string.settings_and_backup), null, false, 0) { scope.launch { drawer.close() }; onSettings() }
-                    DrawerEntry(Icons.Rounded.Info, s(R.string.about_manhal), null, false, 0) { scope.launch { drawer.close() }; onAbout() }
+                    DrawerEntry(Icons.Rounded.Search, s(R.string.search), null, false, 0) { scope.launch { drawer.close() }; tab = Tab.All; searching = true }
+                    DrawerEntry(Icons.Rounded.Add, s(R.string.quick_add_books), null, false, 0) { scope.launch { drawer.close() }; onOpenPicker() }
+                    DrawerEntry(Icons.Rounded.Settings, s(R.string.settings), null, false, 0) { scope.launch { drawer.close() }; onSettings() }
                     DrawerEntry(Icons.Rounded.NewReleases, s(R.string.what_is_new), null, false, 0) { scope.launch { drawer.close() }; model.whatsNewRequested.value = true }
                     DrawerEntry(Icons.Rounded.Explore, s(R.string.show_the_tour_again), null, false, 0) { scope.launch { drawer.close() }; model.tourRequested.value = true }
+                    DrawerEntry(Icons.Rounded.Info, s(R.string.about), null, false, 0) { scope.launch { drawer.close() }; onAbout() }
+                    Text(s(R.string.zimam_labs), Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 8.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(24.dp))
                 }
             }
@@ -578,7 +589,7 @@ private fun Cover(model: ManhalViewModel, book: Book, modifier: Modifier = Modif
             Icon(Icons.Rounded.Star, null, tint = Color(0xFFF2B12E), modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(20.dp))
         }
         if (marks && book.draftMarks > 0) {
-            Text(s(R.string.draft), Modifier.align(Alignment.BottomEnd).padding(6.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFFF5A1F)).padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text(s(R.string.draft), Modifier.align(Alignment.BottomEnd).padding(6.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.primary).padding(horizontal = 6.dp, vertical = 2.dp), color = Color.White, style = MaterialTheme.typography.labelSmall)
         }
         if (marks && book.status == Status.Finished) {
             Icon(Icons.Rounded.CheckCircle, null, tint = Color.White, modifier = Modifier.align(Alignment.TopStart).padding(6.dp).size(20.dp).background(Color(0xFF2E7D5B), androidx.compose.foundation.shape.CircleShape))
@@ -747,7 +758,7 @@ private fun DrawerEntry(icon: ImageVector, label: String, count: Int?, selected:
         badge = { if (count != null) Text(count.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant) },
         selected = selected,
         onClick = onClick,
-        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding).padding(start = (depth * 16).dp)
+        modifier = Modifier.padding(horizontal = 16.dp).heightIn(min = 56.dp).padding(start = (depth * 16).dp)
             .then(if (onLongClick == null) Modifier else Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)),
     )
 }
