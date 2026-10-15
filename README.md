@@ -17,7 +17,7 @@ Manhal (منهل, a spring to drink from) keeps your reading in one calm place: 
 
 ## Features
 
-- **Tour and what's new**: a short first-run tour (shown again from Settings) and a one-time note after each update.
+- **Tour and what's new**: a short first-run tour and a one-time note after each update, both also in the side menu and in Settings.
 - **Home**: a greeting, today's reading and shortcuts to every section, then three sticky tabs you can flick between, round and round. **Home** has Continue reading and the latest three books; **Stats** has your reading time, sittings, the books you read most and recent sittings; **Library** has your shelves, lists and favorites. Order the tabs or hide any but Home in Settings.
 - **Library**: real covers, five ways to view it (grid, small covers, large covers, list, details), sorting by last opened, date added, name, size, progress or rating, search, and a side menu for shelves, lists and files.
 - **Lists inside lists**: open a list and the lists inside it appear as folders, like a file explorer, with a breadcrumb and back. Hold a book or a folder to open, move, remove, rename, nest or delete it. Select several books to act on them together.
@@ -32,12 +32,11 @@ Manhal (منهل, a spring to drink from) keeps your reading in one calm place: 
 - **Paper books**: add a book you read on paper and log sittings (the page you are on, or the pages you read, and the minutes). Progress, the Stats tab and your sessions follow along.
 - **Details and covers**: every book has editable title, author, publisher, year, pages, ISBN and description, and a cover you can change from your gallery. *Find details online* searches Open Library, Google Books and the Internet Archive, and asks Wikidata for the original title of translated books (Arabic titles included), shows each result next to your values and applies only the parts you tick. An optional Google Books key in Settings avoids the shared daily limit.
 - **Careful by default**: every clear, delete or remove asks first, saving changes to a book's details says what will change, and opening a book shows a loading screen until it is on the page you were reading.
-- **Languages**: English and العربية (Arabic) with a full right-to-left layout; choose the language in Settings (or follow the phone), and optionally show numbers in Arabic-Indic digits.
-- **Backups**: reading places, lists, ratings, notes and bookmarks are copied automatically and can be restored, or saved to a file from Settings.
+- **Backups and safe saving**: reading places, lists, ratings, notes and bookmarks are copied automatically and can be restored, or saved to a file from Settings. A damaged library file is kept as `library.corrupt-<date>.json` and your newest good backup is restored; saves go through a temporary file. Android cloud auto-backup is off, so your library never leaves the phone behind your back.
 
 ## Languages
 
-English and العربية (Arabic) with a full right-to-left layout. Choose the language in Settings, or follow the phone's, and optionally show numbers in Arabic-Indic digits (٠١٢٣).
+English and العربية (Arabic) with a full right-to-left layout. Choose the language in Settings, or follow the phone's, and optionally show numbers in Arabic-Indic digits (٠١٢٣). The Arabic text is not yet reviewed by a native reader.
 
 ## Screenshots
 
@@ -94,7 +93,13 @@ PDFs are drawn by Android's own `PdfRenderer` on a worker thread; the library is
 
 ## Roadmap
 
-Android today, Linux later. Text search and in-app translation, selecting text to highlight (today a highlight is a box you drag), and editing marks you have already saved into a PDF.
+Android today, Linux later. In this order:
+
+1. Reliability first: the open audit issues.
+2. Text search inside a book (the Arabic-aware search core is in; the screen comes next), then translation of a selection.
+3. The standard Zimam shell: Settings in sections, colour themes, text size, choice of sections.
+4. Home screen widgets, starting with Continue reading.
+5. Selecting text to highlight (today a highlight is a box you drag), and editing marks already saved into a PDF.
 
 ## Licence
 
