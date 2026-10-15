@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.roborazzi)
 }
 
 android {
@@ -58,6 +59,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+    testOptions { unitTests { isIncludeAndroidResources = true; isReturnDefaultValues = true } }
     packaging { resources.excludes += listOf("/META-INF/{AL2.0,LGPL2.1}", "org/bouncycastle/pqc/**") }
 }
 
@@ -75,4 +77,10 @@ dependencies {
     implementation(libs.pdfbox.android)
     debugImplementation(libs.compose.tooling)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.roborazzi.junit)
+    testImplementation(libs.compose.ui.test)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

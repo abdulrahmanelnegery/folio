@@ -139,5 +139,5 @@ interface StorageEnv {
 class AndroidStorageEnv(private val context: Context) : StorageEnv {
     override val privateDir: File get() = context.filesDir
     override val externalRoot: File get() = Environment.getExternalStorageDirectory()
-    override fun canUseShared(): Boolean = Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()
+    override fun canUseShared(): Boolean = Build.VERSION.SDK_INT >= 30 && runCatching { Environment.isExternalStorageManager() }.getOrDefault(false)
 }
