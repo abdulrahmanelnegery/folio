@@ -216,6 +216,8 @@ fun LibraryScreen(model: ManhalViewModel, onOpenPicker: () -> Unit, onSettings: 
     var viewMenu by remember { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
     var detailsFor by remember { mutableStateOf<String?>(null) }
+    var bookMenuFor by remember { mutableStateOf<String?>(null) }
+    var listsFor by remember { mutableStateOf<String?>(null) }
     var newList by remember { mutableStateOf<NewList?>(null) }
     var manageLists by remember { mutableStateOf(false) }
     var selecting by remember { mutableStateOf(false) }
@@ -243,7 +245,7 @@ fun LibraryScreen(model: ManhalViewModel, onOpenPicker: () -> Unit, onSettings: 
     fun toggle(id: String) { selected = if (id in selected) selected - id else selected + id; if (selected.isEmpty()) selecting = false }
     val open: (Book) -> Unit = { if (selecting) toggle(it.id) else if (it.physical) logFor = it.id else model.openBook(it.id) }
     // Holding a book shows its sheet; while picking, holding just picks it.
-    val details: (Book) -> Unit = { if (selecting) toggle(it.id) else detailsFor = it.id }
+    val details: (Book) -> Unit = { if (selecting) toggle(it.id) else bookMenuFor = it.id }
     val children = (tab as? Tab.List)?.let { state.childLists(it.path) }.orEmpty()
     val showFolders = tab is Tab.List && query.isBlank() && children.isNotEmpty()
 
@@ -434,7 +436,7 @@ fun LibraryScreen(model: ManhalViewModel, onOpenPicker: () -> Unit, onSettings: 
                 } else if (shown.isEmpty() && children.isEmpty()) {
                     EmptyShelf(tab, onOpenPicker)
                 } else if (state.view == ViewMode.List || state.view == ViewMode.Details) {
-                    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(LocalDensitySetting.current.listGapDp.dp)) {
                         if (tab is Tab.List) item { ListHeader(tab as Tab.List, { tab = Tab.List(it) }, { tab = Tab.All }) }
                         if (showFolders) items(children, key = { "folder:$it" }) { path -> FolderRow(state, path, { tab = Tab.List(path) }, { folderMenu = path }) }
                         if (tab == Tab.ReadingNow && query.isBlank()) item { StatsCard(state) { statsSheet = true } }
@@ -456,8 +458,8 @@ fun LibraryScreen(model: ManhalViewModel, onOpenPicker: () -> Unit, onSettings: 
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(LocalDensitySetting.current.gapDp.dp),
+                        verticalArrangement = Arrangement.spacedBy(LocalDensitySetting.current.gapDp.dp + 2.dp),
                     ) {
                         if (tab is Tab.List) item(span = { GridItemSpan(maxLineSpan) }) { ListHeader(tab as Tab.List, { tab = Tab.List(it) }, { tab = Tab.All }) }
                         if (showFolders) items(children, key = { "folder:$it" }) { path -> FolderTile(state, path, compact = state.view == ViewMode.Compact, { tab = Tab.List(path) }, { folderMenu = path }) }
@@ -498,6 +500,27 @@ fun LibraryScreen(model: ManhalViewModel, onOpenPicker: () -> Unit, onSettings: 
 
     }
 
+    bookMenuFor?.let { id ->
+        val book = state.books.firstOrNull { it.id == id }
+        if (book == null) bookMenuFor = null else ContextMenu(
+            title = book.name,
+            subtitle = book.author.ifBlank { null },
+            actions = bookMenu(book, BookMenuHandlers(
+                open = { open(book) },
+                details = { detailsFor = id },
+                edit = { editorFor = id },
+                toggleFavorite = { model.repo.updateBook(id) { it.copy(favorite = !it.favorite) } },
+                addToList = { listsFor = id },
+                toggleFinished = { model.repo.updateBook(id) { it.copy(status = if (it.status == Status.Finished) Status.Reading else Status.Finished) } },
+                remove = { ask = ConfirmRequest(s(R.string.remove_from_library_4769), s(R.string.the_pdf_file_stays_where)) { model.remove(id) } },
+            )),
+            onDismiss = { bookMenuFor = null },
+        )
+    }
+    listsFor?.let { id ->
+        val book = state.books.firstOrNull { it.id == id }
+        if (book == null) listsFor = null else BulkListSheet(listOf(book), lists, onSet = { list, add -> model.repo.setInList(setOf(id), list, add) }, onNew = { listsFor = null; newList = NewList("", id) }, onDismiss = { listsFor = null })
+    }
     detailsFor?.let { id ->
         val book = state.books.firstOrNull { it.id == id }
         if (book == null) detailsFor = null else DetailsSheet(model, book, lists, (tab as? Tab.List)?.path, onOpenBook = { detailsFor = null; if (book.physical) logFor = book.id else model.openBook(book.id) }, onEdit = { detailsFor = null; editorFor = book.id }, onNewList = { newList = NewList("", book.id) }, onDismiss = { detailsFor = null })
@@ -631,7 +654,7 @@ private fun Stars(rating: Int, size: Int = 14, onRate: ((Int) -> Unit)? = null) 
 @Composable
 private fun HeroCard(model: ManhalViewModel, book: Book, onOpen: () -> Unit, onDetails: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onOpen, onLongClick = onDetails),
+        modifier = Modifier.fillMaxWidth().tapOrHold(onOpen, onDetails),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(3.dp),
@@ -663,7 +686,7 @@ private fun HeroCard(model: ManhalViewModel, book: Book, onOpen: () -> Unit, onD
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun GridBook(model: ManhalViewModel, book: Book, ratio: Float, compact: Boolean, onOpen: () -> Unit, onDetails: () -> Unit) {
-    Column(Modifier.combinedClickable(onClick = onOpen, onLongClick = onDetails)) {
+    Column(Modifier.tapOrHold(onOpen, onDetails)) {
         Cover(model, book, Modifier.fillMaxWidth().aspectRatio(ratio))
         Spacer(Modifier.height(8.dp))
         Text(book.name, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -680,7 +703,7 @@ private fun GridBook(model: ManhalViewModel, book: Book, ratio: Float, compact: 
 @Composable
 private fun ListBook(model: ManhalViewModel, book: Book, onOpen: () -> Unit, onDetails: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onOpen, onLongClick = onDetails).padding(vertical = 8.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).tapOrHold(onOpen, onDetails).heightIn(min = 56.dp).padding(vertical = LocalDensitySetting.current.rowPaddingDp.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -704,7 +727,7 @@ private fun ListBook(model: ManhalViewModel, book: Book, onOpen: () -> Unit, onD
 @Composable
 private fun DetailRow(model: ManhalViewModel, book: Book, onOpen: () -> Unit, onDetails: () -> Unit) {
     Card(
-        Modifier.fillMaxWidth().combinedClickable(onClick = onOpen, onLongClick = onDetails),
+        Modifier.fillMaxWidth().tapOrHold(onOpen, onDetails),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
@@ -759,7 +782,7 @@ private fun DrawerEntry(icon: ImageVector, label: String, count: Int?, selected:
         selected = selected,
         onClick = onClick,
         modifier = Modifier.padding(horizontal = 16.dp).heightIn(min = 56.dp).padding(start = (depth * 16).dp)
-            .then(if (onLongClick == null) Modifier else Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)),
+            .then(if (onLongClick == null) Modifier else Modifier.tapOrHold(onClick, onLongClick)),
     )
 }
 
@@ -1214,7 +1237,7 @@ private fun BulkListSheet(picked: List<Book>, lists: List<String>, onSet: (Strin
 private fun FolderTile(state: dev.manhal.reader.data.LibraryState, path: String, compact: Boolean, onOpen: () -> Unit, onMenu: () -> Unit) {
     val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
     val inner = state.childLists(path).size
-    Column(Modifier.clip(RoundedCornerShape(14.dp)).combinedClickable(onClick = onOpen, onLongClick = onMenu)) {
+    Column(Modifier.clip(RoundedCornerShape(14.dp)).tapOrHold(onOpen, onMenu)) {
         Box(
             Modifier.fillMaxWidth().aspectRatio(0.7f).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.secondaryContainer),
             contentAlignment = Alignment.Center,
@@ -1234,7 +1257,7 @@ private fun FolderRow(state: dev.manhal.reader.data.LibraryState, path: String, 
     val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
     val inner = state.childLists(path).size
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onOpen, onLongClick = onMenu).padding(vertical = 10.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).tapOrHold(onOpen, onMenu).padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -1263,23 +1286,14 @@ private fun FolderSheet(model: ManhalViewModel, state: dev.manhal.reader.data.Li
     var moving by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(bottom = 24.dp)) {
-            Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Icon(Icons.Rounded.Folder, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
-                Column {
-                    Text(nameOf(path), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(folderSummary(books, state.childLists(path).size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (parentOf(path).isNotEmpty()) Text(s(R.string.in_text) + parentOf(path).replace("/", " › "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            SheetRow(Icons.Rounded.AutoStories, s(R.string.open), onClick = onOpen)
-            SheetRow(Icons.Rounded.Edit, s(R.string.rename)) { renaming = true }
-            SheetRow(Icons.AutoMirrored.Rounded.DriveFileMove, s(R.string.move_to_another_list)) { moving = true }
-            SheetRow(Icons.Rounded.CreateNewFolder, s(R.string.new_list_inside), onClick = onNewInside)
-            SheetRow(Icons.Rounded.Delete, s(R.string.delete_this_list)) { deleting = true }
-        }
-    }
+    ContextMenu(
+        title = nameOf(path),
+        subtitle = folderSummary(books, state.childLists(path).size) + if (parentOf(path).isNotEmpty()) "\n" + s(R.string.in_text) + parentOf(path).replace("/", " › ") else "",
+        icon = Icons.Rounded.Folder,
+        actions = listMenu(open = onOpen, rename = { renaming = true }, move = { moving = true }, newInside = onNewInside, delete = { deleting = true }),
+        dismissOnAction = false,
+        onDismiss = onDismiss,
+    )
     if (renaming) NameDialog(s(R.string.rename_list), nameOf(path), s(R.string.rename), onDismiss = { renaming = false }) { name ->
         model.repo.renameList(path, name); renaming = false; onDismiss()
     }
@@ -1519,7 +1533,7 @@ private fun HomeContent(
                                     items(top) { path ->
                                         val books = state.books.count { it.inTab(Tab.List(path), deep = false) }
                                         val inner = state.childLists(path).size
-                                        Card(Modifier.clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = { onOpenList(path) }, onLongClick = { onListMenu(path) }), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                                        Card(Modifier.clip(RoundedCornerShape(16.dp)).tapOrHold({ onOpenList(path) }, { onListMenu(path) }), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
                                             Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                                 Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                                                 Column {

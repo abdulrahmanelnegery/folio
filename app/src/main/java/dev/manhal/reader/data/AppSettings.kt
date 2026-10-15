@@ -26,8 +26,8 @@ enum class TextSize(@StringRes val labelRes: Int, val scale: Float) {
 }
 
 /** How much room rows and cards get. */
-enum class Density(@StringRes val labelRes: Int, val rowPaddingDp: Int, val gapDp: Int) {
-    Comfortable(R.string.density_comfortable, 12, 14), Compact(R.string.density_compact, 6, 8);
+enum class Density(@StringRes val labelRes: Int, val rowPaddingDp: Int, val gapDp: Int, val listGapDp: Int) {
+    Comfortable(R.string.density_comfortable, 12, 14, 6), Compact(R.string.density_compact, 6, 8, 2);
 
     companion object { fun parse(text: String?): Density = entries.firstOrNull { it.name == text } ?: Comfortable }
 }

@@ -9,6 +9,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.unit.Density
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
@@ -110,6 +112,16 @@ class ScreenshotTest {
     @Test fun layoutPage() { show(1f) { SettingsScreen(model, onBack = {}, initialPage = SettingsPage.Layout) }; shot("settings_layout") }
     @Test fun readerPage() { show(1f) { SettingsScreen(model, onBack = {}, initialPage = SettingsPage.Reader) }; shot("settings_reader") }
     @Test fun privacyPage() { show(1f) { SettingsScreen(model, onBack = {}, initialPage = SettingsPage.Privacy) }; shot("settings_privacy") }
+
+    private fun bookMenu(scale: Float, name: String) {
+        model.libraryTab = Tab.All
+        show(scale, library())
+        compose.onAllNodesWithText("Notes on Systems").onFirst().performTouchInput { longClick() }
+        compose.waitForIdle()
+        shot(name)
+    }
+    @Test fun bookMenuNormal() = bookMenu(1f, "menu_book")
+    @Test fun bookMenuLargeFont() = bookMenu(1.3f, "menu_book_font130")
 
     private fun drawer(scale: Float, name: String) {
         show(scale, library())
