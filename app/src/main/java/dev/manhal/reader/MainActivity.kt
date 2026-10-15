@@ -16,14 +16,14 @@ class MainActivity : ComponentActivity() {
     private val model: ManhalViewModel by viewModels()
 
     override fun attachBaseContext(base: android.content.Context) {
-        val wrapped = dev.manhal.reader.data.AppLanguagePrefs.load(base).wrap(base)
+        val wrapped = dev.manhal.reader.data.SettingsRepository.of(base).value.language.wrap(base)
         Strings.res = wrapped.resources
-        Strings.arabicDigits = dev.manhal.reader.data.AppLanguagePrefs.arabicDigits(base)
+        Strings.arabicDigits = dev.manhal.reader.data.SettingsRepository.of(base).value.arabicDigits
         super.attachBaseContext(wrapped)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val startTheme = dev.manhal.reader.data.AppThemePrefs.load(this)
+        val startTheme = dev.manhal.reader.data.SettingsRepository.of(this).value.theme
         val systemDark = { (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES }
         enableEdgeToEdge(
             statusBarStyle = androidx.activity.SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { startTheme.isDark(systemDark()) },
@@ -34,7 +34,8 @@ class MainActivity : ComponentActivity() {
         window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(if (startTheme.isDark(systemDark())) 0xFF0F0F0F.toInt() else 0xFFFFF8F0.toInt()))
         if (savedInstanceState == null) handle(intent)
         setContent {
-            val mode by model.appTheme.collectAsState()
+            val settings by model.settings.state.collectAsState()
+            val mode = settings.theme
             androidx.compose.runtime.SideEffect {
                 val dark = { mode.isDark(systemDark()) }
                 enableEdgeToEdge(
@@ -42,7 +43,7 @@ class MainActivity : ComponentActivity() {
                     navigationBarStyle = androidx.activity.SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { dark() },
                 )
             }
-            ManhalTheme(mode) {
+            ManhalTheme(settings) {
                 var splash by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(true) }
                 androidx.compose.foundation.layout.Box {
                     ManhalApp(model)

@@ -39,6 +39,7 @@ import dev.manhal.reader.ManhalViewModel
 
 @Composable
 fun ManhalApp(model: ManhalViewModel) {
+    val reduceMotion = LocalReduceMotion.current
     val reading by model.reading.collectAsState()
     val message by model.message.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -84,6 +85,7 @@ fun ManhalApp(model: ManhalViewModel) {
             // Short and soft: a book opens by growing and fading in from just under full size while the library gives way, and
             // closes by easing out a touch larger while the library appears beneath; other screens simply cross-fade.
             transitionSpec = {
+                if (reduceMotion) return@AnimatedContent androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
                 fun isBook(id: String?) = id != null && id != "settings" && id != "explorer" && id != "about"
                 when {
                     !isBook(initialState) && isBook(targetState) ->

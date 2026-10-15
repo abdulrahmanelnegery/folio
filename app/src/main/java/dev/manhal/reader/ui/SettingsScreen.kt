@@ -123,16 +123,16 @@ fun SettingsScreen(model: ManhalViewModel, onBack: () -> Unit) {
             }
 
             Header(s(R.string.general))
-            val appTheme by model.appTheme.collectAsState()
+            val appTheme = model.settings.state.collectAsState().value.theme
             Text(s(R.string.app_theme), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyLarge)
             Row(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                dev.manhal.reader.data.AppTheme.entries.forEach { t -> androidx.compose.material3.FilterChip(appTheme == t, { model.setAppTheme(t) }, { Text(t.label) }) }
+                dev.manhal.reader.data.AppTheme.entries.forEach { t -> androidx.compose.material3.FilterChip(appTheme == t, { model.settings.update { it.copy(theme = t) } }, { Text(t.label) }) }
             }
             Text(s(R.string.the_reading_themes_normal_night), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             run {
                 val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
-                var language by remember { mutableStateOf(dev.manhal.reader.data.AppLanguagePrefs.load(model.getApplication<android.app.Application>())) }
-                var digits by remember { mutableStateOf(dev.manhal.reader.data.AppLanguagePrefs.arabicDigits(model.getApplication<android.app.Application>())) }
+                var language by remember { mutableStateOf(model.settings.value.language) }
+                var digits by remember { mutableStateOf(model.settings.value.arabicDigits) }
                 Text(s(R.string.language), Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp), style = MaterialTheme.typography.bodyLarge)
                 Row(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     dev.manhal.reader.data.AppLanguage.entries.forEach { l ->
@@ -140,7 +140,7 @@ fun SettingsScreen(model: ManhalViewModel, onBack: () -> Unit) {
                         androidx.compose.material3.FilterChip(language == l, {
                             if (language != l) {
                                 language = l
-                                dev.manhal.reader.data.AppLanguagePrefs.save(model.getApplication<android.app.Application>(), l)
+                                model.settings.update { it.copy(language = l) }
                                 activity?.recreate()
                             }
                         }, { Text(name) })
@@ -148,14 +148,14 @@ fun SettingsScreen(model: ManhalViewModel, onBack: () -> Unit) {
                 }
                 Text(s(R.string.language_note), Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(
-                    Modifier.fillMaxWidth().clickable { digits = !digits; dev.manhal.reader.data.AppLanguagePrefs.saveArabicDigits(model.getApplication<android.app.Application>(), digits); activity?.recreate() }.padding(horizontal = 24.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().clickable { digits = !digits; model.settings.update { it.copy(arabicDigits = digits) }; activity?.recreate() }.padding(horizontal = 24.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(s(R.string.arabic_digits), style = MaterialTheme.typography.bodyLarge)
                         Text(s(R.string.arabic_digits_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    androidx.compose.material3.Switch(digits, { digits = it; dev.manhal.reader.data.AppLanguagePrefs.saveArabicDigits(model.getApplication<android.app.Application>(), it); activity?.recreate() })
+                    androidx.compose.material3.Switch(digits, { digits = it; model.settings.update { s -> s.copy(arabicDigits = it) }; activity?.recreate() })
                 }
             }
             Action(Icons.Rounded.FolderSpecial, s(R.string.show_the_tour_again)) { model.tourRequested.value = true }

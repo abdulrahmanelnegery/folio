@@ -23,14 +23,3 @@ enum class AppLanguage(val tag: String?) {
         fun parse(text: String?): AppLanguage = entries.firstOrNull { it.name == text } ?: System
     }
 }
-
-/** Plain SharedPreferences again, so the language and the digit style are known before the first frame. */
-object AppLanguagePrefs {
-    private const val FILE = LegacyNames.PREFS_FILE
-    private fun prefs(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-
-    fun load(context: Context): AppLanguage = AppLanguage.parse(prefs(context).getString("app_language", null))
-    fun save(context: Context, language: AppLanguage) { prefs(context).edit().putString("app_language", language.name).apply() }
-    fun arabicDigits(context: Context): Boolean = prefs(context).getBoolean("arabic_digits", false)
-    fun saveArabicDigits(context: Context, on: Boolean) { prefs(context).edit().putBoolean("arabic_digits", on).apply() }
-}

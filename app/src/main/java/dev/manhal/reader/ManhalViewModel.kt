@@ -45,9 +45,8 @@ class TextSession(val original: String) {
 
 class ManhalViewModel(app: Application) : AndroidViewModel(app) {
     val storage = Storage(app)
-    /** The app's own theme (System, Light or Dark), read before the first frame. */
-    val appTheme = MutableStateFlow(dev.manhal.reader.data.AppThemePrefs.load(app))
-    fun setAppTheme(theme: dev.manhal.reader.data.AppTheme) { appTheme.value = theme; dev.manhal.reader.data.AppThemePrefs.save(getApplication(), theme) }
+    /** Every app-level choice (theme, colours, text size, language), read before the first frame. */
+    val settings = dev.manhal.reader.data.SettingsRepository.of(app)
     val repo = LibraryRepository(storage, viewModelScope)
     val covers = Covers(app, storage)
     /** Set from Settings to show the first-run tour again. */
