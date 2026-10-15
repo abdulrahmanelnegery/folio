@@ -506,6 +506,7 @@
     <string name="arabic_digits">الأرقام الهندية (٠١٢٣)</string>
     <string name="arabic_digits_note">عرض الأرقام بالأرقام الهندية بدل 0123.</string>
     <string name="chapter_of">الفصل %1$s من %2$s</string>
+    <string name="internal_cleanup_note">تنظيف داخلي: ترتيب الأسماء والشيفرة، دون أي تغيير في طريقة عمل منهل.</string>
     <string name="manhal_name_note">اسم التطبيق «منهل». مكتبتك ومجلداتك وإعداداتك تنتقل معك: تُنسخ بياناتك إلى Zimam/Manhal وتبقى المجلدات القديمة كنسخة احتياطية.</string>
     <string name="arabic_note">أصبح التطبيق يتحدث العربية بتخطيط من اليمين إلى اليسار. اختر اللغة من الإعدادات، ويمكنك اختيار الأرقام الهندية.</string>
     <string name="new_icon_note">أيقونة ومظهر جديدان.</string>

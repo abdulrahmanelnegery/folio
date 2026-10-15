@@ -2,7 +2,7 @@
 
 <h1 align="center">Manhal <sub>منهل</sub></h1>
 
-<p align="center">A calm reader for PDFs, EPUB books, comics, text and paper books, by <a href="https://github.com/zimamlabs">Zimam Labs</a>.<br>Formerly Rukn and Folio. Android.</p>
+<p align="center">A calm reader for PDFs, EPUB books, comics, text and paper books, by <a href="https://github.com/zimamlabs">Zimam Labs</a>.<br>Android. It keeps its original Android application id, so it installs as an update over older copies.</p>
 
 <p align="center">
   <a href="../../releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/zimamlabs/manhal?color=FF5A1F&labelColor=1A1613"></a>
@@ -69,7 +69,7 @@ sha256sum -c Manhal_<version>_Android_arm64-v8a.apk.sha256
 
 ## Where your data lives
 
-Manhal keeps its library, backups, covers and your own cover images in one place. By default that is inside the app. If you allow *All files access* (Settings), it uses a visible `Zimam/Manhal` folder on the phone (one `Zimam` folder holds every Zimam app, each in its own folder), which survives reinstalling the app. Earlier versions used a hidden `.folio` folder, a visible `Folio` folder, then a visible `Manhal` folder beside the others. Nothing is ever lost in the move: Manhal copies the old folder into `Zimam/Manhal` through temporary files, never overwrites a file already there (a clash is kept beside it as `name (from Manhal).ext`), checks every file by size and SHA-256, saves the library once before it writes, and leaves the old folder untouched as a backup. If anything does not verify it keeps using the old folder, says so in Settings and tries again later. Settings offers *Remove the old folder*, which asks first and checks every file again before it deletes anything.
+Manhal keeps its library, backups, covers and your own cover images in one place. By default that is inside the app. If you allow *All files access* (Settings), it uses a visible `Zimam/Manhal` folder on the phone (one `Zimam` folder holds every Zimam app, each in its own folder), which survives reinstalling the app. Data folders left by earlier versions are found and copied in. Nothing is ever lost in the move: Manhal copies the old folder into `Zimam/Manhal` through temporary files, never overwrites a file already there (a clash is kept beside it as `name (from <old folder>).ext`), checks every file by size and SHA-256, saves the library once before it writes, and leaves the old folder untouched as a backup. If anything does not verify it keeps using the old folder, says so in Settings and tries again later. Settings offers *Remove the old folder*, which asks first and checks every file again before it deletes anything.
 
 ## Privacy
 
