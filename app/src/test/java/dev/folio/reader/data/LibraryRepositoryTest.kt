@@ -111,4 +111,15 @@ class LibraryRepositoryTest {
         assertNull(r.takeRecovery())
         assertFalse(r.state.value.isBlank())
     }
+
+    @Test fun `the reading place survives a restart once it is flushed`() {
+        val a = repo()
+        a.add(book("1"))
+        a.updateBook("1") { it.copy(page = 41, offset = 0.37f, pages = 300, status = Status.Reading) }
+        a.flush()
+        val b = repo().book("1")!!
+        assertEquals(41, b.page)
+        assertEquals(0.37f, b.offset, 0.0001f)
+        assertEquals(Status.Reading, b.status)
+    }
 }
