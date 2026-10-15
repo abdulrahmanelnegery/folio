@@ -87,7 +87,7 @@ fun ComicScreen(model: FolioViewModel, id: String) {
                     value = pager.currentPage.toFloat(), onValueChange = { scope.launch { pager.scrollToPage(it.toInt().coerceIn(0, list.lastIndex)) } },
                     valueRange = 0f..list.lastIndex.coerceAtLeast(1).toFloat(), modifier = Modifier.weight(1f),
                 )
-                Text("${pager.currentPage + 1}/${list.size}", color = Color.White, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 8.dp))
+                Text(dev.folio.reader.digits("${pager.currentPage + 1}/${list.size}"), color = Color.White, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 8.dp))
             }
         }
     }

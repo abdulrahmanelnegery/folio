@@ -517,4 +517,6 @@
     <string name="the_file_is_too_big_to_edit">This PDF is too big to save here. The original was not changed.</string>
     <string name="safe_library_note">A damaged library file is now kept aside and your newest backup restored, and restoring a backup first saves what you have.</string>
     <string name="safe_saves_note">Saving a text file or a large PDF can no longer leave a half-written file.</string>
+    <string name="smaller_text">Smaller text</string>
+    <string name="larger_text">Larger text</string>
 </resources>
