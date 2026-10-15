@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.1
+
+- **A new app icon.** The roof and the swoosh, on the launcher, the splash screen and the About page.
+
 ## 0.14.0
 
 - **Rukn is now Manhal (منهل).** New name, new icon and look. The Android app id and the signing key are unchanged, so it updates your installed copy. Your data is copied to `Zimam/Manhal` (checked file by file, never overwritten, the old folders kept as a backup); files you used to keep in `Zimam/Rukn` are copied too.
