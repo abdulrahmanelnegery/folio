@@ -538,6 +538,9 @@ fun LibraryScreen(model: ManhalViewModel, onOpenPicker: () -> Unit, onSettings: 
     if (manageLists) ManageListsSheet(model, lists, onNewIn = { newList = NewList(it, null) }, onDismiss = { manageLists = false })
 }
 
+/** The hour of day the greeting uses; null means the real clock. Tests set it so screenshots do not change with the time. */
+internal val LocalClockHour = androidx.compose.runtime.compositionLocalOf<Int?> { null }
+
 private val LocalSelection = androidx.compose.runtime.compositionLocalOf { emptySet<String>() }
 
 @Composable
@@ -1558,7 +1561,7 @@ private fun Panel2(title: String, content: @Composable ColumnScope.() -> Unit) {
 private fun HomeGreeting(model: ManhalViewModel, state: dev.manhal.reader.data.LibraryState, onShelf: (Tab) -> Unit, onStats: () -> Unit, onFiles: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty() }
-    val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
+    val hour = LocalClockHour.current ?: remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
     val greeting = when { hour < 5 -> s(R.string.still_up); hour < 12 -> s(R.string.good_morning); hour < 18 -> s(R.string.good_afternoon); else -> s(R.string.good_evening) }
     val today = state.day(0)
     val streak = state.streak()
