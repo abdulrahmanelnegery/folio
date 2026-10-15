@@ -560,4 +560,11 @@
     <string name="permissions_explained_note">Internet is used only for the book lookup you start yourself. All files access is optional and only used to keep your data in a visible Zimam/Manhal folder and to browse your files.</string>
     <string name="quick_add_books">Add books</string>
     <string name="arabic_digits_short">Arabic digits</string>
+    <string name="search_in_this_book">Search in this book</string>
+    <string name="searching">Searching…</string>
+    <string name="no_matches">No matches.</string>
+    <string name="no_text_in_this_book">No text found. This looks like a scanned book, which has no text to search.</string>
+    <string name="search_page_hit">Page %1$d</string>
+    <string name="search_chapter_hit">Chapter %1$d</string>
+    <string name="search_line_hit">Line %1$d</string>
 </resources>

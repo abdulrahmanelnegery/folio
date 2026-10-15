@@ -9,6 +9,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.unit.Density
@@ -122,6 +124,27 @@ class ScreenshotTest {
     }
     @Test fun bookMenuNormal() = bookMenu(1f, "menu_book")
     @Test fun bookMenuLargeFont() = bookMenu(1.3f, "menu_book_font130")
+
+    private fun searchSheet(scale: Float, name: String) {
+        val hits = listOf(
+            dev.manhal.reader.data.SearchHit(11, 40, "The black cat sat on the warm windowsill all afternoon while the rain fell."),
+            dev.manhal.reader.data.SearchHit(12, 5, "Every cat knows that a closed door is only a suggestion."),
+            dev.manhal.reader.data.SearchHit(40, 90, "Schrodinger never said whether the cat liked boxes."),
+        )
+        show(scale) {
+            dev.manhal.reader.ui.BookSearchSheet(
+                search = { kotlinx.coroutines.flow.flowOf(dev.manhal.reader.data.SearchProgress(hits, 1f, true)) },
+                where = { dev.manhal.reader.s(dev.manhal.reader.R.string.search_page_hit, it.unit + 1) },
+                onPick = { _, _ -> }, onDismiss = {},
+            )
+        }
+        compose.onNode(androidx.compose.ui.test.hasSetTextAction()).performTextInput("cat")
+        compose.onNode(androidx.compose.ui.test.hasSetTextAction()).performImeAction()
+        compose.waitForIdle()
+        shot(name)
+    }
+    @Test fun searchNormal() = searchSheet(1f, "search_normal")
+    @Test fun searchLargeFont() = searchSheet(1.3f, "search_font130")
 
     private fun drawer(scale: Float, name: String) {
         show(scale, library())
