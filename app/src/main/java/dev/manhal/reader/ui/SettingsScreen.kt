@@ -296,6 +296,16 @@ private fun DataPage(model: ManhalViewModel) {
             }
 
             Header(s(R.string.storage))
+            val originals = remember(model.storage.root) { dev.manhal.reader.data.OriginalsFolder(model.originalsFolder) }
+            val kept by produceState(0 to 0L, refresh) { value = withContext(Dispatchers.IO) { originals.count to originals.bytes } }
+            if (kept.first > 0) {
+                Text(s(R.string.originals_kept, kept.first, formatSize(kept.second)), Modifier.padding(horizontal = 24.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Action(Icons.Rounded.CleaningServices, s(R.string.clear_old_originals)) {
+                    ask = ConfirmRequest(s(R.string.clear_old_originals_title), s(R.string.clear_old_originals_text), s(R.string.clear)) {
+                        settingsScope.launch { val n = withContext(Dispatchers.IO) { originals.clear() }; model.notify(s(R.string.originals_cleared, n)); refresh++ }
+                    }
+                }
+            }
             Action(Icons.Rounded.CleaningServices, s(R.string.clear_saved_covers)) { ask = ConfirmRequest(s(R.string.clear_saved_covers_d613), s(R.string.they_are_drawn_again_from), s(R.string.clear)) { settingsScope.launch { withContext(Dispatchers.IO) { model.covers.clear() }; refresh++ } } }
             Action(Icons.Rounded.CleaningServices, s(R.string.clear_saved_pages_they_are)) { ask = ConfirmRequest(s(R.string.clear_saved_pages), s(R.string.they_are_drawn_again_as), s(R.string.clear)) { settingsScope.launch { withContext(Dispatchers.IO) { model.pageCache.clear() }; refresh++ } } }
 
