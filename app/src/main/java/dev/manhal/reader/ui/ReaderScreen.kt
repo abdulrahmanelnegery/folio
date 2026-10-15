@@ -65,6 +65,7 @@ import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.withFrameNanos
@@ -791,6 +792,8 @@ private fun ImmersiveBars(barsVisible: Boolean) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NotesSheet(book: dev.manhal.reader.data.Book, onGo: (Int) -> Unit, onRemoveBookmark: (Int) -> Unit, onEdit: (PageNote) -> Unit, onDismiss: () -> Unit) {
+    var menuFor by remember { mutableStateOf<Int?>(null) }
+    menuFor?.let { page -> ContextMenu(s(R.string.page, page + 1), actions = bookmarkMenu(goTo = { onGo(page) }, remove = { onRemoveBookmark(page) }), onDismiss = { menuFor = null }) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(bottom = 24.dp)) {
             Text(s(R.string.bookmarks), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
@@ -798,7 +801,7 @@ private fun NotesSheet(book: dev.manhal.reader.data.Book, onGo: (Int) -> Unit, o
                 Text(s(R.string.tap_the_bookmark_icon_on), modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             book.bookmarks.forEach { page ->
-                Row(Modifier.fillMaxWidth().clickable { onGo(page) }.padding(horizontal = 24.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().tapOrHold({ onGo(page) }, { menuFor = page }).heightIn(min = 56.dp).padding(horizontal = 24.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Bookmark, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(16.dp))
                     Text(s(R.string.page, page + 1), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
