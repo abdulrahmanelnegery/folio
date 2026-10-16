@@ -1456,17 +1456,22 @@ private fun HomeContent(
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 when (tabs[index % n]) {
                     HomeTab.Home -> {
-                        item(key = "greeting") { HomeGreeting(model, state, onShelf, onStats, onFiles) }
+                        item(key = "greeting") { HomeGreeting(model, state) }
                         if (state.books.isEmpty()) item { EmptyShelf(Tab.Home, {}) }
-                        recent.firstOrNull { it.status != Status.Finished }?.let { b -> item(key = "continue") { HeroCard(model, b, onOpen = { onOpen(b) }, onDetails = { onDetails(b) }) } }
-                        if (recent.isNotEmpty()) item(key = "latest") {
+                        // One hero, then at most three single-purpose cards: the books you were in, this week, and what is new.
+                        val hero = recent.firstOrNull { it.status != Status.Finished }
+                        hero?.let { b -> item(key = "continue") { HeroCard(model, b, onOpen = { onOpen(b) }, onDetails = { onDetails(b) }) } }
+                        val others = recent.filter { it.id != hero?.id }.take(3)
+                        if (others.isNotEmpty()) item(key = "latest") {
                             Column {
                                 HomeTitle(s(R.string.pick_up_where_you_left), s(R.string.reading_now)) { onShelf(Tab.ReadingNow) }
                                 androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                                    items(recent.take(3), key = { it.id }) { b -> Box(Modifier.width(120.dp)) { GridBook(model, b, 0.7f, compact = false, { onOpen(b) }, { onDetails(b) }) } }
+                                    items(others, key = { it.id }) { b -> Box(Modifier.width(120.dp)) { GridBook(model, b, 0.7f, compact = false, { onOpen(b) }, { onDetails(b) }) } }
                                 }
                             }
                         }
+                        if (state.books.isNotEmpty()) item(key = "week") { WeekCard(state, onStats) }
+                        item(key = "news") { HomeNews(model, state) }
                     }
                     HomeTab.Stats -> {
                         item(key = "stats") { HomeStats(state, onStats) }
@@ -1583,7 +1588,7 @@ private fun Panel2(title: String, content: @Composable ColumnScope.() -> Unit) {
 /** The top of Home: a greeting, how today is going, what is new, and shortcuts to the sections. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun HomeGreeting(model: ManhalViewModel, state: dev.manhal.reader.data.LibraryState, onShelf: (Tab) -> Unit, onStats: () -> Unit, onFiles: () -> Unit) {
+private fun HomeGreeting(model: ManhalViewModel, state: dev.manhal.reader.data.LibraryState) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty() }
     val hour = LocalClockHour.current ?: remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
@@ -1605,6 +1610,14 @@ private fun HomeGreeting(model: ManhalViewModel, state: dev.manhal.reader.data.L
             )
         }
         }
+    }
+}
+
+/** What is new in this version, once, until it is hidden. */
+@Composable
+private fun HomeNews(model: ManhalViewModel, state: dev.manhal.reader.data.LibraryState) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty() }
         val notes = remember(version) { dev.manhal.reader.data.ReleaseNotes.forVersion(version) }
         if (notes.isNotEmpty() && state.hiddenNews != version) {
             Panel2(s(R.string.new_in_manhal, version)) {
@@ -1612,10 +1625,20 @@ private fun HomeGreeting(model: ManhalViewModel, state: dev.manhal.reader.data.L
                 androidx.compose.material3.TextButton(onClick = { model.repo.update { it.copy(hiddenNews = version) } }) { Text(s(R.string.hide)) }
             }
         }
-        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(s(R.string.reading_now) to { onShelf(Tab.ReadingNow) }, s(R.string.to_read) to { onShelf(Tab.ToRead) }, s(R.string.finished) to { onShelf(Tab.Finished) }, s(R.string.favourites) to { onShelf(Tab.Favorites) }, s(R.string.all_books) to { onShelf(Tab.All) }, s(R.string.stats) to onStats, s(R.string.files) to onFiles).forEach { (label, go) ->
-                androidx.compose.material3.AssistChip(onClick = go, label = { Text(label) })
+}
+
+/** This week in one line: the time read and the streak. Opens the stats. */
+@Composable
+private fun WeekCard(state: dev.manhal.reader.data.LibraryState, onClick: () -> Unit) {
+    val week = state.lastDays(7)
+    val streak = state.streak()
+    ZimamCard(Modifier.clickable(onClick = onClick)) {
+        Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(s(R.string.this_week), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(minutesLabel(week.seconds), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             }
+            if (streak > 0) Text(sp(R.plurals.days_n, streak), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
